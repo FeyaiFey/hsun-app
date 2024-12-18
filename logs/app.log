@@ -313,3 +313,9 @@
 2024-12-17 15:54:08,157 - hsun-backend - INFO - 应用启动成功
 2024-12-17 15:54:10,993 - hsun-backend - INFO - 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
 2024-12-17 15:54:11,046 - hsun-backend - INFO - 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.00s
+2024-12-18 08:45:56,403 - hsun-backend - INFO - Metrics server started on port 9090
+2024-12-18 08:45:56,403 - hsun-backend - INFO - 应用启动成功
+2024-12-18 08:46:01,192 - hsun-backend - INFO - 请求处理完成 - 路径: / 方法: GET 处理时间: 0.00s
+2024-12-18 08:46:01,233 - hsun-backend - INFO - 请求处理完成 - 路径: /favicon.ico 方法: GET 处理时间: 0.00s
+2024-12-18 08:46:03,678 - hsun-backend - INFO - 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+2024-12-18 08:46:03,763 - hsun-backend - INFO - 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.00s
