@@ -1,96 +1,99 @@
-from sqlmodel import Session, select,text
-from typing import Optional
-from app.models.user import User, Department, Permission, DepartmentPermissions, UserDepartments
-from app.core.cache import cache
-from app.core.logger import logger
+from typing import List, Optional, Union, Dict, Any
+from sqlmodel import Session, select
+from fastapi.encoders import jsonable_encoder
+from app.models.user import User, UserAvatar
+from app.schemas.user import UserCreate, UserUpdate
+from app.core.security import get_password_hash
+from app.crud.base import CRUDBase
 
-class UserCRUD:
-    def __init__(self):
-        self.cache_expire = 3600  # 缓存1小时
+class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
+    """用户CRUD操作类"""
+    
+    def get_by_email(self, db: Session, email: str) -> Optional[User]:
+        """通过邮箱获取用户"""
+        return db.exec(select(User).where(User.email == email)).first()
 
-    async def get_department(self, db: Session):
-        """获取部门信息"""
-        try:
-            # 直接使用传入的 db session
-            query = text("SELECT id, name FROM huaxin_departments ORDER BY id")
-            return db.exec(query).all()  # 执行查询
-        except Exception as e:
-            logger.error(f"获取部门信息失败: {str(e)}")
-            raise
+    def get_by_username(self, db: Session, username: str) -> Optional[User]:
+        """通过用户名获取用户"""
+        return db.exec(select(User).where(User.username == username)).first()
 
-
-    async def get_user_by_email(self, db: Session, email: str) -> Optional[User]:
-        """获取用户基本信息"""
-        cache_key = f"user_email_{email}"
-        
-        # 尝试从缓存获取
-        if cached_user := cache.get(cache_key):
-            return cached_user
-            
-        # 从数据库查询
-        query = select(User).where(User.email == email)
-        user = db.exec(query).first()
-        
-        # 设置缓存
-        if user:
-            cache.set(cache_key, user, self.cache_expire)
-            
-        return user
-
-    async def get_user_details(self, db: Session, email: str) -> Optional[User]:
-        """获取用户详细信息(包含部门和权限)"""
-        cache_key = f"user_details_{email}"
-        
-        # 尝试从缓存获取
-        if cached_details := cache.get(cache_key):
-            return cached_details
-            
-        # 从数据库查询
-        statement = (
-            select(
-                User.id,
-                User.email,
-                User.nickname,
-                User.avatar_url,
-                Department.name.label("department_name"),
-                Permission.name.label("permission_name")
-            )
-            .join(UserDepartments, User.id == UserDepartments.user_id)
-            .join(Department, UserDepartments.department_id == Department.id)
-            .join(DepartmentPermissions, Department.id == DepartmentPermissions.department_id)
-            .join(Permission, DepartmentPermissions.permission_id == Permission.id)
-        )
-        results = db.exec(statement).all()
-        
-        # 设置缓存
-        if results:
-            cache.set(cache_key, results, self.cache_expire)
-            
-        return results
-
-    async def create_user(self, db: Session, user_data: dict) -> User:
+    def create(self, db: Session, *, obj_in: UserCreate) -> User:
         """创建新用户"""
-        user = User(**user_data)
-        db.add(user)
+        db_obj = User(
+            username=obj_in.username,
+            email=obj_in.email,
+            department_id=obj_in.department_id,
+            status=obj_in.status,
+            password_hash=get_password_hash(obj_in.password)
+        )
+        db.add(db_obj)
         db.commit()
-        db.refresh(user)
-        cache.clear()  # 清除所有缓存
-        return user
+        db.refresh(db_obj)
+        return db_obj
 
-    async def update_user(self, db: Session, user_id: int, user_data: dict) -> User:
+    def update(
+        self,
+        db: Session,
+        *,
+        db_obj: User,
+        obj_in: Union[UserUpdate, Dict[str, Any]]
+    ) -> User:
         """更新用户信息"""
-        user = db.get(User, user_id)
-        if not user:
-            return None
-            
-        for key, value in user_data.items():
-            setattr(user, key, value)
-            
+        if isinstance(obj_in, dict):
+            update_data = obj_in
+        else:
+            update_data = obj_in.model_dump(exclude_unset=True)
+        if "password" in update_data:
+            hashed_password = get_password_hash(update_data["password"])
+            del update_data["password"]
+            update_data["password_hash"] = hashed_password
+        return super().update(db, db_obj=db_obj, obj_in=update_data)
+
+    def get_user_avatars(self, db: Session, user_id: int) -> List[UserAvatar]:
+        """获取用户头像列表"""
+        return db.exec(
+            select(UserAvatar)
+            .where(UserAvatar.user_id == user_id)
+            .order_by(UserAvatar.created_at.desc())
+        ).all()
+
+    def get_active_avatar(self, db: Session, user_id: int) -> Optional[UserAvatar]:
+        """获取用户当前头像"""
+        return db.exec(
+            select(UserAvatar)
+            .where(UserAvatar.user_id == user_id, UserAvatar.is_active == True)
+        ).first()
+
+    def create_user_avatar(
+        self, db: Session, *, user_id: int, avatar_path: str
+    ) -> UserAvatar:
+        """创建用户头像"""
+        # 将当前头像设置为非活动
+        db.exec(
+            select(UserAvatar)
+            .where(UserAvatar.user_id == user_id, UserAvatar.is_active == True)
+        ).all().update({"is_active": False})
+        
+        # 创建新头像
+        avatar = UserAvatar(
+            user_id=user_id,
+            avatar_path=avatar_path,
+            is_active=True
+        )
+        db.add(avatar)
         db.commit()
-        db.refresh(user)
-        cache.clear()  # 清除所有缓存
+        db.refresh(avatar)
+        return avatar
+
+    def update_last_login(self, db: Session, *, user_id: int) -> Optional[User]:
+        """更新最后登录时间"""
+        user = self.get(db, user_id)
+        if user:
+            from datetime import datetime
+            user.last_login = datetime.now()
+            db.add(user)
+            db.commit()
+            db.refresh(user)
         return user
 
-# 创建单例实例
-user_crud = UserCRUD()
-
+user = CRUDUser(User) 

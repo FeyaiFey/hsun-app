@@ -4,14 +4,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.endpoints import auth
 from app.utils.response import ResponseMiddleware
 from app.core.exceptions import exception_handler
-from app.core.monitor import start_metrics_server
+from app.core.monitor import MetricsManager
 from app.core.logger import logger
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 启动事件
     try:
-        start_metrics_server()
+        metrics = MetricsManager()
+        metrics.start_metrics_server()
         logger.info("应用启动成功")
     except Exception as e:
         logger.error(f"应用启动失败: {str(e)}")
@@ -38,7 +39,7 @@ app.add_middleware(
 app.add_middleware(ResponseMiddleware)
 
 # 路由
-app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 
 # 异常处理器
 app.add_exception_handler(Exception, exception_handler)

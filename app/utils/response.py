@@ -6,7 +6,18 @@ from app.core.logger import logger
 import time
 
 class ResponseMiddleware(BaseHTTPMiddleware):
+    """响应处理中间件"""
+    
     async def dispatch(self, request: Request, call_next):
+        """处理请求和响应
+        
+        Args:
+            request: 请求对象
+            call_next: 下一个处理器
+            
+        Returns:
+            响应对象
+        """
         start_time = time.time()
         try:
             response = await call_next(request)
@@ -28,9 +39,14 @@ class ResponseMiddleware(BaseHTTPMiddleware):
             if "application/json" in content_type:
                 try:
                     body = await response.json()
+                    # 如果响应已经是 IResponse 格式，直接返回
+                    if isinstance(body, dict) and all(key in body for key in ["code", "msg", "data"]):
+                        return response
+                    # 否则包装成 IResponse 格式
                     return JSONResponse(
                         content=IResponse(
                             code=response.status_code,
+                            msg="success",
                             data=body
                         ).model_dump(),
                         status_code=response.status_code
@@ -43,11 +59,18 @@ class ResponseMiddleware(BaseHTTPMiddleware):
             return response
             
         except Exception as e:
-            logger.error(f"请求处理异常: {str(e)}")
+            process_time = time.time() - start_time
+            logger.error(
+                f"请求处理异常 - 路径: {request.url.path} "
+                f"方法: {request.method} "
+                f"处理时间: {process_time:.2f}s "
+                f"错误: {str(e)}"
+            )
             return JSONResponse(
                 content=IResponse(
                     code=500,
-                    data={"error": str(e), "detail": "服务器内部错误"}
+                    msg="服务器内部错误",
+                    data={"error": str(e)}
                 ).model_dump(),
                 status_code=500
             )
