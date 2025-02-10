@@ -4,6 +4,7 @@ from app.core.logger import logger
 from app.core.monitor import track_cache_metrics
 import json
 import pickle
+from pydantic import BaseModel
 
 class MemoryCache:
     """基于内存的缓存实现"""
@@ -16,16 +17,28 @@ class MemoryCache:
             cls._instance._cache = {}
         return cls._instance
 
-    def _serialize(self, value: Any) -> str:
+    def _serialize(self, value: Any) -> bytes:
         """序列化数据
         
         Args:
             value: 要序列化的数据
             
         Returns:
-            str: 序列化后的字符串
+            bytes: 序列化后的字节串
         """
         try:
+            if isinstance(value, BaseModel):
+                return pickle.dumps(value.model_dump())
+            elif isinstance(value, list):
+                return pickle.dumps([
+                    item.model_dump() if isinstance(item, BaseModel) else item
+                    for item in value
+                ])
+            elif isinstance(value, dict):
+                return pickle.dumps({
+                    k: v.model_dump() if isinstance(v, BaseModel) else v
+                    for k, v in value.items()
+                })
             return pickle.dumps(value)
         except Exception as e:
             logger.error(f"序列化数据失败: {str(e)}")
