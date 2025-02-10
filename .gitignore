@@ -16,6 +16,7 @@ out/
 
 # 环境文件
 # .env
+.venv/
 venv/
 .env.local
 .env.*.local
