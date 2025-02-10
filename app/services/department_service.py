@@ -1,7 +1,8 @@
 from typing import List, Dict, Any, Optional
 from sqlmodel import Session, select
 
-from app.models.menu import Department
+from app.models.department import Department
+from app.schemas.department import DepartmentResponse, DepartmentUserInfo
 from app.core.logger import logger
 from app.core.cache import MemoryCache
 from app.core.monitor import MetricsManager

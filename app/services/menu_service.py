@@ -1,7 +1,13 @@
 from typing import List, Dict, Any, Optional
 from sqlmodel import Session
 from app.models.menu import Menu
-from app.schemas.menu import MenuCreate, MenuUpdate
+from app.schemas.menu import (
+    MenuCreate,
+    MenuUpdate,
+    MenuResponse,
+    MenuPermissionInfo,
+    MenuRoleInfo
+)
 from app.core.logger import logger
 from app.core.cache import MemoryCache
 from app.core.monitor import MetricsManager

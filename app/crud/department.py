@@ -1,8 +1,8 @@
 from typing import List, Optional, Union, Dict, Any
 from sqlmodel import Session, select
 from fastapi.encoders import jsonable_encoder
-from app.models.menu import Department
-from app.schemas.menu import DepartmentCreate, DepartmentUpdate
+from app.models.department import Department
+from app.schemas.department import DepartmentCreate, DepartmentUpdate
 from app.crud.base import CRUDBase
 
 class CRUDDepartment(CRUDBase[Department, DepartmentCreate, DepartmentUpdate]):

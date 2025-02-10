@@ -13,7 +13,7 @@ from app.schemas.user import (
     Token
 )
 from app.models.user import User
-from app.schemas.menu import DepartmentResponse
+from app.schemas.department import DepartmentResponse
 from app.core.deps import get_current_user, get_current_active_user
 from app.core.rate_limit import SimpleRateLimiter
 from app.core.monitor import monitor_request

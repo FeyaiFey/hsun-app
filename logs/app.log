@@ -44,3 +44,245 @@
 [2025-02-09 22:13:00,698] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
 [2025-02-09 22:13:00,698] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.31s
 [2025-02-09 22:13:10,912] INFO in main: 应用关闭
+[2025-02-10 10:52:52,277] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 10:52:52,277] INFO in main: 应用启动成功
+[2025-02-10 10:52:54,364] INFO in response: 请求处理完成 - 路径: / 方法: GET 处理时间: 0.00s
+[2025-02-10 10:52:54,416] INFO in response: 请求处理完成 - 路径: /favicon.ico 方法: GET 处理时间: 0.00s
+[2025-02-10 10:53:03,368] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 10:53:08,141] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.02s
+[2025-02-10 10:53:36,379] ERROR in department_service: 获取所有部门失败: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 10:53:36,380] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 10:53:36,380] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 10:53:36,381] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 10:53:36,381] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-10 10:57:25,039] INFO in main: 应用关闭
+[2025-02-10 10:57:26,026] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 10:57:26,026] INFO in main: 应用启动成功
+[2025-02-10 10:57:32,547] ERROR in department_service: 获取所有部门失败: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 10:57:32,548] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 10:57:32,549] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 10:57:32,549] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 10:57:32,549] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-10 10:59:20,360] INFO in main: 应用关闭
+[2025-02-10 10:59:21,358] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 10:59:21,358] INFO in main: 应用启动成功
+[2025-02-10 10:59:28,142] INFO in main: 应用关闭
+[2025-02-10 10:59:29,111] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 10:59:29,111] INFO in main: 应用启动成功
+[2025-02-10 10:59:36,967] INFO in main: 应用关闭
+[2025-02-10 10:59:37,938] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 10:59:37,938] INFO in main: 应用启动成功
+[2025-02-10 10:59:56,795] INFO in main: 应用关闭
+[2025-02-10 10:59:57,729] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 10:59:57,730] INFO in main: 应用启动成功
+[2025-02-10 11:00:10,665] INFO in main: 应用关闭
+[2025-02-10 11:00:11,602] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:00:11,602] INFO in main: 应用启动成功
+[2025-02-10 11:00:24,619] ERROR in department_service: 获取所有部门失败: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 11:00:24,620] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 11:00:24,620] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 11:00:24,620] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 11:00:24,621] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-10 11:00:30,657] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:00:30,755] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.02s
+[2025-02-10 11:00:32,563] ERROR in department_service: 获取所有部门失败: One or more mappers failed to initialize - can't proceed with initialization of other mappers. Triggering mapper: 'Mapper[Department(huaxinAdmin_departments)]'. Original exception was: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 11:00:32,564] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 11:00:32,564] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 11:00:32,565] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 11:00:32,566] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.01s
+[2025-02-10 11:00:48,426] INFO in main: 应用关闭
+[2025-02-10 11:00:49,417] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:00:49,418] INFO in main: 应用启动成功
+[2025-02-10 11:00:50,719] INFO in main: 应用关闭
+[2025-02-10 11:00:51,669] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:00:51,670] INFO in main: 应用启动成功
+[2025-02-10 11:00:59,417] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:00:59,494] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.02s
+[2025-02-10 11:01:01,498] ERROR in department_service: 获取所有部门失败: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 11:01:01,498] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 11:01:01,498] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 11:01:01,499] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 11:01:01,499] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-10 11:01:21,472] INFO in main: 应用关闭
+[2025-02-10 11:01:22,478] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:01:22,478] INFO in main: 应用启动成功
+[2025-02-10 11:01:23,349] INFO in main: 应用关闭
+[2025-02-10 11:01:24,293] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:01:24,293] INFO in main: 应用启动成功
+[2025-02-10 11:01:30,433] INFO in main: 应用关闭
+[2025-02-10 11:01:31,407] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:01:31,408] INFO in main: 应用启动成功
+[2025-02-10 11:05:36,181] INFO in main: 应用关闭
+[2025-02-10 11:05:37,144] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:05:37,144] INFO in main: 应用启动成功
+[2025-02-10 11:05:51,400] INFO in main: 应用关闭
+[2025-02-10 11:05:54,465] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:05:54,465] INFO in main: 应用启动成功
+[2025-02-10 11:05:57,266] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:05:57,356] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-10 11:06:00,687] ERROR in department_service: 获取所有部门失败: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 11:06:00,687] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 11:06:00,688] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 11:06:00,688] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 11:06:00,688] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.03s
+[2025-02-10 11:07:04,059] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:07:04,059] INFO in main: 应用启动成功
+[2025-02-10 11:07:09,005] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:07:09,077] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-10 11:07:11,916] ERROR in department_service: 获取所有部门失败: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 11:07:11,916] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 11:07:11,916] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 11:07:11,917] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 11:07:11,917] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.05s
+[2025-02-10 11:07:16,976] INFO in main: 应用关闭
+[2025-02-10 11:08:21,445] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:08:21,445] INFO in main: 应用启动成功
+[2025-02-10 11:08:23,136] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:08:23,197] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-10 11:08:25,655] ERROR in department_service: 获取所有部门失败: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 11:08:25,656] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 11:08:25,656] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 11:08:25,656] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 11:08:25,657] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-10 11:08:37,225] INFO in main: 应用关闭
+[2025-02-10 11:10:03,359] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:10:03,359] INFO in main: 应用启动成功
+[2025-02-10 11:10:07,238] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:10:07,294] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-10 11:10:08,912] ERROR in department_service: 获取所有部门失败: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 11:10:08,912] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 11:10:08,913] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 11:10:08,913] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 11:10:08,914] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-10 11:10:28,689] INFO in main: 应用关闭
+[2025-02-10 11:11:01,962] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:11:01,962] INFO in main: 应用启动成功
+[2025-02-10 11:11:05,317] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:11:05,379] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-10 11:11:07,027] ERROR in department_service: 获取所有部门失败: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 11:11:07,028] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 11:11:07,028] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 11:11:07,028] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 11:11:07,029] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-10 11:11:19,524] INFO in main: 应用关闭
+[2025-02-10 11:11:20,500] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:11:20,500] INFO in main: 应用启动成功
+[2025-02-10 11:11:22,022] INFO in main: 应用关闭
+[2025-02-10 11:11:24,245] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:11:24,245] INFO in main: 应用启动成功
+[2025-02-10 11:11:34,342] INFO in response: 请求处理完成 - 路径: / 方法: GET 处理时间: 0.00s
+[2025-02-10 11:12:01,776] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:12:05,318] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.02s
+[2025-02-10 11:12:16,308] ERROR in department_service: 获取所有部门失败: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 11:12:16,309] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 11:12:16,309] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 11:12:16,309] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 11:12:16,310] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-10 11:12:25,588] INFO in main: 应用关闭
+[2025-02-10 11:12:56,229] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:12:56,229] INFO in main: 应用启动成功
+[2025-02-10 11:13:02,267] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:13:02,382] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-10 11:13:07,720] ERROR in department_service: 获取所有部门失败: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 11:13:07,721] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 11:13:07,721] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 11:13:07,722] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 11:13:07,722] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-10 11:13:19,274] INFO in main: 应用关闭
+[2025-02-10 11:13:55,728] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:13:55,729] INFO in main: 应用启动成功
+[2025-02-10 11:13:58,399] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:13:58,470] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-10 11:14:00,108] ERROR in department_service: 获取所有部门失败: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 11:14:00,109] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 11:14:00,109] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 11:14:00,109] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 11:14:00,110] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-10 11:14:09,765] INFO in main: 应用关闭
+[2025-02-10 11:14:10,758] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:14:10,758] INFO in main: 应用启动成功
+[2025-02-10 11:14:12,276] INFO in main: 应用关闭
+[2025-02-10 11:20:08,841] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:20:08,841] INFO in main: 应用启动成功
+[2025-02-10 11:20:15,022] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:20:15,136] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-10 11:20:17,589] ERROR in department_service: 获取所有部门失败: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 11:20:17,590] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 11:20:17,590] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 11:20:17,590] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 11:20:17,591] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-10 11:20:50,461] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:20:50,461] INFO in main: 应用启动成功
+[2025-02-10 11:20:54,147] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:20:54,214] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-10 11:20:58,154] ERROR in department_service: 获取所有部门失败: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 11:20:58,155] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 11:20:58,155] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 11:20:58,155] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 11:20:58,156] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-10 11:21:17,115] INFO in main: 应用关闭
+[2025-02-10 11:22:18,816] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:22:18,816] INFO in main: 应用启动成功
+[2025-02-10 11:22:23,029] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:22:23,076] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-10 11:22:25,876] ERROR in department_service: 获取所有部门失败: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 11:22:25,876] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 11:22:25,876] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 11:22:25,877] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 11:22:25,877] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-10 11:22:53,319] INFO in main: 应用关闭
+[2025-02-10 11:26:04,105] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:26:04,105] INFO in main: 应用启动成功
+[2025-02-10 11:26:09,717] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:26:09,838] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-10 11:26:11,644] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:26:11,690] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.00s
+[2025-02-10 11:26:13,206] ERROR in department_service: 获取所有部门失败: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 11:26:13,206] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 11:26:13,206] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 11:26:13,207] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 11:26:13,207] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-10 11:26:29,942] INFO in main: 应用关闭
+[2025-02-10 11:35:30,277] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:35:30,277] INFO in main: 应用启动成功
+[2025-02-10 11:35:33,490] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:35:33,597] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-10 11:35:36,672] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:35:36,731] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.00s
+[2025-02-10 11:35:39,422] ERROR in department_service: 获取所有部门失败: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 11:35:39,423] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 11:35:39,423] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 11:35:39,423] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 11:35:39,424] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-10 11:35:55,755] INFO in main: 应用关闭
+[2025-02-10 11:39:00,973] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:39:00,974] INFO in main: 应用启动成功
+[2025-02-10 11:39:03,365] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:39:03,430] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-10 11:39:05,322] ERROR in department_service: 获取所有部门失败: Column expression expected for argument 'remote_side'; got FieldInfo(annotation=Union[int, NoneType], required=False).
+[2025-02-10 11:39:05,322] ERROR in department_service: 获取部门树失败: 500: 获取部门列表失败
+[2025-02-10 11:39:05,322] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 11:39:05,323] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 11:39:05,323] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-10 11:39:12,227] INFO in main: 应用关闭
+[2025-02-10 11:40:49,354] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:40:49,354] INFO in main: 应用启动成功
+[2025-02-10 11:40:52,805] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:40:52,875] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-10 11:40:54,622] ERROR in cache: 序列化数据失败: __pydantic_private__
+[2025-02-10 11:40:54,623] ERROR in session: 数据库会话异常: 2 validation errors:
+  {'type': 'missing', 'loc': ('response', 'data', 0, 'name'), 'msg': 'Field required', 'input': {'id': 1, 'department_name': '生产部', 'status': 1, 'updated_at': datetime.datetime(2025, 2, 10, 10, 40, 50, 398112), 'created_at': datetime.datetime(2025, 2, 10, 10, 40, 50, 398112), 'parent_id': None}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+  {'type': 'missing', 'loc': ('response', 'data', 1, 'name'), 'msg': 'Field required', 'input': {'id': 2, 'department_name': '财务部', 'status': 1, 'updated_at': datetime.datetime(2025, 2, 10, 10, 41, 2, 688844), 'created_at': datetime.datetime(2025, 2, 10, 10, 41, 2, 688844), 'parent_id': None}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+
+[2025-02-10 11:40:54,624] ERROR in response: 请求处理异常 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s 错误: 2 validation errors:
+  {'type': 'missing', 'loc': ('response', 'data', 0, 'name'), 'msg': 'Field required', 'input': {'id': 1, 'department_name': '生产部', 'status': 1, 'updated_at': datetime.datetime(2025, 2, 10, 10, 40, 50, 398112), 'created_at': datetime.datetime(2025, 2, 10, 10, 40, 50, 398112), 'parent_id': None}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+  {'type': 'missing', 'loc': ('response', 'data', 1, 'name'), 'msg': 'Field required', 'input': {'id': 2, 'department_name': '财务部', 'status': 1, 'updated_at': datetime.datetime(2025, 2, 10, 10, 41, 2, 688844), 'created_at': datetime.datetime(2025, 2, 10, 10, 41, 2, 688844), 'parent_id': None}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+
+[2025-02-10 11:41:08,925] INFO in main: 应用关闭
+[2025-02-10 11:54:45,483] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 11:54:45,483] INFO in main: 应用启动成功
+[2025-02-10 11:54:50,734] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 11:54:50,807] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-10 11:54:52,700] ERROR in cache: 序列化数据失败: __pydantic_private__
+[2025-02-10 11:54:52,701] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-10 11:55:06,355] INFO in main: 应用关闭

@@ -38,7 +38,10 @@ def test_get_all_tables():
             
             print("\n数据库中的所有表:")
             for table in tables:
+                if not str(table[0]).startswith("huaxinAdmin"):
+                    continue
                 print(f"- {table[0]}")
+                
             
             return tables
     except Exception as e:
@@ -60,6 +63,8 @@ def test_get_table_structure():
             print("\n表结构详情:")
             for table in tables:
                 table_name = table[0]
+                if not str(table_name).startswith("huaxinAdmin"):
+                    continue
                 print(f"\n表名: {table_name}")
                 print("-" * 50)
                 

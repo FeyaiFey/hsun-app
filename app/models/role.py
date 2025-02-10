@@ -1,29 +1,28 @@
 from datetime import datetime
-from typing import Optional, List, TYPE_CHECKING
-from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy import Column, DateTime, String, Integer, Boolean, ForeignKey, func
+from typing import Optional
+from sqlmodel import SQLModel, Field
+from sqlalchemy import Column, DateTime, String, func
 
-if TYPE_CHECKING:
-    from .user import User
-    from .menu import Menu
-
-# 导入 UserRole 类
-from .user import UserRole
-
-# 关联表定义
 class RoleMenu(SQLModel, table=True):
     """角色-菜单关联表"""
     __tablename__ = "huaxinAdmin_roleMenus"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    role_id: int = Field(foreign_key="huaxinAdmin_roles.id", nullable=False)
-    menu_id: int = Field(foreign_key="huaxinAdmin_menus.id", nullable=False)
+    role_id: int = Field(
+        nullable=False,
+        description="角色ID"
+    )
+    menu_id: int = Field(
+        nullable=False,
+        description="菜单ID"
+    )
     assigned_at: datetime = Field(
         sa_column=Column(
             DateTime,
-            default=datetime.now,
-            server_default=func.sysdatetime()
-        )
+            server_default=func.sysdatetime(),
+            nullable=True
+        ),
+        description="分配时间"
     )
 
 class RolePermission(SQLModel, table=True):
@@ -31,19 +30,23 @@ class RolePermission(SQLModel, table=True):
     __tablename__ = "huaxinAdmin_rolePermissions"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    role_id: int = Field(foreign_key="huaxinAdmin_roles.id", nullable=False)
-    permission_id: int = Field(foreign_key="huaxinAdmin_permissions.id", nullable=False)
+    role_id: int = Field(
+        nullable=False,
+        description="角色ID"
+    )
+    permission_id: int = Field(
+        nullable=False,
+        description="权限ID"
+    )
     granted_at: datetime = Field(
         sa_column=Column(
             DateTime,
-            default=datetime.now,
             server_default=func.sysdatetime(),
-            nullable=False
+            nullable=True
         ),
         description="授权时间"
     )
 
-# 主要模型定义
 class Role(SQLModel, table=True):
     """角色模型"""
     __tablename__ = "huaxinAdmin_roles"
@@ -60,40 +63,16 @@ class Role(SQLModel, table=True):
     )
     status: Optional[int] = Field(
         default=1,
+        sa_column_kwargs={"server_default": "1"},
         description="状态：1-启用，0-禁用"
     )
     created_at: datetime = Field(
         sa_column=Column(
             DateTime,
-            default=datetime.now,
             server_default=func.sysdatetime(),
-            nullable=False
+            nullable=True
         ),
         description="创建时间"
-    )
-    updated_at: datetime = Field(
-        sa_column=Column(
-            DateTime,
-            default=datetime.now,
-            onupdate=datetime.now,
-            server_default=func.sysdatetime(),
-            nullable=False
-        ),
-        description="更新时间"
-    )
-
-    # 关系
-    users: List["User"] = Relationship(
-        back_populates="roles",
-        link_model=UserRole  # 使用实际的模型类
-    )
-    menus: List["Menu"] = Relationship(
-        back_populates="roles",
-        link_model=RoleMenu
-    )
-    permissions: List["Permission"] = Relationship(
-        back_populates="roles",
-        link_model=RolePermission
     )
 
 class Permission(SQLModel, table=True):
@@ -102,7 +81,6 @@ class Permission(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     menu_id: Optional[int] = Field(
-        foreign_key="huaxinAdmin_menus.id",
         default=None,
         description="菜单ID"
     )
@@ -117,26 +95,16 @@ class Permission(SQLModel, table=True):
     created_at: datetime = Field(
         sa_column=Column(
             DateTime,
-            default=datetime.now,
             server_default=func.sysdatetime(),
-            nullable=False
+            nullable=True
         ),
         description="创建时间"
     )
     updated_at: datetime = Field(
         sa_column=Column(
             DateTime,
-            default=datetime.now,
-            onupdate=datetime.now,
             server_default=func.sysdatetime(),
-            nullable=False
+            nullable=True
         ),
         description="更新时间"
     )
-
-    # 关系
-    roles: List[Role] = Relationship(
-        back_populates="permissions",
-        link_model=RolePermission
-    )
-    menu: Optional["Menu"] = Relationship(back_populates="permissions")

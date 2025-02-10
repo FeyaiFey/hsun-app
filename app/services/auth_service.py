@@ -6,7 +6,8 @@ from app.core.logger import logger
 from app.core.config import settings
 from app.models.user import User, UserAvatar
 from app.models.role import Role, Permission
-from app.schemas.user import UserCreate, UserUpdate
+from app.schemas.user import UserCreate, UserUpdate, UserResponse, UserRoleInfo
+from app.schemas.role import RoleResponse, PermissionResponse
 from app.core.cache import MemoryCache
 from app.core.exceptions import (
     DatabaseError,

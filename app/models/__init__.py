@@ -1,6 +1,7 @@
 from .user import User, UserAvatar, UserRole
-from .role import Role, Permission, RolePermission
-from .menu import Menu, Department
+from .role import Role, Permission, RolePermission, RoleMenu
+from .menu import Menu
+from .department import Department
 
 __all__ = [
     "User",
@@ -9,6 +10,7 @@ __all__ = [
     "Role",
     "Permission",
     "RolePermission",
+    "RoleMenu",
     "Menu",
     "Department"
 ] 
