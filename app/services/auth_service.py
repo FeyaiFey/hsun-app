@@ -294,12 +294,12 @@ class AuthService:
             logger.error(f"获取用户异常: {str(e)}")
             return None
 
-    async def update_user_avatar(self, user_id: int, avatar_path: str) -> UserAvatar:
+    async def update_user_avatar(self, user_id: int, avatar_url: str) -> UserAvatar:
         """更新用户头像
         
         Args:
             user_id: 用户ID
-            avatar_path: 头像存储路径
+            avatar_url: 头像URL
             
         Returns:
             UserAvatar: 头像对象
@@ -317,7 +317,7 @@ class AuthService:
             avatar = crud_user.create_user_avatar(
                 self.db,
                 user_id=user_id,
-                avatar_path=avatar_path
+                avatar_url=avatar_url
             )
 
             # 清除缓存

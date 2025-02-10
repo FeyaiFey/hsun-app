@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status, Form
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session
 from typing import Any, List
@@ -41,15 +41,6 @@ rate_limiter = SimpleRateLimiter(limit=5, window=60)  # 每分钟最多5次请�
 # 创建缓存实例
 cache = MemoryCache()
 
-class LoginForm:
-    """自定义登录表单"""
-    def __init__(
-        self,
-        email: str = Form(...),
-        password: str = Form(...)
-    ):
-        self.email = email
-        self.password = password
 
 @router.get("/department", response_model=IResponse[List[DepartmentTreeNode]])
 @monitor_request
@@ -86,21 +77,22 @@ async def get_department_list(
 @router.post("/login", response_model=IResponse[UserInfoType])
 @monitor_request
 async def login(
-    form_data: LoginForm = Depends(),
+    login_data: UserLogin,
     db: Session = Depends(get_db)
 ) -> Any:
     """用户登录
+
     
     Args:
-        form_data: 登录表单数据
+        login_data: 登录表单数据
         
     Returns:
         IResponse[UserInfoType]: 用户信息和令牌
     """
     try:
         # 检查限流
-        if rate_limiter.is_limited(form_data.email):
-            logger.warning(f"登录请求过于频繁: {form_data.email}")
+        if rate_limiter.is_limited(login_data.email):
+            logger.warning(f"登录请求过于频繁: {login_data.email}")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="登录请求过于频繁，请稍后再试"
@@ -110,7 +102,7 @@ async def login(
         
         try:
             # 认证用户并获取用户信息
-            auth_result = await auth_service.authenticate(form_data.email, form_data.password)
+            auth_result = await auth_service.authenticate(login_data.email, login_data.password)
             
             # 构建响应数据
             return IResponse(
@@ -119,7 +111,7 @@ async def login(
             )
             
         except AuthenticationError as e:
-            rate_limiter.increment(form_data.email)
+            rate_limiter.increment(login_data.email)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=str(e)

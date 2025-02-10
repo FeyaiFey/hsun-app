@@ -85,7 +85,7 @@ class UserResponse(UserInDB):
 
 class UserLogin(BaseModel):
     """用户登录模型"""
-    username: str = Field(..., description="用户名")
+    email: str = Field(..., description="用户名")
     password: str = Field(..., description="密码")
 
 class Token(BaseModel):

@@ -1,11 +1,14 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from app.api.v1.endpoints import auth
 from app.utils.response import ResponseMiddleware
 from app.core.exceptions import exception_handler
 from app.core.monitor import MetricsManager
 from app.core.logger import logger
+from app.schemas.response import IResponse
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -43,6 +46,32 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 
 # 异常处理器
 app.add_exception_handler(Exception, exception_handler)
+
+# 添加验证错误处理器
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc: RequestValidationError):
+    """处理请求数据验证错误"""
+    errors = []
+    for error in exc.errors():
+        field = error.get("loc", ["unknown"])[-1]
+        msg = error.get("msg", "验证错误")
+        errors.append(f"{field}: {msg}")
+    
+    error_message = "; ".join(errors)
+    
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={
+            "code": 400,
+            "message": error_message,
+            "name": "ValidationError",
+            "response": {
+                "data": None,
+                "status": 400,
+                "statusText": "Bad Request"
+            }
+        }
+    )
 
 @app.get("/")
 async def read_root():

@@ -18,3 +18,181 @@
 [2025-02-10 17:38:53,905] INFO in auth_service: 用户 FeyFey 登录成功
 [2025-02-10 17:38:53,907] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.25s
 [2025-02-10 17:39:03,290] INFO in main: 应用关闭
+[2025-02-10 18:45:27,130] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 18:45:27,131] INFO in main: 应用启动成功
+[2025-02-10 18:45:30,464] INFO in response: 请求处理完成 - 路径: / 方法: GET 处理时间: 0.00s
+[2025-02-10 18:45:30,686] INFO in response: 请求处理完成 - 路径: /favicon.ico 方法: GET 处理时间: 0.00s
+[2025-02-10 18:45:34,138] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 18:45:34,369] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-10 18:48:03,108] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 18:48:18,986] ERROR in department_service: 获取部门注册树失败: (pyodbc.OperationalError) ('08001', '[08001] [Microsoft][ODBC Driver 17 for SQL Server]命名管道提供程序: 无法打开与 SQL Server 的连接 [2].  (2) (SQLDriverConnect); [08001] [Microsoft][ODBC Driver 17 for SQL Server]登录超时已过期 (0); [08001] [Microsoft][ODBC Driver 17 for SQL Server]与 SQL Server 建立连接时发生了与网络相关的或特定于实例的错误。找不到或无法访问服务器。请检查实例名称是否正确以及 SQL Server 是否配置为允许远程连接。有关详细信息，请参阅 SQL Server 联机丛书。 (2)')
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[2025-02-10 18:48:18,986] ERROR in auth: 获取部门列表失败: 500: 获取部门树失败
+[2025-02-10 18:48:18,987] ERROR in session: 数据库会话异常: 500: 500: 获取部门树失败
+[2025-02-10 18:48:18,988] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 15.88s
+[2025-02-10 18:50:53,339] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.11s
+[2025-02-10 18:51:32,071] INFO in response: 请求处理完成 - 路径: /api/v1/auth/register 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 18:51:32,514] ERROR in auth_service: 创建默认头像失败: (pyodbc.ProgrammingError) ('42S22', "[42S22] [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]列名 'avatar_url' 无效。 (207) (SQLExecDirectW); [42S22] [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]无法预定义语句。 (8180)")
+[SQL: SELECT [huaxinAdmin_userAvatars].id, [huaxinAdmin_userAvatars].user_id, [huaxinAdmin_userAvatars].avatar_url, [huaxinAdmin_userAvatars].is_active, [huaxinAdmin_userAvatars].created_at, [huaxinAdmin_userAvatars].updated_at 
+FROM [huaxinAdmin_userAvatars] 
+WHERE [huaxinAdmin_userAvatars].user_id = ? AND [huaxinAdmin_userAvatars].is_active = 1]
+[parameters: (1,)]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[2025-02-10 18:51:32,515] ERROR in auth_service: 创建用户异常: 500: 创建默认头像失败
+[2025-02-10 18:51:32,515] ERROR in session: 数据库会话异常: 500: 500: 创建用户失败
+[2025-02-10 18:51:32,517] INFO in response: 请求处理完成 - 路径: /api/v1/auth/register 方法: POST 处理时间: 0.44s
+[2025-02-10 18:54:50,609] INFO in main: 应用关闭
+[2025-02-10 18:58:14,812] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 18:58:14,813] INFO in main: 应用启动成功
+[2025-02-10 18:58:22,465] INFO in auth_service: 用户 FeyFey(wxb1@h-sun.com) 创建成功
+[2025-02-10 18:58:22,468] INFO in response: 请求处理完成 - 路径: /api/v1/auth/register 方法: POST 处理时间: 0.34s
+[2025-02-10 18:59:07,644] INFO in main: 应用关闭
+[2025-02-10 19:00:20,909] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 19:00:20,909] INFO in main: 应用启动成功
+[2025-02-10 19:00:27,214] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 19:00:27,285] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.07s
+[2025-02-10 19:00:42,378] INFO in response: 请求处理完成 - 路径: /api/v1/auth/register 方法: POST 处理时间: 0.02s
+[2025-02-10 19:01:11,129] INFO in response: 请求处理完成 - 路径: /api/v1/auth/register 方法: POST 处理时间: 0.00s
+[2025-02-10 19:08:05,514] INFO in main: 应用关闭
+[2025-02-10 19:08:13,395] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 19:08:13,396] INFO in main: 应用启动成功
+[2025-02-10 19:08:21,846] INFO in response: 请求处理完成 - 路径: /api/v1/auth/register 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 19:08:21,859] ERROR in response: 请求处理异常 - 路径: /api/v1/auth/register 方法: POST 处理时间: 0.01s 错误: 'dict' object is not callable
+[2025-02-10 19:08:35,387] ERROR in response: 请求处理异常 - 路径: /api/v1/auth/register 方法: POST 处理时间: 0.00s 错误: 'dict' object is not callable
+[2025-02-10 19:10:29,507] INFO in main: 应用关闭
+[2025-02-10 19:10:32,053] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 19:10:32,054] INFO in main: 应用启动成功
+[2025-02-10 19:10:36,756] INFO in response: 请求处理完成 - 路径: /api/v1/auth/register 方法: POST 处理时间: 0.01s
+[2025-02-10 19:15:16,264] INFO in main: 应用关闭
+[2025-02-10 19:15:17,907] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 19:15:17,908] INFO in main: 应用启动成功
+[2025-02-10 19:18:11,931] INFO in main: 应用关闭
+[2025-02-10 19:18:14,391] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 19:18:14,392] INFO in main: 应用启动成功
+[2025-02-10 19:21:55,392] INFO in main: 应用关闭
+[2025-02-10 19:21:57,798] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 19:21:57,799] INFO in main: 应用启动成功
+[2025-02-10 19:22:08,868] INFO in response: 请求处理完成 - 路径: /api/v1/auth/register 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 19:22:08,898] INFO in response: 请求处理完成 - 路径: /api/v1/auth/register 方法: POST 处理时间: 0.02s
+[2025-02-10 19:22:47,466] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 19:22:47,738] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.27s
+[2025-02-10 19:22:52,455] INFO in response: 请求处理完成 - 路径: /api/v1/auth/register 方法: POST 处理时间: 0.01s
+[2025-02-10 19:24:44,365] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-10 19:24:49,055] INFO in response: 请求处理完成 - 路径: /api/v1/auth/register 方法: POST 处理时间: 0.00s
+[2025-02-10 19:25:24,607] INFO in main: 应用关闭
+[2025-02-10 19:25:26,354] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 19:25:26,354] INFO in main: 应用启动成功
+[2025-02-10 19:26:36,908] INFO in response: 请求处理完成 - 路径: /api/v1/mock/auth/department 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 19:26:36,912] INFO in response: 请求处理完成 - 路径: /api/v1/mock/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-10 19:27:30,099] INFO in response: 请求处理完成 - 路径: /api/v1/mock/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-10 19:28:10,323] INFO in response: 请求处理完成 - 路径: /api/v1/mock/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-10 19:28:58,103] INFO in response: 请求处理完成 - 路径: /api/v1/mock/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-10 19:31:46,033] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.26s
+[2025-02-10 19:32:15,908] INFO in response: 请求处理完成 - 路径: /api/v1/mock/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-10 19:32:43,331] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-10 20:01:28,382] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 20:01:28,395] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.01s
+[2025-02-10 20:05:56,561] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.00s
+[2025-02-10 20:11:52,219] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 20:11:52,225] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.00s
+[2025-02-10 20:12:00,572] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 20:12:00,576] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-10 20:12:33,161] INFO in response: 请求处理完成 - 路径: /api/v1/auth/register 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 20:12:33,758] INFO in auth_service: 用户 FeyFey(wxb1@h-sun.com) 创建成功
+[2025-02-10 20:12:33,761] INFO in response: 请求处理完成 - 路径: /api/v1/auth/register 方法: POST 处理时间: 0.59s
+[2025-02-10 20:13:22,806] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.00s
+[2025-02-10 20:14:28,617] INFO in main: 应用关闭
+[2025-02-10 20:19:56,253] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 20:19:56,254] INFO in main: 应用启动成功
+[2025-02-10 20:20:00,699] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 20:20:00,902] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.02s
+[2025-02-10 20:20:19,286] INFO in auth_service: 为用户 1 创建访问令牌成功
+[2025-02-10 20:20:19,286] INFO in auth_service: 用户 FeyFey 登录成功
+[2025-02-10 20:20:19,289] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.60s
+[2025-02-10 20:24:09,001] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 20:24:09,007] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.00s
+[2025-02-10 20:24:57,282] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.00s
+[2025-02-10 20:32:04,037] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 20:32:04,225] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.00s
+[2025-02-10 20:32:22,329] WARNING in auth_service: 登录失败: 邮箱 wxb1@h-sun,com 不存在
+[2025-02-10 20:32:22,329] ERROR in session: 数据库会话异常: 401: 401: 用户名或密码错误
+[2025-02-10 20:32:22,329] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.01s
+[2025-02-10 20:32:32,848] ERROR in auth_service: 登录异常: 'dict' object has no attribute 'department_name'
+[2025-02-10 20:32:32,853] ERROR in session: 数据库会话异常: 500: 登录服务异常
+[2025-02-10 20:32:32,854] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.40s
+[2025-02-10 20:32:41,993] INFO in main: 应用关闭
+[2025-02-10 20:32:47,202] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 20:32:47,202] INFO in main: 应用启动成功
+[2025-02-10 20:33:00,180] INFO in auth_service: 为用户 1 创建访问令牌成功
+[2025-02-10 20:33:00,180] INFO in auth_service: 用户 FeyFey 登录成功
+[2025-02-10 20:33:00,180] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.90s
+[2025-02-10 20:38:50,936] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.00s
+[2025-02-10 20:41:36,657] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 20:41:36,663] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.00s
+[2025-02-10 20:41:36,855] INFO in main: 应用关闭
+[2025-02-10 20:41:39,412] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 20:41:39,426] INFO in main: 应用启动成功
+[2025-02-10 20:43:30,687] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 20:43:30,856] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.02s
+[2025-02-10 20:43:55,407] INFO in auth_service: 为用户 1 创建访问令牌成功
+[2025-02-10 20:43:55,407] INFO in auth_service: 用户 FeyFey 登录成功
+[2025-02-10 20:43:55,407] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.57s
+[2025-02-10 20:46:18,344] ERROR in auth_service: 登录异常: 'dict' object has no attribute 'department_name'
+[2025-02-10 20:46:18,344] ERROR in session: 数据库会话异常: 500: 登录服务异常
+[2025-02-10 20:46:18,349] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.26s
+[2025-02-10 20:46:18,451] INFO in main: 应用关闭
+[2025-02-10 20:46:21,024] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 20:46:21,024] INFO in main: 应用启动成功
+[2025-02-10 20:46:45,152] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.00s
+[2025-02-10 20:47:36,695] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.00s
+[2025-02-10 20:47:36,827] INFO in main: 应用关闭
+[2025-02-10 20:47:38,629] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 20:47:38,629] INFO in main: 应用启动成功
+[2025-02-10 20:47:53,400] INFO in main: 应用关闭
+[2025-02-10 20:47:57,703] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 20:47:57,703] INFO in main: 应用启动成功
+[2025-02-10 20:48:03,246] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.00s
+[2025-02-10 20:51:48,724] INFO in main: 应用关闭
+[2025-02-10 20:51:51,211] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 20:51:51,211] INFO in main: 应用启动成功
+[2025-02-10 20:51:55,423] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 20:51:55,429] INFO in auth: 登录请求数据: email=wxb1@h-sun.com
+[2025-02-10 20:51:55,883] INFO in auth_service: 为用户 1 创建访问令牌成功
+[2025-02-10 20:51:55,883] INFO in auth_service: 用户 FeyFey 登录成功
+[2025-02-10 20:51:55,889] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.46s
+[2025-02-10 20:51:55,897] INFO in response: 请求处理完成 - 路径: /api/v1/role/list 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 20:51:55,903] INFO in response: 请求处理完成 - 路径: /api/v1/role/list 方法: GET 处理时间: 0.00s
+[2025-02-10 20:52:56,266] INFO in main: 应用关闭
+[2025-02-10 20:52:57,957] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 20:52:57,957] INFO in main: 应用启动成功
+[2025-02-10 20:57:56,194] INFO in main: 应用关闭
+[2025-02-10 20:57:58,708] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 20:57:58,708] INFO in main: 应用启动成功
+[2025-02-10 20:59:00,135] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 20:59:00,140] INFO in auth: 请求体原始数据: b'{"email":"wxb1@h-sun.com","password":"0522@XXF"}'
+[2025-02-10 20:59:00,141] INFO in auth: 请求头: Headers({'host': '127.0.0.1:8000', 'connection': 'keep-alive', 'content-length': '48', 'sec-ch-ua-platform': '"Windows"', 'authorization': '', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36', 'accept': 'application/json, text/plain, */*', 'sec-ch-ua': '"Not A(Brand";v="8", "Chromium";v="132", "Google Chrome";v="132"', 'content-type': 'application/json', 'sec-ch-ua-mobile': '?0', 'origin': 'http://localhost:4000', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'cors', 'sec-fetch-dest': 'empty', 'referer': 'http://localhost:4000/', 'accept-encoding': 'gzip, deflate, br, zstd', 'accept-language': 'zh-CN,zh;q=0.9'})
+[2025-02-10 20:59:00,142] INFO in auth: 解析后的登录数据: email='wxb1@h-sun.com' password='0522@XXF'
+[2025-02-10 20:59:00,647] INFO in auth_service: 为用户 1 创建访问令牌成功
+[2025-02-10 20:59:00,652] INFO in auth_service: 用户 FeyFey 登录成功
+[2025-02-10 20:59:00,654] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.51s
+[2025-02-10 20:59:00,662] INFO in response: 请求处理完成 - 路径: /api/v1/role/list 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 20:59:00,666] INFO in response: 请求处理完成 - 路径: /api/v1/role/list 方法: GET 处理时间: 0.00s
+[2025-02-10 20:59:41,894] INFO in main: 应用关闭
+[2025-02-10 21:03:24,542] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 21:03:24,543] INFO in main: 应用启动成功
+[2025-02-10 21:03:28,682] INFO in auth_service: 为用户 1 创建访问令牌成功
+[2025-02-10 21:03:28,682] INFO in auth_service: 用户 FeyFey 登录成功
+[2025-02-10 21:03:28,682] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.49s
+[2025-02-10 21:03:28,705] INFO in response: 请求处理完成 - 路径: /api/v1/role/list 方法: GET 处理时间: 0.00s
+[2025-02-10 21:03:54,991] INFO in main: 应用关闭
+[2025-02-10 21:03:58,196] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-10 21:03:58,197] INFO in main: 应用启动成功
+[2025-02-10 21:04:22,925] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 21:04:23,593] INFO in auth_service: 为用户 1 创建访问令牌成功
+[2025-02-10 21:04:23,593] INFO in auth_service: 用户 FeyFey 登录成功
+[2025-02-10 21:04:23,599] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.67s
+[2025-02-10 21:04:23,611] INFO in response: 请求处理完成 - 路径: /api/v1/role/list 方法: OPTIONS 处理时间: 0.00s
+[2025-02-10 21:04:23,616] INFO in response: 请求处理完成 - 路径: /api/v1/role/list 方法: GET 处理时间: 0.00s
+[2025-02-10 21:04:34,753] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-10 21:04:34,947] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.02s
+[2025-02-10 21:05:42,203] INFO in main: 应用关闭

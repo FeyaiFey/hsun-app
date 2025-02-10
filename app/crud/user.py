@@ -89,7 +89,6 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         db.refresh(avatar)
         return avatar
 
-
     def update_last_login(self, db: Session, *, user_id: int) -> Optional[User]:
         """更新最后登录时间"""
         user = self.get(db, user_id)
