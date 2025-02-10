@@ -5,53 +5,40 @@ from app.schemas.response import IResponse
 from app.core.logger import logger
 from typing import Any, Dict, Optional
 
-class APIException(HTTPException):
-    """API异常基类"""
-    def __init__(
-        self,
-        status_code: int,
-        detail: str = None,
-        error_code: int = None,
-        data: Optional[Dict[str, Any]] = None
-    ):
-        super().__init__(status_code=status_code, detail=detail)
-        self.error_code = error_code or status_code
-        self.data = data or {}
+class BaseCustomException(HTTPException):
+    """自定义异常基类"""
+    def __init__(self, detail: str = None):
+        super().__init__(status_code=500, detail=detail)
 
-class DatabaseError(APIException):
+class DatabaseError(BaseCustomException):
     """数据库操作异常"""
-    def __init__(self, detail: str = "数据库操作失败", data: Optional[Dict[str, Any]] = None):
-        super().__init__(status_code=500, detail=detail, error_code=50001, data=data)
+    def __init__(self, detail: str = None):
+        super().__init__(detail=detail or "数据库操作失败")
 
-class AuthenticationError(APIException):
+class AuthenticationError(BaseCustomException):
     """认证异常"""
-    def __init__(self, detail: str = "认证失败", data: Optional[Dict[str, Any]] = None):
-        super().__init__(status_code=401, detail=detail, error_code=40100, data=data)
+    def __init__(self, detail: str = None):
+        super().__init__(detail=detail or "认证失败")
 
-class PermissionError(APIException):
-    """权限异常"""
-    def __init__(self, detail: str = "权限不足", data: Optional[Dict[str, Any]] = None):
-        super().__init__(status_code=403, detail=detail, error_code=40300, data=data)
-
-class NotFoundError(APIException):
+class NotFoundError(BaseCustomException):
     """资源不存在异常"""
-    def __init__(self, detail: str = "资源不存在", data: Optional[Dict[str, Any]] = None):
-        super().__init__(status_code=404, detail=detail, error_code=40400, data=data)
+    def __init__(self, detail: str = None):
+        super().__init__(detail=detail or "资源不存在")
 
-class ValidationError(APIException):
+class ValidationError(BaseCustomException):
     """数据验证异常"""
-    def __init__(self, detail: str = "数据验证失败", data: Optional[Dict[str, Any]] = None):
-        super().__init__(status_code=400, detail=detail, error_code=40000, data=data)
+    def __init__(self, detail: str = None):
+        super().__init__(detail=detail or "数据验证失败")
 
-class ConflictError(APIException):
-    """数据冲突异常"""
-    def __init__(self, detail: str = "数据已存在", data: Optional[Dict[str, Any]] = None):
-        super().__init__(status_code=409, detail=detail, error_code=40900, data=data)
+class ConflictError(BaseCustomException):
+    """资源冲突异常"""
+    def __init__(self, detail: str = None):
+        super().__init__(detail=detail or "资源冲突")
 
-class UserError(APIException):
-    """用户相关异常"""
-    def __init__(self, detail: str = "用户操作失败", data: Optional[Dict[str, Any]] = None):
-        super().__init__(status_code=400, detail=detail, error_code=40001, data=data)
+class PermissionError(BaseCustomException):
+    """权限异常"""
+    def __init__(self, detail: str = None):
+        super().__init__(detail=detail or "权限不足")
 
 async def exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """全局异常处理器
@@ -63,20 +50,17 @@ async def exception_handler(request: Request, exc: Exception) -> JSONResponse:
     Returns:
         JSONResponse: JSON响应
     """
-    if isinstance(exc, APIException):
+    if isinstance(exc, BaseCustomException):
         logger.warning(
             f"API异常 - 路径: {request.url.path} "
             f"状态码: {exc.status_code} "
-            f"错误码: {exc.error_code} "
-            f"详情: {exc.detail} "
-            f"数据: {exc.data}"
+            f"详情: {exc.detail}"
         )
         return JSONResponse(
             status_code=exc.status_code,
             content=IResponse(
-                code=exc.error_code,
-                msg=exc.detail,
-                data=exc.data
+                code=500,
+                data={"error": exc.detail}
             ).model_dump()
         )
     
@@ -86,7 +70,26 @@ async def exception_handler(request: Request, exc: Exception) -> JSONResponse:
         status_code=500,
         content=IResponse(
             code=500,
-            msg="服务器内部错误",
-            data={"detail": str(exc)}
+            data={"error": str(exc)}
+        ).model_dump()
+    )
+
+async def database_exception_handler(request, exc):
+    """数据库异常处理器"""
+    return JSONResponse(
+        status_code=500,
+        content=IResponse(
+            code=500,
+            data={"error": str(exc.detail)}
+        ).model_dump()
+    )
+
+async def validation_exception_handler(request, exc):
+    """验证异常处理器"""
+    return JSONResponse(
+        status_code=400,
+        content=IResponse(
+            code=400,
+            data={"error": str(exc.detail)}
         ).model_dump()
     ) 

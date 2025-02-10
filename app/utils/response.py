@@ -40,13 +40,12 @@ class ResponseMiddleware(BaseHTTPMiddleware):
                 try:
                     body = await response.json()
                     # 如果响应已经是 IResponse 格式，直接返回
-                    if isinstance(body, dict) and all(key in body for key in ["code", "msg", "data"]):
+                    if isinstance(body, dict) and all(key in body for key in ["code", "data"]):
                         return response
                     # 否则包装成 IResponse 格式
                     return JSONResponse(
                         content=IResponse(
                             code=response.status_code,
-                            msg="success",
                             data=body
                         ).model_dump(),
                         status_code=response.status_code
@@ -69,7 +68,6 @@ class ResponseMiddleware(BaseHTTPMiddleware):
             return JSONResponse(
                 content=IResponse(
                     code=500,
-                    msg="服务器内部错误",
                     data={"error": str(e)}
                 ).model_dump(),
                 status_code=500

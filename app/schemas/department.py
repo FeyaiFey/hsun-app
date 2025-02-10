@@ -2,6 +2,20 @@ from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field
 
+# 注册时部门模型
+class DepartmentRegister(BaseModel):
+    """注册时部门模型"""
+    label: str = Field(..., description="名称")
+    value: int = Field(..., description="部门id")
+
+# 部门树节点模型
+class DepartmentTreeNode(BaseModel):
+    """部门树节点模型"""
+    label: str = Field(..., description="部门名称")
+    value: int = Field(..., description="部门ID")
+    parentId: Optional[int] = Field(None, description="父部门ID")
+    children: Optional[List["DepartmentTreeNode"]] = Field(default=[], description="子部门")
+
 # 基础模型
 class DepartmentBase(BaseModel):
     """部门基础模型"""

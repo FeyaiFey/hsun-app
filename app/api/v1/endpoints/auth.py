@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Form
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session
 from typing import Any, List
@@ -10,17 +10,19 @@ from app.schemas.user import (
     UserLogin,
     UserResponse,
     UserCreate,
-    Token
+    Token,
+    UserInfoType,
+    UserType
 )
 from app.models.user import User
-from app.schemas.department import DepartmentResponse
+from app.schemas.department import DepartmentTreeNode
 from app.core.deps import get_current_user, get_current_active_user
 from app.core.rate_limit import SimpleRateLimiter
 from app.core.monitor import monitor_request
 from app.core.logger import logger
 from app.core.cache import MemoryCache
 from app.core.config import settings
-from app.services.auth_service import AuthService
+from app.services.auth_service import AuthService, DEFAULT_AVATAR_PATH
 from app.services.menu_service import menu_service
 from app.services.department_service import department_service
 from app.services.cache_service import cache_service
@@ -39,7 +41,17 @@ rate_limiter = SimpleRateLimiter(limit=5, window=60)  # 每分钟最多5次请�
 # 创建缓存实例
 cache = MemoryCache()
 
-@router.get("/department", response_model=IResponse[List[DepartmentResponse]])
+class LoginForm:
+    """自定义登录表单"""
+    def __init__(
+        self,
+        email: str = Form(...),
+        password: str = Form(...)
+    ):
+        self.email = email
+        self.password = password
+
+@router.get("/department", response_model=IResponse[List[DepartmentTreeNode]])
 @monitor_request
 async def get_department_list(
     db: Session = Depends(get_db)
@@ -55,7 +67,7 @@ async def get_department_list(
         department_service.cache = cache
         
         # 获取部门树
-        departments = await department_service.get_department_tree()
+        departments = await department_service.get_department_tree_for_register()
         return IResponse(code=200, data=departments)
         
     except DatabaseError as e:
@@ -71,10 +83,10 @@ async def get_department_list(
             detail="获取部门列表失败"
         )
 
-@router.post("/login", response_model=IResponse[Token])
+@router.post("/login", response_model=IResponse[UserInfoType])
 @monitor_request
 async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    form_data: LoginForm = Depends(),
     db: Session = Depends(get_db)
 ) -> Any:
     """用户登录
@@ -83,12 +95,12 @@ async def login(
         form_data: 登录表单数据
         
     Returns:
-        IResponse[Token]: 登录令牌
+        IResponse[UserInfoType]: 用户信息和令牌
     """
     try:
         # 检查限流
-        if rate_limiter.is_limited(form_data.username):
-            logger.warning(f"登录请求过于频繁: {form_data.username}")
+        if rate_limiter.is_limited(form_data.email):
+            logger.warning(f"登录请求过于频繁: {form_data.email}")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="登录请求过于频繁，请稍后再试"
@@ -97,32 +109,21 @@ async def login(
         auth_service = AuthService(db, cache)
         
         try:
-            user = await auth_service.authenticate(form_data.username, form_data.password)
+            # 认证用户并获取用户信息
+            auth_result = await auth_service.authenticate(form_data.email, form_data.password)
+            
+            # 构建响应数据
+            return IResponse(
+                code=200,
+                data=UserInfoType(**auth_result)
+            )
+            
         except AuthenticationError as e:
-            rate_limiter.increment(form_data.username)
+            rate_limiter.increment(form_data.email)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=str(e)
             )
-        
-        # 更新最后登录时间
-        await auth_service.update_user_login(user.id)
-        
-        # 生成令牌
-        access_token = await auth_service.create_access_token(
-            user.id,
-            expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-        )
-        refresh_token = await auth_service.create_refresh_token(user.id)
-        
-        return IResponse(
-            code=200,
-            data=Token(
-                access_token=access_token,
-                refresh_token=refresh_token,
-                expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-            )
-        )
         
     except HTTPException:
         raise
@@ -166,7 +167,7 @@ async def register(
         logger.error(f"用户注册失败: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="注册失败"
+            detail=f"用户注册失败({str(e)})"
         )
 
 @router.get("/routes")

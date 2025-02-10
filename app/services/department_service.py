@@ -2,7 +2,7 @@ from typing import List, Dict, Any, Optional
 from sqlmodel import Session, select
 
 from app.models.department import Department
-from app.schemas.department import DepartmentResponse, DepartmentUserInfo
+from app.schemas.department import DepartmentResponse, DepartmentUserInfo, DepartmentRegister, DepartmentTreeNode
 from app.core.logger import logger
 from app.core.cache import MemoryCache
 from app.core.monitor import MetricsManager
@@ -24,13 +24,14 @@ class DepartmentService:
         """
         if department_id is None:
             # 清除所有部门相关缓存
-            cache_keys = ["all:departments", "department:tree"]
+            cache_keys = ["all:departments", "department:tree", "department:register", "department:tree:register"]
             logger.debug("清除所有部门缓存")
         else:
             # 清除特定部门缓存
             cache_keys = [
                 f"department:{department_id}",
-                "department:tree"  # 树结构可能受影响，也需要清除
+                "department:tree",  # 树结构可能受影响，也需要清除
+                "department:tree:register"  # 注册树结构也需要清除
             ]
             logger.debug(f"清除部门 {department_id} 的缓存")
             
@@ -119,6 +120,41 @@ class DepartmentService:
                     parent['children'].append(dept_dict)
         
         return sorted(tree, key=lambda x: x.get('id', 0))
+    
+    async def get_department_register_list(self) -> List[DepartmentRegister]:
+        """获取部门注册列表
+        Returns:
+            DepartmentRegister 列表
+        """
+        try:
+            cache_key = "department:register"
+            cached_depts = self.cache.get(cache_key)
+            if cached_depts:
+                self.metrics.track_cache_metrics(hit=True)
+                return cached_depts
+
+            self.metrics.track_cache_metrics(hit=False)
+
+            # 从数据库获取
+            statement = select(Department.id,Department.department_name).order_by(Department.id)
+            departments_register = self.db.exec(statement).all()
+            # 转换为 DepartmentRegister 格式
+            departments_register = [
+                DepartmentRegister(
+                    label=dept.department_name,
+                    value=dept.id
+                ) for dept in departments_register
+            ]
+            # 缓存结果
+            if departments_register:
+                self.cache.set(cache_key, departments_register, expire=3600)
+            return departments_register
+        except Exception as e:
+            logger.error(f"获取所有注册所有部门列表失败: {str(e)}")
+            raise DatabaseError(detail="获取部门列表失败")
+
+            
+            
 
     async def get_department_tree(self, parent_id: Optional[int] = None) -> List[Dict[str, Any]]:
         """获取部门树结构
@@ -179,7 +215,7 @@ class DepartmentService:
             logger.error(f"获取部门树失败: {str(e)}")
             raise DatabaseError(detail="获取部门树失败")
 
-    async def get_all_departments(self) -> List[Department]:
+    async def get_all_departments(self) -> List[DepartmentRegister]:
         """获取所有部门
         
         Returns:
@@ -257,6 +293,62 @@ class DepartmentService:
         except Exception as e:
             logger.error(f"获取父部门链失败: {str(e)}")
             raise DatabaseError(detail="获取父部门链失败")
+
+    async def get_department_tree_for_register(self) -> List[DepartmentTreeNode]:
+        """获取用于注册的部门树结构
+        
+        Returns:
+            List[DepartmentTreeNode]: 部门树结构
+        """
+        try:
+            # 尝试从缓存获取
+            cache_key = "department:tree:register"
+            cached_tree = self.cache.get(cache_key)
+            if cached_tree:
+                self.metrics.track_cache_metrics(hit=True)
+                return cached_tree
+
+            self.metrics.track_cache_metrics(hit=False)
+
+            # 从数据库获取所有部门
+            statement = select(Department).order_by(Department.id)
+            departments = self.db.exec(statement).all()
+
+            # 转换为树节点格式
+            dept_nodes = [
+                DepartmentTreeNode(
+                    label=dept.department_name,
+                    value=str(dept.id),
+                    parentId=str(dept.parent_id) if dept.parent_id else None,
+                    children=[]
+                ) for dept in departments
+            ]
+
+            # 构建树结构
+            dept_map = {dept.value: dept for dept in dept_nodes}
+            tree = []
+
+            for dept in dept_nodes:
+                if dept.parentId is None:
+                    # 根节点
+                    tree.append(dept)
+                else:
+                    # 子节点，添加到父节点的children中
+                    parent = dept_map.get(dept.parentId)
+                    if parent:
+                        if parent.children is None:
+                            parent.children = []
+                        parent.children.append(dept)
+
+            # 缓存结果
+            if tree:
+                self.cache.set(cache_key, tree, expire=3600)
+
+            return tree
+
+        except Exception as e:
+            logger.error(f"获取部门注册树失败: {str(e)}")
+            raise DatabaseError(detail="获取部门树失败")
 
 # 创建全局部门服务实例
 department_service = DepartmentService(None, None)  # 在应用启动时需要注入实际的 db 和 cache 

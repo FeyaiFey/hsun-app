@@ -65,25 +65,30 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         ).first()
 
     def create_user_avatar(
-        self, db: Session, *, user_id: int, avatar_path: str
+        self, db: Session, *, user_id: int, avatar_url: str
     ) -> UserAvatar:
         """创建用户头像"""
         # 将当前头像设置为非活动
-        db.exec(
+        current_avatars = db.exec(
             select(UserAvatar)
             .where(UserAvatar.user_id == user_id, UserAvatar.is_active == True)
-        ).all().update({"is_active": False})
+        ).all()
+        
+        for avatar in current_avatars:
+            avatar.is_active = False
+            db.add(avatar)
         
         # 创建新头像
         avatar = UserAvatar(
             user_id=user_id,
-            avatar_path=avatar_path,
+            avatar_url=avatar_url,
             is_active=True
         )
         db.add(avatar)
         db.commit()
         db.refresh(avatar)
         return avatar
+
 
     def update_last_login(self, db: Session, *, user_id: int) -> Optional[User]:
         """更新最后登录时间"""

@@ -96,4 +96,17 @@ class Token(BaseModel):
 class TokenPayload(BaseModel):
     """Token载荷模型"""
     sub: int = Field(..., description="用户ID")
-    exp: datetime = Field(..., description="过期时间") 
+    exp: datetime = Field(..., description="过期时间")
+
+class UserType(BaseModel):
+    """用户信息类型"""
+    email: str
+    username: str
+    department_name: str
+    avatar_url: str
+    password: str = Field(exclude=True)  # 确保密码不会被序列化
+
+class UserInfoType(BaseModel):
+    """用户信息响应类型"""
+    userinfo: UserType
+    token: str 

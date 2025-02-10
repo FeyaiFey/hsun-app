@@ -6,7 +6,8 @@ from app.core.logger import logger
 from app.core.config import settings
 from app.models.user import User, UserAvatar
 from app.models.role import Role, Permission
-from app.schemas.user import UserCreate, UserUpdate, UserResponse, UserRoleInfo
+from app.schemas.user import UserCreate, UserUpdate, UserResponse, UserRoleInfo, UserInfoType, UserType
+from app.services.department_service import DepartmentService
 from app.schemas.role import RoleResponse, PermissionResponse
 from app.core.cache import MemoryCache
 from app.core.exceptions import (
@@ -30,6 +31,7 @@ class AuthService:
     def __init__(self, db: Session, cache: MemoryCache):
         self.db = db
         self.cache = cache
+        self.department_service = DepartmentService(db, cache)
         self.metrics = MetricsManager()
 
     def _clear_user_cache(self, user_id: int) -> None:
@@ -48,7 +50,7 @@ class AuthService:
             ]
         )
 
-    async def authenticate(self, email: str, password: str) -> Optional[User]:
+    async def authenticate(self, email: str, password: str) -> Dict[str, Any]:
         """用户登录认证
         
         Args:
@@ -56,7 +58,7 @@ class AuthService:
             password: 密码
             
         Returns:
-            Optional[User]: 认证成功返回用户对象
+            Dict[str, Any]: 包含用户信息和令牌的字典
             
         Raises:
             AuthenticationError: 认证失败时抛出
@@ -78,10 +80,41 @@ class AuthService:
                 self.metrics.track_auth_metrics(success=False, reason="user_disabled")
                 logger.warning(f"登录失败: 用户 {user.username} 已被禁用")
                 raise AuthenticationError(detail="用户已被禁用")
+
+            # 获取用户部门名称
+            department_name = ""
+            if user.department_id:
+                department = await self.department_service.get_department_by_id(user.department_id)
+                if department:
+                    department_name = department.department_name
+
+            # 获取用户头像
+            avatar_url = DEFAULT_AVATAR_PATH
+            active_avatar = crud_user.get_active_avatar(self.db, user.id)
+            if active_avatar:
+                avatar_url = active_avatar.avatar_url
+
+            # 生成访问令牌
+            access_token = await self.create_access_token(
+                user.id,
+                expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+            )
+
+            # 构建响应数据
+            response_data = {
+                "userinfo": {
+                    "email": user.email or "",
+                    "username": user.username,
+                    "department_name": department_name,
+                    "avatar_url": avatar_url,
+                    "password": ""  # 不返回密码
+                },
+                "token": access_token
+            }
                 
             self.metrics.track_auth_metrics(success=True)
-            logger.info(f"用户 {user.username}({email}) 登录成功")
-            return user
+            logger.info(f"用户 {user.username} 登录成功")
+            return response_data
             
         except AuthenticationError:
             raise
@@ -141,7 +174,7 @@ class AuthService:
             return crud_user.create_user_avatar(
                 self.db,
                 user_id=user_id,
-                avatar_path=DEFAULT_AVATAR_PATH
+                avatar_url=DEFAULT_AVATAR_PATH
             )
         except Exception as e:
             logger.error(f"创建默认头像失败: {str(e)}")
