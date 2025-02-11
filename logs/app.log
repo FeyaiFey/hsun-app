@@ -196,3 +196,231 @@ WHERE [huaxinAdmin_userAvatars].user_id = ? AND [huaxinAdmin_userAvatars].is_act
 [2025-02-10 21:04:34,753] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
 [2025-02-10 21:04:34,947] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.02s
 [2025-02-10 21:05:42,203] INFO in main: 应用关闭
+[2025-02-11 14:42:32,188] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 14:42:32,189] INFO in main: 应用启动成功
+[2025-02-11 14:42:39,996] INFO in response: 请求处理完成 - 路径: / 方法: GET 处理时间: 0.00s
+[2025-02-11 14:42:40,050] INFO in response: 请求处理完成 - 路径: /favicon.ico 方法: GET 处理时间: 0.00s
+[2025-02-11 14:42:43,957] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-11 14:42:44,028] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-11 14:43:05,166] INFO in auth_service: 为用户 1 创建访问令牌成功
+[2025-02-11 14:43:05,166] INFO in auth_service: 用户 FeyFey 登录成功
+[2025-02-11 14:43:05,169] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.36s
+[2025-02-11 14:43:15,405] WARNING in auth_service: 登录失败: 邮箱 wxb1@h-sun.com 密码错误
+[2025-02-11 14:43:15,406] ERROR in session: 数据库会话异常: 401: 401: 用户名或密码错误
+[2025-02-11 14:43:15,407] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.25s
+[2025-02-11 14:46:42,306] INFO in main: 应用关闭
+[2025-02-11 14:46:43,825] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 14:46:43,825] INFO in main: 应用启动成功
+[2025-02-11 14:47:06,617] INFO in main: 应用关闭
+[2025-02-11 14:47:07,983] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 14:47:07,983] INFO in main: 应用启动成功
+[2025-02-11 14:48:00,998] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-11 14:48:01,087] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-11 14:48:17,031] WARNING in auth_service: 登录失败: 邮箱 wxb1@h-sun.com 密码错误
+[2025-02-11 14:48:17,033] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.25s
+[2025-02-11 14:49:42,510] INFO in main: 应用关闭
+[2025-02-11 15:04:01,147] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 15:04:01,147] INFO in main: 应用启动成功
+[2025-02-11 15:04:04,698] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-11 15:04:04,795] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-11 15:04:13,832] ERROR in auth: 获取部门列表异常: 3 validation errors for IResponse
+data
+  Input should be a valid dictionary or instance of AxiosResponseData [type=model_type, input_value=[DepartmentTreeNode(label...entId=3, children=[])])], input_type=list]
+    For further information visit https://errors.pydantic.dev/2.6/v/model_type
+status
+  Field required [type=missing, input_value={'code': 200, 'data': [De...ntId=3, children=[])])]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.6/v/missing
+statusText
+  Field required [type=missing, input_value={'code': 200, 'data': [De...ntId=3, children=[])])]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.6/v/missing
+[2025-02-11 15:04:13,834] ERROR in session: 数据库会话异常: 500: 获取部门列表失败
+[2025-02-11 15:04:13,835] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-11 15:04:57,902] INFO in main: 应用关闭
+[2025-02-11 15:12:38,893] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 15:12:38,893] INFO in main: 应用启动成功
+[2025-02-11 15:12:41,482] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-11 15:12:41,548] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-11 15:12:43,785] ERROR in auth: 获取部门列表异常: 3 validation errors for IResponse
+data
+  Input should be a valid dictionary or instance of AxiosResponseData [type=model_type, input_value=[DepartmentTreeNode(label...entId=3, children=[])])], input_type=list]
+    For further information visit https://errors.pydantic.dev/2.6/v/model_type
+status
+  Field required [type=missing, input_value={'code': 200, 'data': [De...ntId=3, children=[])])]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.6/v/missing
+statusText
+  Field required [type=missing, input_value={'code': 200, 'data': [De...ntId=3, children=[])])]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.6/v/missing
+[2025-02-11 15:12:43,786] ERROR in session: 数据库会话异常: 500: 获取部门列表失败
+[2025-02-11 15:12:43,788] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.05s
+[2025-02-11 15:14:05,121] INFO in main: 应用关闭
+[2025-02-11 15:17:24,328] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 15:17:24,328] INFO in main: 应用启动成功
+[2025-02-11 15:17:27,169] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-11 15:17:27,234] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-11 15:17:29,688] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-11 15:17:59,234] WARNING in auth_service: 登录失败: 邮箱 wxb1@h-sun.com 密码错误
+[2025-02-11 15:17:59,237] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.28s
+[2025-02-11 15:18:15,457] WARNING in auth_service: 登录失败: 邮箱 wxb1@h-san.com 不存在
+[2025-02-11 15:18:15,459] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.01s
+[2025-02-11 15:18:25,687] WARNING in auth_service: 登录失败: 邮箱 wxb1 不存在
+[2025-02-11 15:18:25,689] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.01s
+[2025-02-11 15:18:34,860] INFO in auth_service: 为用户 1 创建访问令牌成功
+[2025-02-11 15:18:34,860] INFO in auth_service: 用户 FeyFey 登录成功
+[2025-02-11 15:18:34,862] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.26s
+[2025-02-11 15:18:51,176] INFO in main: 应用关闭
+[2025-02-11 15:18:52,190] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 15:18:52,190] INFO in main: 应用启动成功
+[2025-02-11 15:23:47,372] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: OPTIONS 处理时间: 0.00s
+[2025-02-11 15:23:47,625] WARNING in auth_service: 登录失败: 邮箱 wxb1@h-sun.com 密码错误
+[2025-02-11 15:23:47,626] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.25s
+[2025-02-11 15:24:08,715] WARNING in auth_service: 登录失败: 邮箱 wxb1@h-sun.com 密码错误
+[2025-02-11 15:24:08,717] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.20s
+[2025-02-11 15:32:10,799] WARNING in auth_service: 登录失败: 邮箱 wxb1@h-sun.com 密码错误
+[2025-02-11 15:32:10,801] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.25s
+[2025-02-11 15:32:25,073] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: OPTIONS 处理时间: 0.00s
+[2025-02-11 15:32:25,080] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-11 15:33:34,506] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-11 15:33:46,257] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-11 15:34:14,583] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-11 15:36:47,638] INFO in main: 应用关闭
+[2025-02-11 15:36:55,570] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 15:36:55,570] INFO in main: 应用启动成功
+[2025-02-11 15:37:12,475] ERROR in auth: 获取部门列表异常: 1 validation error for IResponse
+data
+  Input should be a valid dictionary or instance of AxiosResponseData [type=model_type, input_value=[DepartmentTreeNode(label...entId=3, children=[])])], input_type=list]
+    For further information visit https://errors.pydantic.dev/2.6/v/model_type
+[2025-02-11 15:37:12,476] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-11 15:41:30,035] INFO in main: 应用关闭
+[2025-02-11 15:48:51,879] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 15:48:51,879] INFO in main: 应用启动成功
+[2025-02-11 15:49:21,278] INFO in main: 应用关闭
+[2025-02-11 15:50:31,024] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 15:50:31,024] INFO in main: 应用启动成功
+[2025-02-11 15:51:51,676] INFO in main: 应用关闭
+[2025-02-11 15:51:52,675] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 15:51:52,675] INFO in main: 应用启动成功
+[2025-02-11 15:52:05,539] INFO in main: 应用关闭
+[2025-02-11 15:52:06,478] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 15:52:06,478] INFO in main: 应用启动成功
+[2025-02-11 15:53:04,077] INFO in main: 应用关闭
+[2025-02-11 15:53:05,055] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 15:53:05,055] INFO in main: 应用启动成功
+[2025-02-11 15:54:22,493] INFO in main: 应用关闭
+[2025-02-11 15:54:23,426] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 15:54:23,426] INFO in main: 应用启动成功
+[2025-02-11 15:54:40,370] INFO in main: 应用关闭
+[2025-02-11 15:54:41,340] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 15:54:41,340] INFO in main: 应用启动成功
+[2025-02-11 15:54:47,276] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-11 15:54:47,366] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-11 15:54:52,437] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-11 15:55:03,064] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: OPTIONS 处理时间: 0.00s
+[2025-02-11 15:55:03,068] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-11 15:55:50,143] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-11 15:55:56,812] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-11 15:55:58,857] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-11 15:56:09,457] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-11 15:58:15,584] INFO in main: 应用关闭
+[2025-02-11 15:58:16,627] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 15:58:16,627] INFO in main: 应用启动成功
+[2025-02-11 15:58:42,032] INFO in main: 应用关闭
+[2025-02-11 15:58:42,970] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 15:58:42,970] INFO in main: 应用启动成功
+[2025-02-11 15:59:04,232] INFO in main: 应用关闭
+[2025-02-11 15:59:05,216] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 15:59:05,216] INFO in main: 应用启动成功
+[2025-02-11 15:59:14,727] INFO in main: 应用关闭
+[2025-02-11 15:59:15,665] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 15:59:15,665] INFO in main: 应用启动成功
+[2025-02-11 16:00:56,448] INFO in main: 应用关闭
+[2025-02-11 16:00:57,394] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:00:57,394] INFO in main: 应用启动成功
+[2025-02-11 16:01:31,494] ERROR in auth: 获取部门列表异常: 1 validation error for IResponse
+code
+  Field required [type=missing, input_value={'data': [DepartmentTreeN...on/json'}, 'config': {}}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.6/v/missing
+[2025-02-11 16:01:31,495] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.05s
+[2025-02-11 16:02:19,358] INFO in main: 应用关闭
+[2025-02-11 16:02:20,314] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:02:20,314] INFO in main: 应用启动成功
+[2025-02-11 16:02:22,587] INFO in main: 应用关闭
+[2025-02-11 16:02:23,606] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:02:23,606] INFO in main: 应用启动成功
+[2025-02-11 16:02:25,787] INFO in main: 应用关闭
+[2025-02-11 16:02:26,776] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:02:26,776] INFO in main: 应用启动成功
+[2025-02-11 16:02:33,286] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-11 16:02:49,037] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-11 16:04:06,458] INFO in main: 应用关闭
+[2025-02-11 16:04:07,561] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:04:07,561] INFO in main: 应用启动成功
+[2025-02-11 16:04:23,753] INFO in main: 应用关闭
+[2025-02-11 16:04:24,720] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:04:24,720] INFO in main: 应用启动成功
+[2025-02-11 16:04:47,593] INFO in main: 应用关闭
+[2025-02-11 16:04:49,035] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:04:49,035] INFO in main: 应用启动成功
+[2025-02-11 16:05:12,521] INFO in main: 应用关闭
+[2025-02-11 16:05:13,933] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:05:13,934] INFO in main: 应用启动成功
+[2025-02-11 16:05:29,904] INFO in response: 请求处理完成 - 路径: /docs 方法: GET 处理时间: 0.00s
+[2025-02-11 16:05:29,989] INFO in response: 请求处理完成 - 路径: /openapi.json 方法: GET 处理时间: 0.01s
+[2025-02-11 16:05:32,307] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.04s
+[2025-02-11 16:05:38,649] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.00s
+[2025-02-11 16:05:50,189] WARNING in auth_service: 登录失败: 邮箱 string 不存在
+[2025-02-11 16:05:50,190] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.01s
+[2025-02-11 16:06:04,808] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: OPTIONS 处理时间: 0.00s
+[2025-02-11 16:06:04,836] WARNING in auth_service: 登录失败: 邮箱 ADAW 不存在
+[2025-02-11 16:06:04,838] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.02s
+[2025-02-11 16:07:38,226] WARNING in auth_service: 登录失败: 邮箱 asdasd 不存在
+[2025-02-11 16:07:38,228] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.01s
+[2025-02-11 16:10:38,525] INFO in main: 应用关闭
+[2025-02-11 16:10:39,523] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:10:39,524] INFO in main: 应用启动成功
+[2025-02-11 16:10:59,823] INFO in main: 应用关闭
+[2025-02-11 16:11:00,779] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:11:00,780] INFO in main: 应用启动成功
+[2025-02-11 16:11:15,684] INFO in main: 应用关闭
+[2025-02-11 16:11:16,687] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:11:16,687] INFO in main: 应用启动成功
+[2025-02-11 16:12:04,074] INFO in main: 应用关闭
+[2025-02-11 16:12:05,122] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:12:05,123] INFO in main: 应用启动成功
+[2025-02-11 16:14:16,552] INFO in main: 应用关闭
+[2025-02-11 16:14:17,502] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:14:17,503] INFO in main: 应用启动成功
+[2025-02-11 16:14:32,399] INFO in main: 应用关闭
+[2025-02-11 16:14:34,214] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:14:34,214] INFO in main: 应用启动成功
+[2025-02-11 16:14:58,210] INFO in main: 应用关闭
+[2025-02-11 16:14:59,195] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:14:59,195] INFO in main: 应用启动成功
+[2025-02-11 16:15:25,780] INFO in main: 应用关闭
+[2025-02-11 16:15:26,752] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:15:26,753] INFO in main: 应用启动成功
+[2025-02-11 16:15:27,720] INFO in main: 应用关闭
+[2025-02-11 16:15:28,705] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:15:28,705] INFO in main: 应用启动成功
+[2025-02-11 16:16:12,831] INFO in main: 应用关闭
+[2025-02-11 16:16:13,812] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:16:13,812] INFO in main: 应用启动成功
+[2025-02-11 16:16:15,316] INFO in main: 应用关闭
+[2025-02-11 16:16:16,299] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:16:16,299] INFO in main: 应用启动成功
+[2025-02-11 16:16:40,597] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: OPTIONS 处理时间: 0.00s
+[2025-02-11 16:16:40,643] WARNING in auth_service: 登录失败: 邮箱 asdasd 不存在
+[2025-02-11 16:16:40,644] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.04s
+[2025-02-11 16:17:48,060] INFO in main: 应用关闭
+[2025-02-11 16:17:49,103] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:17:49,103] INFO in main: 应用启动成功
+[2025-02-11 16:18:03,418] INFO in main: 应用关闭
+[2025-02-11 16:18:04,421] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:18:04,422] INFO in main: 应用启动成功
+[2025-02-11 16:18:09,792] WARNING in auth_service: 登录失败: 邮箱 asdasd 不存在
+[2025-02-11 16:18:09,794] INFO in response: 请求处理完成 - 路径: /api/v1/auth/login 方法: POST 处理时间: 0.04s
+[2025-02-11 16:18:15,007] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: OPTIONS 处理时间: 0.00s
+[2025-02-11 16:18:15,022] INFO in response: 请求处理完成 - 路径: /api/v1/auth/department 方法: GET 处理时间: 0.01s
+[2025-02-11 16:18:29,911] INFO in main: 应用关闭
+[2025-02-11 16:18:30,907] INFO in monitor: 指标服务器启动成功 - 端口: 9090
+[2025-02-11 16:18:30,908] INFO in main: 应用启动成功
+[2025-02-11 16:18:49,852] INFO in main: 应用关闭

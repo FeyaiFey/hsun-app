@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
 from sqlmodel import Session
 from typing import Any, List
 from datetime import timedelta
+
 
 from app.db.session import get_db
 from app.schemas.response import IResponse
@@ -22,16 +23,16 @@ from app.core.monitor import monitor_request
 from app.core.logger import logger
 from app.core.cache import MemoryCache
 from app.core.config import settings
-from app.services.auth_service import AuthService, DEFAULT_AVATAR_PATH
+from app.services.auth_service import AuthService
 from app.services.menu_service import menu_service
 from app.services.department_service import department_service
-from app.services.cache_service import cache_service
 from app.core.exceptions import (
     DatabaseError,
     AuthenticationError,
-    NotFoundError,
-    ValidationError
+    ValidationError,
+    get_error_response
 )
+from app.core.error_codes import ErrorCode, HttpStatusCode
 
 router = APIRouter()
 
@@ -59,19 +60,45 @@ async def get_department_list(
         
         # 获取部门树
         departments = await department_service.get_department_tree_for_register()
-        return IResponse(code=200, data=departments)
+        
+        return IResponse(
+            code=HttpStatusCode.Ok,
+            data=departments
+        )
         
     except DatabaseError as e:
         logger.error(f"获取部门列表失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+        return JSONResponse(
+            status_code=HttpStatusCode.InternalServerError,
+            content={
+                "isAxiosError": True,
+                "name": "AxiosError",
+                "message": str(e.detail),
+                "code": ErrorCode.ERR_INTERNAL_SERVER,
+                "status": HttpStatusCode.InternalServerError,
+                "response": {
+                    "status": HttpStatusCode.InternalServerError,
+                    "statusText": "Internal Server Error",
+                    "data": None
+                }
+            }
         )
     except Exception as e:
         logger.error(f"获取部门列表异常: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="获取部门列表失败"
+        return JSONResponse(
+            status_code=HttpStatusCode.InternalServerError,
+            content={
+                "isAxiosError": True,
+                "name": "AxiosError",
+                "message": "获取部门列表失败",
+                "code": ErrorCode.ERR_INTERNAL_SERVER,
+                "status": HttpStatusCode.InternalServerError,
+                "response": {
+                    "status": HttpStatusCode.InternalServerError,
+                    "statusText": "Internal Server Error",
+                    "data": None
+                }
+            }
         )
 
 @router.post("/login", response_model=IResponse[UserInfoType])
@@ -81,7 +108,6 @@ async def login(
     db: Session = Depends(get_db)
 ) -> Any:
     """用户登录
-
     
     Args:
         login_data: 登录表单数据
@@ -93,9 +119,20 @@ async def login(
         # 检查限流
         if rate_limiter.is_limited(login_data.email):
             logger.warning(f"登录请求过于频繁: {login_data.email}")
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="登录请求过于频繁，请稍后再试"
+            return JSONResponse(
+                status_code=HttpStatusCode.TooManyRequests,
+                content={
+                    "isAxiosError": True,
+                    "name": "AxiosError",
+                    "message": "登录请求过于频繁，请稍后再试",
+                    "code": ErrorCode.ERR_BAD_REQUEST,
+                    "status": HttpStatusCode.TooManyRequests,
+                    "response": {
+                        "status": HttpStatusCode.TooManyRequests,
+                        "statusText": "Too Many Requests",
+                        "data": None
+                    }
+                }
             )
             
         auth_service = AuthService(db, cache)
@@ -106,24 +143,46 @@ async def login(
             
             # 构建响应数据
             return IResponse(
-                code=200,
+                code=HttpStatusCode.Ok,
                 data=UserInfoType(**auth_result)
             )
             
         except AuthenticationError as e:
             rate_limiter.increment(login_data.email)
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=str(e)
+            return JSONResponse(
+                status_code=HttpStatusCode.Unauthorized,
+                content={
+                    "isAxiosError": True,
+                    "name": "AxiosError",
+                    "message": str(e.detail),
+                    "code": ErrorCode.ERR_UNAUTHORIZED,
+                    "status": HttpStatusCode.Unauthorized,
+                    "response": {
+                        "status": HttpStatusCode.Unauthorized,
+                        "statusText": "Unauthorized",
+                        "data": None
+                    }
+                }
             )
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"用户登录失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="登录失败"
+        return JSONResponse(
+            status_code=HttpStatusCode.InternalServerError,
+            content={
+                "isAxiosError": True,
+                "name": "AxiosError",
+                "message": "登录失败",
+                "code": ErrorCode.ERR_INTERNAL_SERVER,
+                "status": HttpStatusCode.InternalServerError,
+                "response": {
+                    "status": HttpStatusCode.InternalServerError,
+                    "statusText": "Internal Server Error",
+                    "data": None
+                }
+            }
         )
 
 @router.post("/register", response_model=IResponse[UserResponse])
@@ -143,23 +202,59 @@ async def register(
     try:
         auth_service = AuthService(db, cache)
         user = await auth_service.create_user(user_in)
-        return IResponse(code=200, data=user)
+        return IResponse(
+            code=HttpStatusCode.Ok,
+            data=user
+        )
         
     except ValidationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+        return JSONResponse(
+            status_code=HttpStatusCode.BadRequest,
+            content={
+                "isAxiosError": True,
+                "name": "AxiosError",
+                "message": str(e.detail),
+                "code": ErrorCode.ERR_BAD_REQUEST,
+                "status": HttpStatusCode.BadRequest,
+                "response": {
+                    "status": HttpStatusCode.BadRequest,
+                    "statusText": "Bad Request",
+                    "data": None
+                }
+            }
         )
     except DatabaseError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+        return JSONResponse(
+            status_code=HttpStatusCode.InternalServerError,
+            content={
+                "isAxiosError": True,
+                "name": "AxiosError",
+                "message": str(e.detail),
+                "code": ErrorCode.ERR_INTERNAL_SERVER,
+                "status": HttpStatusCode.InternalServerError,
+                "response": {
+                    "status": HttpStatusCode.InternalServerError,
+                    "statusText": "Internal Server Error",
+                    "data": None
+                }
+            }
         )
     except Exception as e:
         logger.error(f"用户注册失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"用户注册失败({str(e)})"
+        return JSONResponse(
+            status_code=HttpStatusCode.InternalServerError,
+            content={
+                "isAxiosError": True,
+                "name": "AxiosError",
+                "message": "注册失败",
+                "code": ErrorCode.ERR_INTERNAL_SERVER,
+                "status": HttpStatusCode.InternalServerError,
+                "response": {
+                    "status": HttpStatusCode.InternalServerError,
+                    "statusText": "Internal Server Error",
+                    "data": None
+                }
+            }
         )
 
 @router.get("/routes")
@@ -182,7 +277,10 @@ async def get_routes(
         cache_key = f"user:routes:{current_user.id}"
         cached_routes = cache.get(cache_key)
         if cached_routes:
-            return IResponse(code=200, data=cached_routes)
+            return IResponse(
+                code=HttpStatusCode.Ok,
+                data=cached_routes
+            )
         
         # 获取用户菜单
         menus = await menu_service.get_user_menus(current_user.id)
@@ -190,18 +288,43 @@ async def get_routes(
         # 缓存结果
         cache.set(cache_key, menus, expire=3600)
         
-        return IResponse(code=200, data=menus)
+        return IResponse(
+            code=HttpStatusCode.Ok,
+            data=menus
+        )
         
     except DatabaseError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+        return JSONResponse(
+            status_code=HttpStatusCode.InternalServerError,
+            content={
+                "isAxiosError": True,
+                "name": "AxiosError",
+                "message": str(e.detail),
+                "code": ErrorCode.ERR_INTERNAL_SERVER,
+                "status": HttpStatusCode.InternalServerError,
+                "response": {
+                    "status": HttpStatusCode.InternalServerError,
+                    "statusText": "Internal Server Error",
+                    "data": None
+                }
+            }
         )
     except Exception as e:
         logger.error(f"获取用户路由失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="获取路由失败"
+        return JSONResponse(
+            status_code=HttpStatusCode.InternalServerError,
+            content={
+                "isAxiosError": True,
+                "name": "AxiosError",
+                "message": "获取路由失败",
+                "code": ErrorCode.ERR_INTERNAL_SERVER,
+                "status": HttpStatusCode.InternalServerError,
+                "response": {
+                    "status": HttpStatusCode.InternalServerError,
+                    "statusText": "Internal Server Error",
+                    "data": None
+                }
+            }
         )
 
 @router.get("/me", response_model=IResponse[UserResponse])
@@ -215,12 +338,26 @@ async def get_me(
         IResponse[UserResponse]: 当前用户信息
     """
     try:
-        return IResponse(code=200, data=current_user)
+        return IResponse(
+            code=HttpStatusCode.Ok,
+            data=current_user
+        )
     except Exception as e:
         logger.error(f"获取用户信息失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="获取用户信息失败"
+        return JSONResponse(
+            status_code=HttpStatusCode.InternalServerError,
+            content={
+                "isAxiosError": True,
+                "name": "AxiosError",
+                "message": "获取用户信息失败",
+                "code": ErrorCode.ERR_INTERNAL_SERVER,
+                "status": HttpStatusCode.InternalServerError,
+                "response": {
+                    "status": HttpStatusCode.InternalServerError,
+                    "statusText": "Internal Server Error",
+                    "data": None
+                }
+            }
         )
 
 @router.get("/menus")
@@ -241,7 +378,10 @@ async def get_user_menus(
         cache_key = f"user:menus:{current_user.id}"
         cached_menus = cache.get(cache_key)
         if cached_menus:
-            return IResponse(code=200, data=cached_menus)
+            return IResponse(
+                code=HttpStatusCode.Ok,
+                data=cached_menus
+            )
         
         # 获取用户菜单
         menu_service.db = db
@@ -251,18 +391,43 @@ async def get_user_menus(
         # 缓存结果
         cache.set(cache_key, menus, expire=3600)
         
-        return IResponse(code=200, data=menus)
+        return IResponse(
+            code=HttpStatusCode.Ok,
+            data=menus
+        )
         
     except DatabaseError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+        return JSONResponse(
+            status_code=HttpStatusCode.InternalServerError,
+            content={
+                "isAxiosError": True,
+                "name": "AxiosError",
+                "message": str(e.detail),
+                "code": ErrorCode.ERR_INTERNAL_SERVER,
+                "status": HttpStatusCode.InternalServerError,
+                "response": {
+                    "status": HttpStatusCode.InternalServerError,
+                    "statusText": "Internal Server Error",
+                    "data": None
+                }
+            }
         )
     except Exception as e:
         logger.error(f"获取用户菜单失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="获取菜单失败"
+        return JSONResponse(
+            status_code=HttpStatusCode.InternalServerError,
+            content={
+                "isAxiosError": True,
+                "name": "AxiosError",
+                "message": "获取菜单失败",
+                "code": ErrorCode.ERR_INTERNAL_SERVER,
+                "status": HttpStatusCode.InternalServerError,
+                "response": {
+                    "status": HttpStatusCode.InternalServerError,
+                    "statusText": "Internal Server Error",
+                    "data": None
+                }
+            }
         )
 
 @router.get("/permissions")
@@ -279,18 +444,43 @@ async def get_user_permissions(
     try:
         auth_service = AuthService(db, cache)
         permissions = await auth_service.get_user_permissions(current_user.id)
-        return IResponse(code=200, data=permissions)
+        return IResponse(
+            code=HttpStatusCode.Ok,
+            data=permissions
+        )
         
     except DatabaseError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+        return JSONResponse(
+            status_code=HttpStatusCode.InternalServerError,
+            content={
+                "isAxiosError": True,
+                "name": "AxiosError",
+                "message": str(e.detail),
+                "code": ErrorCode.ERR_INTERNAL_SERVER,
+                "status": HttpStatusCode.InternalServerError,
+                "response": {
+                    "status": HttpStatusCode.InternalServerError,
+                    "statusText": "Internal Server Error",
+                    "data": None
+                }
+            }
         )
     except Exception as e:
         logger.error(f"获取用户权限失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="获取权限失败"
+        return JSONResponse(
+            status_code=HttpStatusCode.InternalServerError,
+            content={
+                "isAxiosError": True,
+                "name": "AxiosError",
+                "message": "获取用户权限失败",
+                "code": ErrorCode.ERR_INTERNAL_SERVER,
+                "status": HttpStatusCode.InternalServerError,
+                "response": {
+                    "status": HttpStatusCode.InternalServerError,
+                    "statusText": "Internal Server Error",
+                    "data": None
+                }
+            }
         )
 
 @router.post("/refresh-token", response_model=IResponse[Token])
@@ -315,7 +505,7 @@ async def refresh_token(
         refresh_token = await auth_service.create_refresh_token(current_user.id)
         
         return IResponse(
-            code=200,
+            code=HttpStatusCode.Ok,
             data=Token(
                 access_token=access_token,
                 refresh_token=refresh_token,
@@ -324,13 +514,35 @@ async def refresh_token(
         )
         
     except DatabaseError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+        return JSONResponse(
+            status_code=HttpStatusCode.InternalServerError,
+            content={
+                "isAxiosError": True,
+                "name": "AxiosError",
+                "message": str(e.detail),
+                "code": ErrorCode.ERR_INTERNAL_SERVER,
+                "status": HttpStatusCode.InternalServerError,
+                "response": {
+                    "status": HttpStatusCode.InternalServerError,
+                    "statusText": "Internal Server Error",
+                    "data": None
+                }
+            }
         )
     except Exception as e:
         logger.error(f"刷新令牌失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="刷新令牌失败"
+        return JSONResponse(
+            status_code=HttpStatusCode.InternalServerError,
+            content={
+                "isAxiosError": True,
+                "name": "AxiosError",
+                "message": "刷新令牌失败",
+                "code": ErrorCode.ERR_INTERNAL_SERVER,
+                "status": HttpStatusCode.InternalServerError,
+                "response": {
+                    "status": HttpStatusCode.InternalServerError,
+                    "statusText": "Internal Server Error",
+                    "data": None
+                }
+            }
         )

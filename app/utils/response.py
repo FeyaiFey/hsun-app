@@ -3,7 +3,9 @@ from app.schemas.response import IResponse
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.logger import logger
+from app.core.error_codes import HttpStatusCode, ErrorCode
 import time
+import json
 
 class ResponseMiddleware(BaseHTTPMiddleware):
     """响应处理中间件"""
@@ -38,19 +40,26 @@ class ResponseMiddleware(BaseHTTPMiddleware):
             content_type = response.headers.get("content-type", "")
             if "application/json" in content_type:
                 try:
-                    body = await response.json()
-                    # 如果响应已经是 IResponse 格式，直接返回
-                    if isinstance(body, dict) and all(key in body for key in ["code", "data"]):
+                    # 尝试获取响应内容
+                    body = await response.body()
+                    if not body:
                         return response
+                        
+                    data = json.loads(body)
+                    
+                    # 如果响应已经是 IResponse 格式，直接返回
+                    if isinstance(data, dict) and all(key in data for key in ["code", "data"]):
+                        return response
+                        
                     # 否则包装成 IResponse 格式
                     return JSONResponse(
                         content=IResponse(
                             code=response.status_code,
-                            data=body
+                            data=data
                         ).model_dump(),
                         status_code=response.status_code
                     )
-                except:
+                except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
                     # JSON 解析失败，返回原响应
                     return response
             
@@ -66,9 +75,25 @@ class ResponseMiddleware(BaseHTTPMiddleware):
                 f"错误: {str(e)}"
             )
             return JSONResponse(
+                status_code=HttpStatusCode.InternalServerError,
                 content=IResponse(
-                    code=500,
-                    data={"error": str(e)}
-                ).model_dump(),
-                status_code=500
+                    code=HttpStatusCode.InternalServerError,
+                    data=None
+                ).model_dump()
             )
+
+    def _get_status_text(self, status_code: int) -> str:
+        """获取状态码对应的文本描述"""
+        status_texts = {
+            200: "OK",
+            201: "Created",
+            204: "No Content",
+            400: "Bad Request",
+            401: "Unauthorized",
+            403: "Forbidden",
+            404: "Not Found",
+            409: "Conflict",
+            429: "Too Many Requests",
+            500: "Internal Server Error"
+        }
+        return status_texts.get(status_code, "Unknown Status")

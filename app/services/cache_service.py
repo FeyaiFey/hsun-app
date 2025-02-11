@@ -4,6 +4,8 @@ from app.core.cache import MemoryCache
 from app.core.logger import logger
 from app.core.monitor import track_cache_metrics
 from sqlmodel import Session
+from app.core.exceptions import DatabaseError
+from app.core.error_codes import HttpStatusCode, ErrorCode
 
 T = TypeVar('T')
 
@@ -30,20 +32,28 @@ class CacheService:
             
         Returns:
             Any: 缓存的数据
+            
+        Raises:
+            DatabaseError: 缓存操作失败
         """
-        if not force_update:
-            cached_data = self.cache.get(key)
-            if cached_data is not None:
-                track_cache_metrics(hit=True)
-                logger.debug(f"缓存命中: {key}")
-                return cached_data
-                
-        track_cache_metrics(hit=False)
-        data = await func()
-        if data is not None:
-            self.cache.set(key, data, expire=expire)
-            logger.debug(f"缓存更新: {key}")
-        return data
+        try:
+            if not force_update:
+                cached_data = self.cache.get(key)
+                if cached_data is not None:
+                    track_cache_metrics(hit=True)
+                    logger.debug(f"缓存命中: {key}")
+                    return cached_data
+                    
+            track_cache_metrics(hit=False)
+            data = await func()
+            if data is not None:
+                if not self.cache.set(key, data, expire=expire):
+                    raise DatabaseError(detail="缓存设置失败")
+                logger.debug(f"缓存更新: {key}")
+            return data
+        except Exception as e:
+            logger.error(f"缓存操作失败: {str(e)}")
+            raise DatabaseError(detail=f"缓存操作失败: {str(e)}")
 
     async def get_model_by_id(
         self,

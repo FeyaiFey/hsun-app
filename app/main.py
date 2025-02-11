@@ -5,10 +5,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from app.api.v1.endpoints import auth
 from app.utils.response import ResponseMiddleware
-from app.core.exceptions import exception_handler
+from app.core.exceptions import exception_handler, get_error_response
 from app.core.monitor import MetricsManager
 from app.core.logger import logger
 from app.schemas.response import IResponse
+from app.core.error_codes import HttpStatusCode, ErrorCode
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -60,22 +61,20 @@ async def validation_exception_handler(request, exc: RequestValidationError):
     error_message = "; ".join(errors)
     
     return JSONResponse(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        content={
-            "code": 400,
-            "message": error_message,
-            "name": "ValidationError",
-            "response": {
-                "data": None,
-                "status": 400,
-                "statusText": "Bad Request"
-            }
-        }
+        status_code=HttpStatusCode.BadRequest,
+        content=get_error_response(
+            status_code=HttpStatusCode.BadRequest,
+            message=error_message,
+            error_code=ErrorCode.ERR_BAD_REQUEST
+        )
     )
 
 @app.get("/")
 async def read_root():
-    return {"message": "Welcome to the FastAPI application!"}
+    return IResponse(
+        code=HttpStatusCode.Ok,
+        data={"message": "Welcome to the FastAPI application!"}
+    )
 
 if __name__ == "__main__":
     import uvicorn

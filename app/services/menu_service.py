@@ -12,6 +12,7 @@ from app.core.logger import logger
 from app.core.cache import MemoryCache
 from app.core.monitor import MetricsManager
 from app.core.exceptions import DatabaseError, NotFoundError
+from app.core.error_codes import HttpStatusCode, ErrorCode
 from app.crud.menu import menu as crud_menu
 from app.services.cache_service import cache_service
 
@@ -28,16 +29,23 @@ class MenuService:
         
         Args:
             menu_id: 菜单ID，为None时清除所有菜单缓存
+            
+        Raises:
+            DatabaseError: 缓存清除失败
         """
-        if menu_id:
-            cache_service.clear_model_cache(
-                menu_id,
-                ["menu", "menu:tree", "menu:children"]
-            )
-        else:
-            cache_service.clear_list_cache(
-                ["menu:list", "menu:tree"]
-            )
+        try:
+            if menu_id:
+                cache_service.clear_model_cache(
+                    menu_id,
+                    ["menu", "menu:tree", "menu:children"]
+                )
+            else:
+                cache_service.clear_list_cache(
+                    ["menu:list", "menu:tree"]
+                )
+        except Exception as e:
+            logger.error(f"清除菜单缓存失败: {str(e)}")
+            raise DatabaseError(detail=f"清除菜单缓存失败: {str(e)}")
 
     async def get_menu_by_id(self, menu_id: int) -> Optional[Menu]:
         """根据ID获取菜单

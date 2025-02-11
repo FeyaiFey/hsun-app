@@ -7,6 +7,7 @@ from app.core.logger import logger
 from app.core.cache import MemoryCache
 from app.core.monitor import MetricsManager
 from app.core.exceptions import DatabaseError, NotFoundError
+from app.core.error_codes import HttpStatusCode, ErrorCode
 
 class DepartmentService:
     """部门服务类"""
@@ -21,22 +22,30 @@ class DepartmentService:
         
         Args:
             department_id: 部门ID，为None时清除所有部门缓存
-        """
-        if department_id is None:
-            # 清除所有部门相关缓存
-            cache_keys = ["all:departments", "department:tree", "department:register", "department:tree:register"]
-            logger.debug("清除所有部门缓存")
-        else:
-            # 清除特定部门缓存
-            cache_keys = [
-                f"department:{department_id}",
-                "department:tree",  # 树结构可能受影响，也需要清除
-                "department:tree:register"  # 注册树结构也需要清除
-            ]
-            logger.debug(f"清除部门 {department_id} 的缓存")
             
-        for key in cache_keys:
-            self.cache.delete(key)
+        Raises:
+            DatabaseError: 缓存清除失败
+        """
+        try:
+            if department_id is None:
+                # 清除所有部门相关缓存
+                cache_keys = ["all:departments", "department:tree", "department:register", "department:tree:register"]
+                logger.debug("清除所有部门缓存")
+            else:
+                # 清除特定部门缓存
+                cache_keys = [
+                    f"department:{department_id}",
+                    "department:tree",  # 树结构可能受影响，也需要清除
+                    "department:tree:register"  # 注册树结构也需要清除
+                ]
+                logger.debug(f"清除部门 {department_id} 的缓存")
+                
+            for key in cache_keys:
+                if not self.cache.delete(key):
+                    raise DatabaseError(detail=f"清除缓存失败: {key}")
+        except Exception as e:
+            logger.error(f"清除部门缓存失败: {str(e)}")
+            raise DatabaseError(detail=f"清除部门缓存失败: {str(e)}")
 
     async def _get_department_by_id(self, department_id: int) -> Optional[Department]:
         """根据ID获取部门

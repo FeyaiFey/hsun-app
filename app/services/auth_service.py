@@ -18,6 +18,7 @@ from app.core.exceptions import (
     ValidationError
 )
 from app.core.monitor import MetricsManager
+from app.core.error_codes import HttpStatusCode, ErrorCode
 from app.crud.user import user as crud_user
 from app.crud.role import role as crud_role
 from app.services.cache_service import cache_service
@@ -39,16 +40,23 @@ class AuthService:
         
         Args:
             user_id: 用户ID
+            
+        Raises:
+            DatabaseError: 缓存清除失败
         """
-        cache_service.clear_model_cache(
-            user_id,
-            [
-                "user",
-                "user:permissions",
-                "user:menus",
-                "user:roles"
-            ]
-        )
+        try:
+            cache_service.clear_model_cache(
+                user_id,
+                [
+                    "user",
+                    "user:permissions",
+                    "user:menus",
+                    "user:roles"
+                ]
+            )
+        except Exception as e:
+            logger.error(f"清除用户缓存失败: {str(e)}")
+            raise DatabaseError(detail=f"清除用户缓存失败: {str(e)}")
 
     async def authenticate(self, email: str, password: str) -> Dict[str, Any]:
         """用户登录认证
@@ -69,12 +77,12 @@ class AuthService:
             if not user:
                 self.metrics.track_auth_metrics(success=False, reason="user_not_found")
                 logger.warning(f"登录失败: 邮箱 {email} 不存在")
-                raise AuthenticationError(detail="用户名或密码错误")
+                raise AuthenticationError(detail="邮箱不存在，请注册")
             
             if not verify_password(password, user.password_hash):
                 self.metrics.track_auth_metrics(success=False, reason="invalid_password")
                 logger.warning(f"登录失败: 邮箱 {email} 密码错误")
-                raise AuthenticationError(detail="用户名或密码错误")
+                raise AuthenticationError(detail="密码错误")
             
             if not user.status:
                 self.metrics.track_auth_metrics(success=False, reason="user_disabled")
