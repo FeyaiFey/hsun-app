@@ -4,8 +4,8 @@ from app.core.cache import MemoryCache
 from app.core.logger import logger
 from app.core.monitor import track_cache_metrics
 from sqlmodel import Session
-from app.core.exceptions import DatabaseError
-from app.core.error_codes import HttpStatusCode, ErrorCode
+from app.core.exceptions import CustomException
+from app.core.error_codes import ErrorCode, get_error_message
 
 T = TypeVar('T')
 
@@ -34,7 +34,7 @@ class CacheService:
             Any: 缓存的数据
             
         Raises:
-            DatabaseError: 缓存操作失败
+            CustomException: 缓存操作失败
         """
         try:
             if not force_update:
@@ -48,12 +48,16 @@ class CacheService:
             data = await func()
             if data is not None:
                 if not self.cache.set(key, data, expire=expire):
-                    raise DatabaseError(detail="缓存设置失败")
+                    raise CustomException(
+                        message=get_error_message(ErrorCode.DB_ERROR)
+                    )
                 logger.debug(f"缓存更新: {key}")
             return data
         except Exception as e:
             logger.error(f"缓存操作失败: {str(e)}")
-            raise DatabaseError(detail=f"缓存操作失败: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
 
     async def get_model_by_id(
         self,
@@ -126,10 +130,19 @@ class CacheService:
             model_id: 模型ID
             prefixes: 缓存前缀列表
         """
-        for prefix in prefixes:
-            cache_key = f"{prefix}:{model_id}"
-            self.cache.delete(cache_key)
-        logger.debug(f"清除模型 {model_id} 的缓存: {prefixes}")
+        try:
+            for prefix in prefixes:
+                cache_key = f"{prefix}:{model_id}"
+                if not self.cache.delete(cache_key):
+                    raise CustomException(
+                        message=get_error_message(ErrorCode.DB_ERROR)
+                    )
+            logger.debug(f"清除模型 {model_id} 的缓存: {prefixes}")
+        except Exception as e:
+            logger.error(f"清除缓存失败: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
 
     def clear_list_cache(self, prefixes: List[str]) -> None:
         """清除列表缓存
@@ -137,14 +150,29 @@ class CacheService:
         Args:
             prefixes: 缓存前缀列表
         """
-        for prefix in prefixes:
-            self.cache.delete(prefix)
-        logger.debug(f"清除列表缓存: {prefixes}")
+        try:
+            for prefix in prefixes:
+                if not self.cache.delete(prefix):
+                    raise CustomException(
+                        message=get_error_message(ErrorCode.DB_ERROR)
+                    )
+            logger.debug(f"清除列表缓存: {prefixes}")
+        except Exception as e:
+            logger.error(f"清除缓存失败: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
 
     def clear_all(self) -> None:
         """清除所有缓存"""
-        self.cache.clear()
-        logger.info("清除所有缓存")
+        try:
+            self.cache.clear()
+            logger.info("清除所有缓存")
+        except Exception as e:
+            logger.error(f"清除所有缓存失败: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
 
 # 创建全局缓存服务实例
 cache_service = CacheService(MemoryCache()) 

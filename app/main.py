@@ -2,14 +2,20 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
+from jose import JWTError
+
 from app.api.v1.endpoints import auth
-from app.utils.response import ResponseMiddleware
-from app.core.exceptions import exception_handler, get_error_response
 from app.core.monitor import MetricsManager
 from app.core.logger import logger
-from app.schemas.response import IResponse
-from app.core.error_codes import HttpStatusCode, ErrorCode
+from app.core.exceptions import CustomException
+from app.core.exception_handlers import (
+    custom_exception_handler,
+    validation_exception_handler,
+    database_exception_handler,
+    jwt_exception_handler,
+    general_exception_handler
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -39,42 +45,20 @@ app.add_middleware(
     allow_headers=['*'],
 )
 
-# 响应中间件
-app.add_middleware(ResponseMiddleware)
-
-# 路由
+# 注册路由
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 
-# 异常处理器
-app.add_exception_handler(Exception, exception_handler)
-
-# 添加验证错误处理器
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request, exc: RequestValidationError):
-    """处理请求数据验证错误"""
-    errors = []
-    for error in exc.errors():
-        field = error.get("loc", ["unknown"])[-1]
-        msg = error.get("msg", "验证错误")
-        errors.append(f"{field}: {msg}")
-    
-    error_message = "; ".join(errors)
-    
-    return JSONResponse(
-        status_code=HttpStatusCode.BadRequest,
-        content=get_error_response(
-            status_code=HttpStatusCode.BadRequest,
-            message=error_message,
-            error_code=ErrorCode.ERR_BAD_REQUEST
-        )
-    )
+# 注册异常处理器
+app.add_exception_handler(CustomException, custom_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(SQLAlchemyError, database_exception_handler)
+app.add_exception_handler(JWTError, jwt_exception_handler)
+app.add_exception_handler(Exception, general_exception_handler)
 
 @app.get("/")
 async def read_root():
-    return IResponse(
-        code=HttpStatusCode.Ok,
-        data={"message": "Welcome to the FastAPI application!"}
-    )
+    """健康检查接口"""
+    return {"status": "ok", "message": "Service is running"}
 
 if __name__ == "__main__":
     import uvicorn

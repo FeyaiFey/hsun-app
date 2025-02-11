@@ -2,6 +2,11 @@ from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field, EmailStr
 
+class UserRoleCreate(BaseModel):
+    """用户角色创建模型"""
+    user_id: int = Field(..., description="用户ID")
+    role_id: int = Field(..., description="角色ID")
+
 # 简单部门信息
 class UserDepartmentInfo(BaseModel):
     """部门简单信息"""
@@ -103,6 +108,7 @@ class UserType(BaseModel):
     email: str
     username: str
     department_name: str
+    roles: List[str]
     avatar_url: str
     password: str = Field(exclude=True)  # 确保密码不会被序列化
 

@@ -1,12 +1,32 @@
 from typing import List, Optional, Union, Dict, Any
 from sqlmodel import Session, select
 from fastapi.encoders import jsonable_encoder
+from app.models.user import UserRole
 from app.models.role import Role, Permission, RolePermission
 from app.schemas.role import RoleCreate, RoleUpdate
 from app.crud.base import CRUDBase
 
 class CRUDRole(CRUDBase[Role, RoleCreate, RoleUpdate]):
     """角色CRUD操作类"""
+    def get_user_roles(self, db: Session, user_id: int) -> List[Role]:
+        """获取用户角色列表
+        
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            
+        Returns:
+            List[Role]: 角色列表
+        """
+        from app.models.user import UserRole
+        # 通过 join 查询获取用户角色信息
+        statement = (
+            select(Role)
+            .join(UserRole, UserRole.role_id == Role.id)
+            .where(UserRole.user_id == user_id)
+            .where(Role.status == 1)  # 只获取启用状态的角色
+        )
+        return db.exec(statement).all()
     
     def get_by_name(self, db: Session, name: str) -> Optional[Role]:
         """通过名称获取角色"""
@@ -40,12 +60,6 @@ class CRUDRole(CRUDBase[Role, RoleCreate, RoleUpdate]):
         db.refresh(role)
         return role
 
-    def get_user_roles(self, db: Session, user_id: int) -> List[Role]:
-        """获取用户角色列表"""
-        from app.models.user import User
-        user = db.get(User, user_id)
-        return user.roles if user else []
-
     def assign_users(
         self, db: Session, *, role_id: int, user_ids: List[int]
     ) -> Optional[Role]:
@@ -62,6 +76,19 @@ class CRUDRole(CRUDBase[Role, RoleCreate, RoleUpdate]):
         db.commit()
         db.refresh(role)
         return role
+    
+    def assign_default_role(
+        self, db: Session, *, user_id: int
+    ) -> Optional[Role]:
+        """分配默认角色"""
+        default_role = UserRole(
+            user_id=user_id,
+            role_id=2
+        )
+        db.add(default_role)
+        db.commit()
+        db.refresh(default_role)
+        return default_role
 
     def remove_users(
         self, db: Session, *, role_id: int, user_ids: List[int]

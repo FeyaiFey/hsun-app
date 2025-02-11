@@ -6,8 +6,8 @@ from app.schemas.department import DepartmentResponse, DepartmentUserInfo, Depar
 from app.core.logger import logger
 from app.core.cache import MemoryCache
 from app.core.monitor import MetricsManager
-from app.core.exceptions import DatabaseError, NotFoundError
-from app.core.error_codes import HttpStatusCode, ErrorCode
+from app.core.exceptions import CustomException
+from app.core.error_codes import ErrorCode, get_error_message
 
 class DepartmentService:
     """部门服务类"""
@@ -18,14 +18,7 @@ class DepartmentService:
         self.metrics = MetricsManager()
 
     def _clear_department_cache(self, department_id: Optional[int] = None) -> None:
-        """清除部门缓存
-        
-        Args:
-            department_id: 部门ID，为None时清除所有部门缓存
-            
-        Raises:
-            DatabaseError: 缓存清除失败
-        """
+        """清除部门缓存"""
         try:
             if department_id is None:
                 # 清除所有部门相关缓存
@@ -42,23 +35,17 @@ class DepartmentService:
                 
             for key in cache_keys:
                 if not self.cache.delete(key):
-                    raise DatabaseError(detail=f"清除缓存失败: {key}")
+                    raise CustomException(
+                        message=get_error_message(ErrorCode.DB_ERROR)
+                    )
         except Exception as e:
             logger.error(f"清除部门缓存失败: {str(e)}")
-            raise DatabaseError(detail=f"清除部门缓存失败: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
 
     async def _get_department_by_id(self, department_id: int) -> Optional[Department]:
-        """根据ID获取部门
-        
-        Args:
-            department_id: 部门ID
-            
-        Returns:
-            Optional[Department]: 部门对象
-            
-        Raises:
-            DatabaseError: 数据库操作失败
-        """
+        """根据ID获取部门"""
         try:
             # 先从缓存获取
             cache_key = f"department:{department_id}"
@@ -81,17 +68,12 @@ class DepartmentService:
             
         except Exception as e:
             logger.error(f"获取部门失败: {str(e)}")
-            raise DatabaseError(detail="获取部门失败")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
 
     async def _get_children_departments(self, parent_id: Optional[int] = None) -> List[Department]:
-        """获取子部门列表
-        
-        Args:
-            parent_id: 父部门ID
-            
-        Returns:
-            List[Department]: 子部门列表
-        """
+        """获取子部门列表"""
         try:
             query = select(Department)
             if parent_id is not None:
@@ -103,17 +85,12 @@ class DepartmentService:
             
         except Exception as e:
             logger.error(f"获取子部门失败: {str(e)}")
-            raise DatabaseError(detail="获取子部门失败")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
 
     def _build_department_tree(self, departments: List[Department]) -> List[Dict[str, Any]]:
-        """构建部门树
-        
-        Args:
-            departments: 部门列表
-            
-        Returns:
-            List[Dict[str, Any]]: 部门树
-        """
+        """构建部门树"""
         dept_map = {dept.id: dept.dict() for dept in departments}
         tree = []
         
@@ -131,10 +108,7 @@ class DepartmentService:
         return sorted(tree, key=lambda x: x.get('id', 0))
     
     async def get_department_register_list(self) -> List[DepartmentRegister]:
-        """获取部门注册列表
-        Returns:
-            DepartmentRegister 列表
-        """
+        """获取部门注册列表"""
         try:
             cache_key = "department:register"
             cached_depts = self.cache.get(cache_key)
@@ -160,23 +134,12 @@ class DepartmentService:
             return departments_register
         except Exception as e:
             logger.error(f"获取所有注册所有部门列表失败: {str(e)}")
-            raise DatabaseError(detail="获取部门列表失败")
-
-            
-            
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
 
     async def get_department_tree(self, parent_id: Optional[int] = None) -> List[Dict[str, Any]]:
-        """获取部门树结构
-        
-        Args:
-            parent_id: 父部门ID，为None时获取完整树
-            
-        Returns:
-            List[Dict[str, Any]]: 部门树
-            
-        Raises:
-            DatabaseError: 数据库操作失败
-        """
+        """获取部门树结构"""
         try:
             # 如果是获取完整树，尝试从缓存获取
             cache_key = "department:tree" if parent_id is None else None
@@ -222,17 +185,12 @@ class DepartmentService:
             
         except Exception as e:
             logger.error(f"获取部门树失败: {str(e)}")
-            raise DatabaseError(detail="获取部门树失败")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
 
     async def get_all_departments(self) -> List[DepartmentRegister]:
-        """获取所有部门
-        
-        Returns:
-            List[Department]: 部门列表
-            
-        Raises:
-            DatabaseError: 数据库操作失败
-        """
+        """获取所有部门"""
         try:
             # 尝试从缓存获取
             cache_key = "all:departments"
@@ -255,38 +213,21 @@ class DepartmentService:
             
         except Exception as e:
             logger.error(f"获取所有部门失败: {str(e)}")
-            raise DatabaseError(detail="获取部门列表失败")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
 
     async def get_department_by_id(self, department_id: int) -> Department:
-        """根据ID获取部门
-        
-        Args:
-            department_id: 部门ID
-            
-        Returns:
-            Department: 部门对象
-            
-        Raises:
-            NotFoundError: 部门不存在
-            DatabaseError: 数据库操作失败
-        """
+        """根据ID获取部门"""
         department = await self._get_department_by_id(department_id)
         if not department:
-            raise NotFoundError(detail=f"部门 {department_id} 不存在")
+            raise CustomException(
+                message=get_error_message(ErrorCode.RESOURCE_NOT_FOUND)
+            )
         return department
 
     async def get_parent_departments(self, department_id: int) -> List[Department]:
-        """获取父部门链
-        
-        Args:
-            department_id: 部门ID
-            
-        Returns:
-            List[Department]: 父部门链（从上到下）
-            
-        Raises:
-            DatabaseError: 数据库操作失败
-        """
+        """获取父部门链"""
         try:
             result = []
             current_dept = await self._get_department_by_id(department_id)
@@ -301,14 +242,12 @@ class DepartmentService:
             
         except Exception as e:
             logger.error(f"获取父部门链失败: {str(e)}")
-            raise DatabaseError(detail="获取父部门链失败")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
 
     async def get_department_tree_for_register(self) -> List[DepartmentTreeNode]:
-        """获取用于注册的部门树结构
-        
-        Returns:
-            List[DepartmentTreeNode]: 部门树结构
-        """
+        """获取用于注册的部门树结构"""
         try:
             # 尝试从缓存获取
             cache_key = "department:tree:register"
@@ -357,7 +296,9 @@ class DepartmentService:
 
         except Exception as e:
             logger.error(f"获取部门注册树失败: {str(e)}")
-            raise DatabaseError(detail="获取部门树失败")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
 
 # 创建全局部门服务实例
 department_service = DepartmentService(None, None)  # 在应用启动时需要注入实际的 db 和 cache 

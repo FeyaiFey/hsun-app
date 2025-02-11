@@ -1,6 +1,5 @@
 from typing import List, Optional, Union, Dict, Any
 from sqlmodel import Session, select
-from fastapi.encoders import jsonable_encoder
 from app.models.user import User, UserAvatar
 from app.schemas.user import UserCreate, UserUpdate
 from app.core.security import get_password_hash

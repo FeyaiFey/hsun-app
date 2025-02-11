@@ -1,9 +1,9 @@
-from typing import List, Optional, Union, Dict, Any
+from typing import List, Optional
 from sqlmodel import Session, select
-from fastapi.encoders import jsonable_encoder
 from app.models.department import Department
 from app.schemas.department import DepartmentCreate, DepartmentUpdate
 from app.crud.base import CRUDBase
+from app.models.user import User
 
 class CRUDDepartment(CRUDBase[Department, DepartmentCreate, DepartmentUpdate]):
     """部门CRUD操作类"""
@@ -53,7 +53,6 @@ class CRUDDepartment(CRUDBase[Department, DepartmentCreate, DepartmentUpdate]):
 
     def get_department_users(self, db: Session, department_id: int) -> List["User"]:
         """获取部门用户列表"""
-        from app.models.user import User
         return db.exec(
             select(User).where(User.department_id == department_id)
         ).all()
