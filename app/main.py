@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from jose import JWTError
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.endpoints import auth
 from app.core.monitor import MetricsManager
@@ -44,6 +45,9 @@ app.add_middleware(
     allow_methods=['*'],
     allow_headers=['*'],
 )
+
+# 挂载静态文件路径
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # 注册路由
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])

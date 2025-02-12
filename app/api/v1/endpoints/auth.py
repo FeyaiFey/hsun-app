@@ -10,7 +10,8 @@ from app.schemas.user import (
     UserResponse,
     UserCreate,
     Token,
-    UserInfoType
+    UserInfoType,
+    UserInfoResponse
 )
 from app.models.user import User
 from app.schemas.department import DepartmentTreeNode
@@ -20,7 +21,7 @@ from app.core.monitor import monitor_request
 from app.core.logger import logger
 from app.core.cache import MemoryCache
 from app.core.config import settings
-from app.services.auth_service import AuthService
+from app.services.auth_service import AuthService, UserInfoResponse
 from app.services.menu_service import menu_service
 from app.services.department_service import department_service
 from app.core.exceptions import CustomException
@@ -174,8 +175,30 @@ async def get_routes(
             message=get_error_message(ErrorCode.SYSTEM_ERROR),
             name="SystemError"
         )
+    
+@router.post("/logout", response_model=IResponse[bool])
+@monitor_request
+async def logout(
+    current_user: User = Depends(get_current_active_user)
+) -> Any:
+    """用户登出"""
+    try:
+        # 清除用户相关的缓存
+        cache_key_routes = f"user:routes:{current_user.id}"
+        cache_key_menus = f"user:menus:{current_user.id}"
+        cache.delete(cache_key_routes)
+        cache.delete(cache_key_menus)
+        
+        return CustomResponse.success(data=True)
+    except Exception as e:
+        logger.error(f"用户登出失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
+        )
 
-@router.get("/me", response_model=IResponse[UserResponse])
+@router.get("/me", response_model=IResponse[UserInfoResponse])
 @monitor_request
 async def get_me(
     current_user: User = Depends(get_current_active_user)
@@ -183,6 +206,32 @@ async def get_me(
     """获取当前用户信息"""
     try:
         return CustomResponse.success(data=current_user)
+    except Exception as e:
+        logger.error(f"获取用户信息失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="UserInfoError"
+        )
+    
+@router.get("/userinfo", response_model=IResponse[UserInfoResponse])
+@monitor_request
+async def get_user_info(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+) -> Any:
+    """获取用户信息"""
+    try:
+        auth_service = AuthService(db, cache)
+        user_info = await auth_service.get_entire_user_info(current_user.id)
+        return CustomResponse.success(data=user_info)
+        
+    except CustomException as e:
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="UserInfoError"
+        )
     except Exception as e:
         logger.error(f"获取用户信息失败: {str(e)}")
         return CustomResponse.error(

@@ -1,7 +1,7 @@
 from typing import List, Optional, Union, Dict, Any
 from sqlmodel import Session, select
 from app.models.user import User, UserAvatar
-from app.schemas.user import UserCreate, UserUpdate
+from app.schemas.user import UserCreate, UserUpdate, UserInfoResponse
 from app.core.security import get_password_hash
 from app.crud.base import CRUDBase
 

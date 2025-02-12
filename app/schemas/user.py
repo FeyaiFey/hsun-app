@@ -116,3 +116,12 @@ class UserInfoType(BaseModel):
     """用户信息响应类型"""
     userinfo: UserType
     token: str 
+
+class UserInfoResponse(BaseModel):
+    """用户信息响应模型"""
+    username: str
+    email: EmailStr
+    password: str
+    department_name: str
+    roles: List[str]
+    avatar_url: str

@@ -5,7 +5,8 @@ from app.core.security import verify_password, create_access_token, create_refre
 from app.core.logger import logger
 from app.core.config import settings
 from app.models.user import User, UserAvatar, UserRole
-from app.schemas.user import UserCreate, UserUpdate
+from app.models.department import Department
+from app.schemas.user import UserCreate, UserUpdate, UserInfoResponse
 from app.services.department_service import DepartmentService
 from app.core.cache import MemoryCache
 from app.core.exceptions import CustomException
@@ -126,6 +127,55 @@ class AuthService:
             raise CustomException(
                 message=get_error_message(ErrorCode.SYSTEM_ERROR)
             )
+    async def get_entire_user_info(self, user_id: int) -> UserInfoResponse:
+        """获取用户完整信息"""
+        try:
+            # 直接从数据库获取用户信息
+            user = crud_user.get(self.db, user_id)
+            if not user:
+                raise CustomException(
+                    message=get_error_message(ErrorCode.USER_NOT_FOUND)
+                )
+            
+            # 获取用户部门名称
+            department_name = ""
+            if user.department_id:
+                try:
+                    department = await self.department_service.get_department_by_id(user.department_id)
+                    if department:
+                        department_name = department.department_name
+                except Exception as e:
+                    logger.warning(f"获取部门信息失败: {str(e)}")
+
+            # 获取用户头像
+            avatar_url = DEFAULT_AVATAR_PATH
+            active_avatar = crud_user.get_active_avatar(self.db, user.id)
+            if active_avatar:
+                avatar_url = active_avatar.avatar_url
+
+            # 获取用户角色
+            user_roles = []
+            try:
+                roles = crud_role.get_user_roles(self.db, user.id)
+                if roles:
+                    user_roles = [role.role_name for role in roles]
+            except Exception as e:
+                logger.warning(f"获取用户角色失败: {str(e)}")
+
+            return UserInfoResponse(
+                email=user.email or "",
+                username=user.username,
+                password=user.password_hash,
+                department_name=department_name,
+                roles=user_roles,
+                avatar_url=avatar_url
+            )
+        except CustomException:
+            raise
+        except Exception as e:
+            logger.error(f"获取用户信息异常: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.USER_NOT_FOUND))
 
     async def create_user(self, user_in: UserCreate) -> User:
         """创建新用户"""

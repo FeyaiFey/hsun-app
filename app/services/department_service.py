@@ -52,6 +52,9 @@ class DepartmentService:
             cached_dept = self.cache.get(cache_key)
             if cached_dept:
                 self.metrics.track_cache_metrics(hit=True)
+                # 如果是字典，转换为 Department 实例
+                if isinstance(cached_dept, dict):
+                    return Department(**cached_dept)
                 return cached_dept
 
             self.metrics.track_cache_metrics(hit=False)
@@ -62,7 +65,7 @@ class DepartmentService:
             
             # 缓存结果
             if department:
-                self.cache.set(cache_key, department, expire=3600)
+                self.cache.set(cache_key, department.model_dump(), expire=3600)
                 
             return department
             
