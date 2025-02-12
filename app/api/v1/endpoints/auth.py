@@ -150,7 +150,11 @@ async def get_routes(
             return CustomResponse.success(data=cached_routes)
         
         # 获取用户菜单
-        menus = await menu_service.get_user_menus(current_user.id)
+        # 如果是超级管理员id=1，则获取所有菜单
+        if current_user.id == 1:
+            menus = await menu_service.get_menu_tree()
+        else:
+            menus = await menu_service.get_user_menus(current_user.id)
         
         # 缓存结果
         cache.set(cache_key, menus, expire=3600)

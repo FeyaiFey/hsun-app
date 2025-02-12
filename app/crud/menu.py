@@ -7,50 +7,29 @@ from app.crud.base import CRUDBase
 
 class CRUDMenu(CRUDBase[Menu, MenuCreate, MenuUpdate]):
     """菜单CRUD操作类"""
-    
+
+    def get_all_menus(self, db: Session) -> Optional[Menu]:
+        return db.exec(select(Menu)).all()
+
     def get_by_name(self, db: Session, name: str) -> Optional[Menu]:
         """通过名称获取菜单"""
         return db.exec(select(Menu).where(Menu.name == name)).first()
 
-    def get_children(self, db: Session, parent_id: Optional[int] = None) -> List[Menu]:
-        """获取子菜单"""
-        query = select(Menu)
-        if parent_id is not None:
-            query = query.where(Menu.parent_id == parent_id)
-        else:
-            query = query.where(Menu.parent_id.is_(None))
-        return db.exec(query.order_by(Menu.menu_order)).all()
-
-    def get_tree(self, db: Session) -> List[Menu]:
-        """获取菜单树"""
-        return self.get_children(db)
-
     def get_user_menus(self, db: Session, user_id: int) -> List[Menu]:
         """获取用户菜单列表"""
-        from app.models.user import User
-        from app.models.role import Role, Permission
-        
-        # 获取用户角色的菜单
-        query = (
-            select(Menu)
-            .join(Permission, Permission.menu_id == Menu.id)
-            .join(Role.permissions)
-            .join(User.roles)
-            .where(User.id == user_id)
-            .distinct()
-        )
-        return db.exec(query.order_by(Menu.menu_order)).all()
+        from app.models.user import UserRole
+        from app.models.role import RolePermission
 
-    def get_role_menus(self, db: Session, role_id: int) -> List[Menu]:
-        """获取角色菜单列表"""
-        from app.models.role import Role, Permission
-        
-        # 获取角色的菜单
+        # 获取用户角色的菜单
+        user_first_role = db.exec(select(UserRole).where(UserRole.user_id == user_id).limit(1)).first()
+        if user_first_role:
+            role_id = user_first_role.role_id
+        else:
+            role_id = 2
         query = (
-            select(Menu)
-            .join(Permission, Permission.menu_id == Menu.id)
-            .join(Role.permissions)
-            .where(Role.id == role_id)
+            select(RolePermission)
+            .join(Menu, RolePermission.menu_id == Menu.id)
+            .where(RolePermission.role_id == role_id)
             .distinct()
         )
         return db.exec(query.order_by(Menu.menu_order)).all()

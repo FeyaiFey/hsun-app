@@ -91,7 +91,7 @@ class DepartmentService:
 
     def _build_department_tree(self, departments: List[Department]) -> List[Dict[str, Any]]:
         """构建部门树"""
-        dept_map = {dept.id: dept.dict() for dept in departments}
+        dept_map = {dept.id: dept.model_dump() for dept in departments}
         tree = []
         
         for dept_id, dept_dict in dept_map.items():

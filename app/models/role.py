@@ -34,9 +34,9 @@ class RolePermission(SQLModel, table=True):
         nullable=False,
         description="角色ID"
     )
-    permission_id: int = Field(
+    menu_id: int = Field(
         nullable=False,
-        description="权限ID"
+        description="菜单ID"
     )
     granted_at: datetime = Field(
         sa_column=Column(

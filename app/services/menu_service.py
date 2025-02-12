@@ -2,6 +2,7 @@ from typing import List, Dict, Any, Optional
 from sqlmodel import Session
 from app.models.menu import Menu
 from app.schemas.menu import (
+    AppCustomRouteRecordRaw,
     MenuCreate,
     MenuUpdate,
     MenuResponse,
@@ -41,6 +42,32 @@ class MenuService:
             raise CustomException(
                 message=get_error_message(ErrorCode.DB_ERROR)
             )
+        
+    def _build_tree(self, menu_list: List[Menu], parent_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        tree = []
+        for menu in menu_list:
+            if menu.parent_id == parent_id:
+                menu_dict = menu.model_dump()
+                children = self._build_tree(menu_list, menu.id)
+                meta = {
+                    'title': menu.title,
+                    'icon': menu.icon,
+                    'alwaysShow': menu.always_show,
+                    'noCache': menu.no_cache,
+                    'affix': menu.affix,
+                    'hidden': menu.hidden
+                }
+                menu_item = {
+                    'path': menu.path,
+                    'component': menu.component,
+                    'redirect': menu.redirect,
+                    'name': menu.name,
+                    'meta': meta
+                }
+                if children:
+                    menu_item['children'] = children
+                tree.append(menu_item)
+        return tree
 
     async def get_menu_by_id(self, menu_id: int) -> Optional[Menu]:
         """根据ID获取菜单"""
@@ -69,17 +96,10 @@ class MenuService:
 
             self.metrics.track_cache_metrics(hit=False)
             
-            # 获取所有根菜单
-            menus = crud_menu.get_tree(self.db)
+            # 获取所有菜单
+            menus = crud_menu.get_all_menus(self.db)
             
-            # 构建树形结构
-            menu_tree = []
-            for menu in menus:
-                menu_dict = menu.dict()
-                children = crud_menu.get_children(self.db, menu.id)
-                if children:
-                    menu_dict["children"] = [child.dict() for child in children]
-                menu_tree.append(menu_dict)
+            menu_tree = self._build_tree(menus)
             
             # 缓存结果
             self.cache.set(cache_key, menu_tree, expire=3600)
@@ -111,10 +131,10 @@ class MenuService:
             menu_tree = []
             root_menus = [menu for menu in menus if not menu.parent_id]
             for menu in root_menus:
-                menu_dict = menu.dict()
+                menu_dict = menu.model_dump()
                 children = [m for m in menus if m.parent_id == menu.id]
                 if children:
-                    menu_dict["children"] = [child.dict() for child in children]
+                    menu_dict["children"] = [child.model_dump() for child in children]
                 menu_tree.append(menu_dict)
             
             # 缓存结果

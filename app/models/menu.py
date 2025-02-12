@@ -29,7 +29,7 @@ class Menu(SQLModel, table=True):
         description="路由名称"
     )
     title: str = Field(
-        sa_column=Column(String(255), nullable=False),
+        sa_column=Column(String(255)),
         description="菜单标题"
     )
     icon: Optional[str] = Field(
