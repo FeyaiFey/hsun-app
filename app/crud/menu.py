@@ -27,8 +27,8 @@ class CRUDMenu(CRUDBase[Menu, MenuCreate, MenuUpdate]):
         else:
             role_id = 2
         query = (
-            select(RolePermission)
-            .join(Menu, RolePermission.menu_id == Menu.id)
+            select(Menu)
+            .join(RolePermission, RolePermission.menu_id == Menu.id)
             .where(RolePermission.role_id == role_id)
             .distinct()
         )

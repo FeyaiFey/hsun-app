@@ -125,17 +125,11 @@ class MenuService:
             self.metrics.track_cache_metrics(hit=False)
             
             # 获取用户菜单
-            menus = crud_menu.get_user_menus(self.db, user_id)
+            user_menus = crud_menu.get_user_menus(self.db, user_id)
             
             # 构建树形结构
-            menu_tree = []
-            root_menus = [menu for menu in menus if not menu.parent_id]
-            for menu in root_menus:
-                menu_dict = menu.model_dump()
-                children = [m for m in menus if m.parent_id == menu.id]
-                if children:
-                    menu_dict["children"] = [child.model_dump() for child in children]
-                menu_tree.append(menu_dict)
+            menu_tree = self._build_tree(user_menus)
+           
             
             # 缓存结果
             self.cache.set(cache_key, menu_tree, expire=3600)
