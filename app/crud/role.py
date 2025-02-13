@@ -1,24 +1,73 @@
 from typing import List, Optional, Union, Dict, Any
 from sqlmodel import Session, select
-from fastapi.encoders import jsonable_encoder
 from app.models.user import UserRole
 from app.models.role import Role, Permission, RolePermission
 from app.schemas.role import RoleCreate, RoleUpdate
-from app.crud.base import CRUDBase
 
-class CRUDRole(CRUDBase[Role, RoleCreate, RoleUpdate]):
+class CRUDRole:
     """角色CRUD操作类"""
+    def __init__(self, model: Role):
+        self.model = model
+
+    def get(self, db: Session, id: Any) -> Optional[Role]:
+        """根据ID获取记录"""
+        return db.get(self.model, id)
+
+    def get_multi(
+        self,
+        db: Session,
+        *,
+        skip: int = 0,
+        limit: int = 100,
+        order_by: Optional[str] = None
+    ) -> List[Role]:
+        """获取多条记录"""
+        query = select(self.model)
+        if order_by:
+            query = query.order_by(order_by)
+        return db.exec(query.offset(skip).limit(limit)).all()
+
+    def create(self, db: Session, *, obj_in: RoleCreate) -> Role:
+        """创建记录"""
+        db_obj = Role(**obj_in.model_dump())
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
+    def update(
+        self,
+        db: Session,
+        *,
+        db_obj: Role,
+        obj_in: Union[RoleUpdate, Dict[str, Any]]
+    ) -> Role:
+        """更新记录"""
+        if isinstance(obj_in, dict):
+            update_data = obj_in
+        else:
+            update_data = obj_in.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(db_obj, field, value)
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
+    def remove(self, db: Session, *, id: Any) -> Role:
+        """删除记录"""
+        obj = db.get(self.model, id)
+        db.delete(obj)
+        db.commit()
+        return obj
+
+    def exists(self, db: Session, *, id: Any) -> bool:
+        """检查记录是否存在"""
+        obj = db.get(self.model, id)
+        return obj is not None
+
     def get_user_roles(self, db: Session, user_id: int) -> List[Role]:
-        """获取用户角色列表
-        
-        Args:
-            db: 数据库会话
-            user_id: 用户ID
-            
-        Returns:
-            List[Role]: 角色列表
-        """
-        from app.models.user import UserRole
+        """获取用户角色列表"""
         # 通过 join 查询获取用户角色信息
         statement = (
             select(Role)
@@ -105,8 +154,64 @@ class CRUDRole(CRUDBase[Role, RoleCreate, RoleUpdate]):
         db.refresh(role)
         return role
 
-class CRUDPermission(CRUDBase[Permission, Any, Any]):
+class CRUDPermission:
     """权限CRUD操作类"""
+    
+    def __init__(self, model: Permission):
+        self.model = model
+
+    def get(self, db: Session, id: Any) -> Optional[Permission]:
+        """根据ID获取记录"""
+        return db.get(self.model, id)
+
+    def get_multi(
+        self,
+        db: Session,
+        *,
+        skip: int = 0,
+        limit: int = 100,
+        order_by: Optional[str] = None
+    ) -> List[Permission]:
+        """获取多条记录"""
+        query = select(self.model)
+        if order_by:
+            query = query.order_by(order_by)
+        return db.exec(query.offset(skip).limit(limit)).all()
+
+    def create(self, db: Session, *, obj_in: dict) -> Permission:
+        """创建记录"""
+        db_obj = Permission(**obj_in)
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
+    def update(
+        self,
+        db: Session,
+        *,
+        db_obj: Permission,
+        obj_in: dict
+    ) -> Permission:
+        """更新记录"""
+        for field, value in obj_in.items():
+            setattr(db_obj, field, value)
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
+    def remove(self, db: Session, *, id: Any) -> Permission:
+        """删除记录"""
+        obj = db.get(self.model, id)
+        db.delete(obj)
+        db.commit()
+        return obj
+
+    def exists(self, db: Session, *, id: Any) -> bool:
+        """检查记录是否存在"""
+        obj = db.get(self.model, id)
+        return obj is not None
     
     def get_by_action(self, db: Session, action: str) -> Optional[Permission]:
         """通过动作获取权限"""

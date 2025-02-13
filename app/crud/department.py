@@ -1,12 +1,32 @@
-from typing import List, Optional, Dict
-from sqlmodel import Session, select
+from typing import List, Optional, Dict, Any
+from sqlmodel import Session, select, func
 from app.models.department import Department
-from app.schemas.department import DepartmentList, DepartmentInDB, DepartmentCreate, DepartmentUpdate, DepartmentItem, DepartmentListResponse
-from app.crud.base import CRUDBase
+from app.schemas.department import DepartmentList, DepartmentItem, DepartmentListResponse, DepartmentTableListResponse
 from app.models.user import User
 
-class CRUDDepartment(CRUDBase[Department, DepartmentCreate, DepartmentUpdate]):
+class CRUDDepartment:
     """部门CRUD操作类"""
+    
+    def __init__(self, model: Department):
+        self.model = model
+
+    def get(self, db: Session, id: Any) -> Optional[Department]:
+        """根据ID获取记录"""
+        return db.get(self.model, id)
+
+    def get_multi(
+        self,
+        db: Session,
+        *,
+        skip: int = 0,
+        limit: int = 100,
+        order_by: Optional[str] = None
+    ) -> List[Department]:
+        """获取多条记录"""
+        query = select(self.model)
+        if order_by:
+            query = query.order_by(order_by)
+        return db.exec(query.offset(skip).limit(limit)).all()
 
     def get_all(self, db: Session) -> List[Department]:
         """获取所有部门"""
@@ -47,62 +67,99 @@ class CRUDDepartment(CRUDBase[Department, DepartmentCreate, DepartmentUpdate]):
         # 返回最终结果
         return DepartmentListResponse(list=root_departments)
     
-    def get_by_name(self, db: Session, name: str) -> Optional[Department]:
-        """通过名称获取部门"""
-        return db.exec(
-            select(Department).where(Department.department_name == name)
-        ).first()
-
-    def get_children(self, db: Session, parent_id: Optional[int] = None) -> List[Department]:
-        """获取子部门"""
+    def get_department_table_list(
+        self,
+        db: Session,
+        *,
+        skip: int = 0,
+        limit: int = 10,
+        department_name: str = None,
+        status: int = None,
+        order_by: str = None
+    ) -> DepartmentTableListResponse:
+        """获取部门表格列表数据
+        
+        Args:
+            db: 数据库会话
+            skip: 跳过记录数
+            limit: 限制记录数
+            department_name: 部门名称过滤
+            status: 状态过滤
+            order_by: 排序字段
+            
+        Returns:
+            DepartmentTableListResponse: 部门表格数据和总记录数
+        """
+        # 构建基础查询
         query = select(Department)
-        if parent_id is not None:
-            query = query.where(Department.parent_id == parent_id)
+        
+        # 应用过滤条件
+        if department_name:
+            query = query.where(Department.department_name.like(f"%{department_name}%"))
+        if status is not None:
+            query = query.where(Department.status == status)
+            
+        # 获取总记录数
+        total_query = select(func.count()).select_from(query.subquery())
+        total = db.exec(total_query).first()
+        
+        # 应用排序
+        if order_by:
+            order_field = getattr(Department, order_by.lstrip("-"), None)
+            if order_field:
+                query = query.order_by(
+                    order_field.desc() if order_by.startswith("-") else order_field
+                )
         else:
-            query = query.where(Department.parent_id.is_(None))
-        return db.exec(query).all()
-
-    def get_tree(self, db: Session) -> List[Department]:
-        """获取部门树"""
-        return self.get_children(db)
-
-    def get_parent_chain(self, db: Session, department_id: int) -> List[Department]:
-        """获取父部门链"""
-        result = []
-        current = self.get(db, department_id)
+            query = query.order_by(Department.id)
+            
+        # 应用分页
+        query = query.offset(skip).limit(limit)
+        departments = db.exec(query).all()
         
-        while current and current.parent_id:
-            parent = self.get(db, current.parent_id)
-            if parent:
-                result.insert(0, parent)
-            current = parent
-            
-        return result
-
-    def get_all_children(self, db: Session, department_id: int) -> List[Department]:
-        """获取所有子部门（包括子部门的子部门）"""
-        result = []
-        children = self.get_children(db, department_id)
+        # 转换为响应列表
+        department_list = [
+            DepartmentList(
+                id=dept.id,
+                pid=dept.parent_id,
+                department_name=dept.department_name,
+                status=dept.status,
+                created_at=dept.created_at.strftime("%Y-%m-%d %H:%M:%S")
+            ) for dept in departments
+        ]
         
-        for child in children:
-            result.append(child)
-            result.extend(self.get_all_children(db, child.id))
-            
-        return result
+        return DepartmentTableListResponse(
+            list=department_list,
+            total=total or 0
+        )
 
-    def get_department_users(self, db: Session, department_id: int) -> List[User]:
-        """获取部门用户列表"""
-        return db.exec(
-            select(User).where(User.department_id == department_id)
-        ).all()
+    def create(self, db: Session, *, obj_in: dict) -> Department:
+        """创建记录"""
+        db_obj = self.model(**obj_in)
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
 
-    def remove(self, db: Session, *, id: int) -> Department:
-        """删除部门（包括子部门）"""
-        # 递归删除子部门
-        children = self.get_children(db, id)
-        for child in children:
-            self.remove(db, id=child.id)
-            
-        return super().remove(db, id=id)
+    def update(self, db: Session, *, db_obj: Department, obj_in: dict) -> Department:
+        """更新记录"""
+        for field, value in obj_in.items():
+            setattr(db_obj, field, value)
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
+    def remove(self, db: Session, *, id: Any) -> Department:
+        """删除记录"""
+        obj = db.get(self.model, id)
+        db.delete(obj)
+        db.commit()
+        return obj
+
+    def exists(self, db: Session, *, id: Any) -> bool:
+        """检查记录是否存在"""
+        obj = db.get(self.model, id)
+        return obj is not None
 
 department = CRUDDepartment(Department) 

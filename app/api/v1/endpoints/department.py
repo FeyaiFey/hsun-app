@@ -7,21 +7,13 @@ from app.crud.department import department
 from app.db.session import get_db
 from app.schemas.response import IResponse
 from app.schemas.department import (
-    DepartmentBase,
-    DepartmentList,
-    DepartmentListResponse
+    DepartmentListResponse,
+    DepartmentTableListResponse
 )
-from app.models.user import User
-from app.models.department import Department
-from app.schemas.department import DepartmentList
-from app.core.deps import get_current_user, get_current_active_user
 from app.core.rate_limit import SimpleRateLimiter
 from app.core.monitor import monitor_request
 from app.core.logger import logger
 from app.core.cache import MemoryCache
-from app.core.config import settings
-from app.services.auth_service import AuthService, UserInfoResponse
-from app.services.menu_service import menu_service
 from app.services.department_service import department_service
 from app.core.exceptions import CustomException
 from app.core.response import CustomResponse
@@ -52,7 +44,7 @@ async def get_department_list(
         department_service.cache = cache
         
         # 获取树形结构的部门列表
-        departments = await department_service.get_department_tree_list()
+        departments = await department_service.get_department_tree()
         return CustomResponse.success(data=departments)
     except CustomException as e:
         return CustomResponse.error(
@@ -69,26 +61,29 @@ async def get_department_list(
         )
     
 
-@router.get("/table/list", response_model=IResponse[List[DepartmentList]])
+@router.get("/table/list", response_model=IResponse[DepartmentTableListResponse])
 @monitor_request
 async def get_department_table_list(
     department_name: str = None,
     status: int = None,
-    page: int = 1,
-    page_size: int = 10,
+    pageIndex: int = 1,
+    pageSize: int = 10,
     order_by: str = None,
     # current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Any:
-    """获取部门列表
+    """获取部门表格列表数据
     
     Args:
         department_name: 部门名称，可选
         status: 状态，可选（1-启用，0-禁用）
-        page: 页码，默认1
-        page_size: 每页数量，默认10
+        pageIndex: 页码，默认1
+        pageSize: 每页数量，默认10
         order_by: 排序字段，可选
         db: 数据库会话
+        
+    Returns:
+        IResponse[DepartmentTableListResponse]: 包含部门列表数据和总记录数的响应
     """
     try:
         # 注入数据库会话和缓存
@@ -99,8 +94,8 @@ async def get_department_table_list(
         query_params = {
             "department_name": department_name,
             "status": status,
-            "page": page,
-            "page_size": page_size,
+            "pageIndex": pageIndex,
+            "pageSize": pageSize,
             "order_by": order_by
         }
         

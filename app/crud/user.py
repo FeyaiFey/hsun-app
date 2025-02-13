@@ -3,11 +3,32 @@ from sqlmodel import Session, select
 from app.models.user import User, UserAvatar
 from app.schemas.user import UserCreate, UserUpdate, UserInfoResponse
 from app.core.security import get_password_hash
-from app.crud.base import CRUDBase
 
-class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
+class CRUDUser:
     """用户CRUD操作类"""
     
+    def __init__(self, model: User):
+        self.model = model
+
+    def get(self, db: Session, id: Any) -> Optional[User]:
+        """根据ID获取记录"""
+        return db.get(self.model, id)
+
+    def get_multi(
+        self,
+        db: Session,
+        *,
+        skip: int = 0,
+        limit: int = 100,
+        order_by: Optional[str] = None
+    ) -> List[User]:
+        """获取多条记录"""
+        query = select(self.model)
+        if order_by:
+            query = query.order_by(order_by)
+        return db.exec(query.offset(skip).limit(limit)).all()
+    
+    # 使用
     def get_by_email(self, db: Session, email: str) -> Optional[User]:
         """通过邮箱获取用户"""
         return db.exec(select(User).where(User.email == email)).first()
@@ -46,7 +67,25 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             hashed_password = get_password_hash(update_data["password"])
             del update_data["password"]
             update_data["password_hash"] = hashed_password
-        return super().update(db, db_obj=db_obj, obj_in=update_data)
+        
+        for field, value in update_data.items():
+            setattr(db_obj, field, value)
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
+    def remove(self, db: Session, *, id: Any) -> User:
+        """删除记录"""
+        obj = db.get(self.model, id)
+        db.delete(obj)
+        db.commit()
+        return obj
+
+    def exists(self, db: Session, *, id: Any) -> bool:
+        """检查记录是否存在"""
+        obj = db.get(self.model, id)
+        return obj is not None
 
     def get_active_avatar(self, db: Session, user_id: int) -> Optional[UserAvatar]:
         """获取用户当前头像"""

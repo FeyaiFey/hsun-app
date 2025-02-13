@@ -241,8 +241,7 @@ class AuthService:
             raise CustomException(
                 message=get_error_message(ErrorCode.DB_ERROR)
             )
-
-
+        
     async def get_user_permissions(self, user_id: int) -> Set[str]:
         """获取用户权限"""
         try:

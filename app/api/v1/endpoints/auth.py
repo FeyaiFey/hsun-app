@@ -7,14 +7,13 @@ from app.db.session import get_db
 from app.schemas.response import IResponse
 from app.schemas.user import (
     UserLogin,
-    UserResponse,
     UserCreate,
+    UserInDB,
     Token,
     UserInfoType,
     UserInfoResponse
 )
 from app.models.user import User
-from app.schemas.department import DepartmentTreeNode
 from app.core.deps import get_current_user, get_current_active_user
 from app.core.rate_limit import SimpleRateLimiter
 from app.core.monitor import monitor_request
@@ -23,7 +22,6 @@ from app.core.cache import MemoryCache
 from app.core.config import settings
 from app.services.auth_service import AuthService
 from app.services.menu_service import menu_service
-from app.services.department_service import department_service
 from app.core.exceptions import CustomException
 from app.core.response import CustomResponse
 from app.core.error_codes import ErrorCode, get_error_message
@@ -35,36 +33,6 @@ rate_limiter = SimpleRateLimiter(limit=5, window=60)  # 每分钟最多5次请�
 
 # 创建缓存实例
 cache = MemoryCache()
-
-@router.get("/department", response_model=IResponse[List[DepartmentTreeNode]])
-@monitor_request
-async def get_department_list(
-    db: Session = Depends(get_db)
-) -> Any:
-    """获取部门列表"""
-    try:
-        # 初始化部门服务
-        department_service.db = db
-        department_service.cache = cache
-        
-        # 获取部门树
-        departments = await department_service.get_department_tree_for_register()
-        
-        return CustomResponse.success(data=departments)
-        
-    except CustomException as e:
-        return CustomResponse.error(
-            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message=e.message,
-            name="DepartmentError"
-        )
-    except Exception as e:
-        logger.error(f"获取部门列表异常: {str(e)}")
-        return CustomResponse.error(
-            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message=get_error_message(ErrorCode.SYSTEM_ERROR),
-            name="SystemError"
-        )
 
 @router.post("/login", response_model=IResponse[UserInfoType])
 @monitor_request
@@ -106,7 +74,7 @@ async def login(
             name="SystemError"
         )
 
-@router.post("/register", response_model=IResponse[UserResponse])
+@router.post("/register", response_model=IResponse[UserInDB])
 @monitor_request
 async def register(
     user_in: UserCreate,

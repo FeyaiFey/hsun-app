@@ -4,10 +4,7 @@ from app.models.menu import Menu
 from app.schemas.menu import (
     AppCustomRouteRecordRaw,
     MenuCreate,
-    MenuUpdate,
-    MenuResponse,
-    MenuPermissionInfo,
-    MenuRoleInfo
+    MenuUpdate
 )
 from app.core.logger import logger
 from app.core.cache import MemoryCache
