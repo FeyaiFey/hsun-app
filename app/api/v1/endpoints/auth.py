@@ -21,7 +21,7 @@ from app.core.monitor import monitor_request
 from app.core.logger import logger
 from app.core.cache import MemoryCache
 from app.core.config import settings
-from app.services.auth_service import AuthService, UserInfoResponse
+from app.services.auth_service import AuthService
 from app.services.menu_service import menu_service
 from app.services.department_service import department_service
 from app.core.exceptions import CustomException

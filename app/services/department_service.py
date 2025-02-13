@@ -1,8 +1,9 @@
 from typing import List, Dict, Any, Optional
 from sqlmodel import Session, select
 
+from app.crud.department import department as crud_department
 from app.models.department import Department
-from app.schemas.department import DepartmentResponse, DepartmentUserInfo, DepartmentRegister, DepartmentTreeNode
+from app.schemas.department import DepartmentList, DepartmentResponse, DepartmentUserInfo, DepartmentRegister, DepartmentTreeNode, DepartmentListResponse
 from app.core.logger import logger
 from app.core.cache import MemoryCache
 from app.core.monitor import MetricsManager
@@ -22,7 +23,7 @@ class DepartmentService:
         try:
             if department_id is None:
                 # 清除所有部门相关缓存
-                cache_keys = ["all:departments", "department:tree", "department:register", "department:tree:register"]
+                cache_keys = ["all:departments", "department:tree", "department:register", "department:tree:register","department:list"]
                 logger.debug("清除所有部门缓存")
             else:
                 # 清除特定部门缓存
@@ -30,6 +31,7 @@ class DepartmentService:
                     f"department:{department_id}",
                     "department:tree",  # 树结构可能受影响，也需要清除
                     "department:tree:register"  # 注册树结构也需要清除
+                    "department:list"
                 ]
                 logger.debug(f"清除部门 {department_id} 的缓存")
                 
@@ -109,7 +111,89 @@ class DepartmentService:
                     parent['children'].append(dept_dict)
         
         return sorted(tree, key=lambda x: x.get('id', 0))
-    
+
+    async def get_departments_list(self) -> List[DepartmentList]:
+        """前端获取部门列表"""
+        try:
+            cache_key = "department:list"
+            cached_depts = self.cache.get(cache_key)
+            if cached_depts:
+                self.metrics.track_cache_metrics(hit=True)
+                # 从缓存数据重建模型实例
+                return [DepartmentList(**dept) for dept in cached_depts]
+
+            self.metrics.track_cache_metrics(hit=False)
+
+            # 从数据库中获取
+            departments = crud_department.get_all(self.db)
+            
+            # 转换为响应模型列表
+            department_list = [
+                DepartmentList(
+                    id=dept.id,
+                    pid=dept.parent_id,
+                    department_name=dept.department_name,
+                    status=dept.status,
+                    created_at=dept.created_at
+                ) for dept in departments
+            ]
+            
+            # 缓存结果 - 存储序列化后的数据
+            if department_list:
+                cache_data = [dept.model_dump() for dept in department_list]
+                self.cache.set(cache_key, cache_data, expire=3600)
+            
+            return department_list
+            
+        except Exception as e:
+            logger.error(f"获取所有部门列表失败: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
+
+    async def get_department_tree_list(self) -> DepartmentListResponse:
+        """获取树形结构的部门列表
+        
+        Returns:
+            DepartmentListResponse: 树形结构的部门列表，包含父子关系
+            
+        Raises:
+            CustomException: 当获取部门列表失败时抛出
+        """
+        try:
+            # 尝试从缓存获取
+            cache_key = "department:tree:list"
+            cached_tree = self.cache.get(cache_key)
+            if cached_tree:
+                self.metrics.track_cache_metrics(hit=True)
+                logger.debug(f"命中缓存: {cache_key}")
+                return DepartmentListResponse(**cached_tree)
+
+            self.metrics.track_cache_metrics(hit=False)
+            
+            # 从数据库获取树形结构
+            tree_response = crud_department.get_department_tree_list(self.db)
+            
+            # 缓存结果
+            try:
+                if tree_response:
+                    cache_data = tree_response.model_dump()
+                    success = self.cache.set(cache_key, cache_data, expire=3600)
+                    if success:
+                        logger.debug(f"成功设置缓存: {cache_key}")
+                    else:
+                        logger.warning(f"设置缓存失败: {cache_key}")
+            except Exception as cache_error:
+                logger.warning(f"缓存设置失败: {str(cache_error)}")
+            
+            return tree_response
+            
+        except Exception as e:
+            logger.error(f"获取部门树形列表失败: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
+
     async def get_department_register_list(self) -> List[DepartmentRegister]:
         """获取部门注册列表"""
         try:
@@ -299,6 +383,96 @@ class DepartmentService:
 
         except Exception as e:
             logger.error(f"获取部门注册树失败: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
+
+    async def get_departments_list_with_params(self, params: dict) -> List[DepartmentList]:
+        """根据参数获取部门列表
+        
+        Args:
+            params: 查询参数字典
+                - department_name: 部门名称
+                - status: 状态
+                - page: 页码
+                - page_size: 每页数量
+                - order_by: 排序字段
+        """
+        try:
+            if not self.db:
+                raise CustomException(message="数据库会话未初始化")
+
+            # 构建缓存键
+            cache_key = f"department:list:{hash(frozenset(params.items()))}"
+            
+            try:
+                cached_depts = self.cache.get(cache_key)
+                if cached_depts:
+                    self.metrics.track_cache_metrics(hit=True)
+                    logger.debug(f"命中缓存: {cache_key}")
+                    return [DepartmentList(**dept) for dept in cached_depts]
+            except Exception as cache_error:
+                logger.warning(f"缓存获取失败: {str(cache_error)}")
+
+            self.metrics.track_cache_metrics(hit=False)
+            
+            # 从数据库中获取并应用过滤条件
+            query = select(Department)
+            
+            # 应用过滤条件
+            if params.get("department_name"):
+                query = query.where(Department.department_name.like(f"%{params['department_name']}%"))
+            if params.get("status") is not None:
+                query = query.where(Department.status == params["status"])
+                
+            # 应用排序
+            if params.get("order_by"):
+                order_field = getattr(Department, params["order_by"].lstrip("-"), None)
+                if order_field:
+                    query = query.order_by(
+                        order_field.desc() if params["order_by"].startswith("-") else order_field
+                    )
+            else:
+                # 默认按 id 排序
+                query = query.order_by(Department.id)
+                
+            # 应用分页
+            page = params.get("page", 1)
+            page_size = params.get("page_size", 10)
+            query = query.offset((page - 1) * page_size).limit(page_size)
+            
+            # 执行查询
+            departments = self.db.exec(query).all()
+            
+            # 转换为响应模型列表
+            department_list = [
+                DepartmentList(
+                    id=dept.id,
+                    pid=dept.parent_id,
+                    department_name=dept.department_name,
+                    status=dept.status,
+                    created_at=dept.created_at
+                ) for dept in departments
+            ]
+            
+            # 缓存结果
+            try:
+                if department_list:
+                    cache_data = [dept.model_dump() for dept in department_list]
+                    success = self.cache.set(cache_key, cache_data, expire=3600)
+                    if success:
+                        logger.debug(f"成功设置缓存: {cache_key}")
+                    else:
+                        logger.warning(f"设置缓存失败: {cache_key}")
+            except Exception as cache_error:
+                logger.warning(f"缓存设置失败: {str(cache_error)}")
+            
+            return department_list
+            
+        except CustomException:
+            raise
+        except Exception as e:
+            logger.error(f"获取部门列表失败: {str(e)}")
             raise CustomException(
                 message=get_error_message(ErrorCode.DB_ERROR)
             )

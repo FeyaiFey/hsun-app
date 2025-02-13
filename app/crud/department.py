@@ -1,12 +1,51 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 from sqlmodel import Session, select
 from app.models.department import Department
-from app.schemas.department import DepartmentCreate, DepartmentUpdate
+from app.schemas.department import DepartmentList, DepartmentInDB, DepartmentCreate, DepartmentUpdate, DepartmentItem, DepartmentListResponse
 from app.crud.base import CRUDBase
 from app.models.user import User
 
 class CRUDDepartment(CRUDBase[Department, DepartmentCreate, DepartmentUpdate]):
     """部门CRUD操作类"""
+
+    def get_all(self, db: Session) -> List[Department]:
+        """获取所有部门"""
+        return db.exec(select(Department)).all()
+    
+    def get_department_tree_list(self, db: Session) -> DepartmentListResponse:
+        """获取树形结构的部门列表
+        
+        Args:
+            db: 数据库会话
+            
+        Returns:
+            DepartmentListResponse: 树形结构的部门列表
+        """
+        # 获取所有部门
+        departments = self.get_all(db)
+        
+        # 构建部门字典，用于快速查找
+        dept_dict: Dict[int, Department] = {dept.id: dept for dept in departments}
+        
+        # 构建树形结构
+        def build_tree(parent_id: Optional[int] = None) -> List[DepartmentItem]:
+            items = []
+            for dept in departments:
+                if dept.parent_id == parent_id:
+                    children = build_tree(dept.id)
+                    item = DepartmentItem(
+                        id=str(dept.id),
+                        department_name=dept.department_name,
+                        children=children if children else None
+                    )
+                    items.append(item)
+            return items
+        
+        # 构建根级部门列表
+        root_departments = build_tree(None)
+        
+        # 返回最终结果
+        return DepartmentListResponse(list=root_departments)
     
     def get_by_name(self, db: Session, name: str) -> Optional[Department]:
         """通过名称获取部门"""
@@ -51,7 +90,7 @@ class CRUDDepartment(CRUDBase[Department, DepartmentCreate, DepartmentUpdate]):
             
         return result
 
-    def get_department_users(self, db: Session, department_id: int) -> List["User"]:
+    def get_department_users(self, db: Session, department_id: int) -> List[User]:
         """获取部门用户列表"""
         return db.exec(
             select(User).where(User.department_id == department_id)

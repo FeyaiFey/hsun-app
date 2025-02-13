@@ -48,14 +48,6 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             update_data["password_hash"] = hashed_password
         return super().update(db, db_obj=db_obj, obj_in=update_data)
 
-    def get_user_avatars(self, db: Session, user_id: int) -> List[UserAvatar]:
-        """获取用户头像列表"""
-        return db.exec(
-            select(UserAvatar)
-            .where(UserAvatar.user_id == user_id)
-            .order_by(UserAvatar.created_at.desc())
-        ).all()
-
     def get_active_avatar(self, db: Session, user_id: int) -> Optional[UserAvatar]:
         """获取用户当前头像"""
         return db.exec(

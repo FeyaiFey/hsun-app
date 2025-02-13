@@ -7,6 +7,7 @@ from jose import JWTError
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.endpoints import auth
+from app.api.v1.endpoints import department
 from app.core.monitor import MetricsManager
 from app.core.logger import logger
 from app.core.exceptions import CustomException
@@ -51,6 +52,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # 注册路由
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
+app.include_router(department.router, prefix="/api/v1/department", tags=["Department"])
+
 
 # 注册异常处理器
 app.add_exception_handler(CustomException, custom_exception_handler)

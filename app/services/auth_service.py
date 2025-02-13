@@ -115,6 +115,9 @@ class AuthService:
                 },
                 "token": access_token
             }
+
+            # 更新最后登录时间
+            crud_user.update_last_login(self.db, user_id =user.id)
                 
             self.metrics.track_auth_metrics(success=True)
             logger.info(f"用户 {user.username} 登录成功")
