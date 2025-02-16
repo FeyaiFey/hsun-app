@@ -6,7 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from jose import JWTError
 from fastapi.staticfiles import StaticFiles
 
-from app.api.v1.endpoints import auth, department, user
+from app.api.v1.endpoints import auth, department, user, role
 from app.core.monitor import MetricsManager
 from app.core.logger import logger
 from app.core.exceptions import CustomException
@@ -53,7 +53,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(department.router, prefix="/api/v1/department", tags=["Department"])
 app.include_router(user.router, prefix="/api/v1/user", tags=["User"])
-
+app.include_router(role.router, prefix="/api/v1/role", tags=["Role"])
 # 注册异常处理器
 app.add_exception_handler(CustomException, custom_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)

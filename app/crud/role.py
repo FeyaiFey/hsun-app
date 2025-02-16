@@ -2,7 +2,7 @@ from typing import List, Optional, Union, Dict, Any
 from sqlmodel import Session, select
 from app.models.user import UserRole
 from app.models.role import Role, Permission, RolePermission
-from app.schemas.role import RoleCreate, RoleUpdate
+from app.schemas.role import RoleCreate, RoleUpdate, RoleItem, UpdateRoleRequest
 
 class CRUDRole:
     """角色CRUD操作类"""
@@ -153,6 +153,85 @@ class CRUDRole:
         db.commit()
         db.refresh(role)
         return role
+
+    def get_all_roles(self, db: Session) -> List[RoleItem]:
+        """获取所有角色列表
+        
+        Args:
+            db: 数据库会话
+            
+        Returns:
+            List[RoleItem]: 角色列表
+        """
+        query = select(Role).where(Role.status == 1)  # 只获取启用状态的角色
+        roles = db.exec(query).all()
+        return [
+            RoleItem(
+                id=role.id,
+                role_name=role.role_name
+            ) for role in roles
+        ]
+
+    def update_user_roles(
+        self,
+        db: Session,
+        *,
+        request: UpdateRoleRequest
+    ) -> bool:
+        """更新用户角色
+        
+        Args:
+            db: 数据库会话
+            request: 更新请求
+            
+        Returns:
+            bool: 更新是否成功
+        """
+        try:
+            # 开始事务
+            for user_id in request.id:
+                # 删除原有角色
+                statement = select(UserRole).where(UserRole.user_id == user_id)
+                user_roles = db.exec(statement).all()
+                for user_role in user_roles:
+                    db.delete(user_role)
+                
+                # 添加新角色
+                for role_id in request.role_id:
+                    user_role = UserRole(
+                        user_id=user_id,
+                        role_id=int(role_id),
+                        status=request.status
+                    )
+                    db.add(user_role)
+            
+            # 提交事务
+            db.commit()
+            return True
+            
+        except Exception as e:
+            db.rollback()
+            raise e
+
+    def get_user_role_list(
+        self,
+        db: Session,
+        user_id: int
+    ) -> List[UserRole]:
+        """获取用户角色列表
+        
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            
+        Returns:
+            List[UserRole]: 用户角色列表
+        """
+        statement = select(UserRole).where(
+            UserRole.user_id == user_id,
+            UserRole.status == 1
+        )
+        return db.exec(statement).all()
 
 class CRUDPermission:
     """权限CRUD操作类"""

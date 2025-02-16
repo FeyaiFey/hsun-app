@@ -1,8 +1,12 @@
 from typing import List, Optional, Union, Dict, Any
-from sqlmodel import Session, select
+from sqlmodel import Session, select, text
 from app.models.user import User, UserAvatar
-from app.schemas.user import UserCreate, UserUpdate, UserInfoResponse
+from app.schemas.user import UserCreate, UserUpdate, UserInfoResponse, UserTableListResponse, UserTableItem 
 from app.core.security import get_password_hash
+from app.models.department import Department
+from app.models.role import Role
+from app.models.user import UserRole
+from sqlalchemy import select as sa_select
 
 class CRUDUser:
     """用户CRUD操作类"""
@@ -129,5 +133,128 @@ class CRUDUser:
             db.commit()
             db.refresh(user)
         return user
+
+    def get_users_list_with_params(
+        self,
+        db: Session,
+        *,
+        params: Dict[str, Any]
+    ) -> UserTableListResponse:
+        """根据参数获取用户列表"""
+        # 构建基础查询
+        base_query = """
+            SELECT u.id,u.username,u.email,u.department_id,d.department_name,u.last_login,u.status,u.created_at,
+                   r.id as role_id,r.role_name,r.description
+            FROM huaxinAdmin_users u
+            LEFT JOIN huaxinAdmin_departments d ON u.department_id = d.id
+            LEFT JOIN huaxinAdmin_userRoles ur ON u.id = ur.user_id
+            LEFT JOIN huaxinAdmin_roles r ON ur.role_id = r.id
+            WHERE 1=1
+        """
+        
+        # 构建条件
+        conditions = []
+        query_params = {}
+        if params.get("username"):
+            conditions.append("AND u.username LIKE :username")
+            query_params["username"] = f"%{params['username']}%"
+        if params.get("email"):
+            conditions.append("AND u.email LIKE :email")
+            query_params["email"] = f"%{params['email']}%"
+        if params.get("department_id"):
+            conditions.append("AND u.department_id = :department_id")
+            query_params["department_id"] = params["department_id"]
+        if params.get("status") is not None:
+            conditions.append("AND u.status = :status")
+            query_params["status"] = params["status"]
+
+        # 添加条件到查询
+        query_str = base_query + " " + " ".join(conditions)
+
+        # 添加排序
+        order_by = params.get("order_by")
+        if order_by:
+            if order_by.startswith("-"):
+                field = order_by[1:]
+                query_str += f" ORDER BY u.{field} DESC"
+            else:
+                query_str += f" ORDER BY u.{order_by}"
+        else:
+            query_str += " ORDER BY u.id"
+
+        # 获取总记录数
+        count_query = f"""
+            SELECT COUNT(DISTINCT u.id)
+            FROM huaxinAdmin_users u
+            LEFT JOIN huaxinAdmin_departments d ON u.department_id = d.id
+            WHERE 1=1 {' '.join(conditions)}
+        """
+        total = db.execute(text(count_query), query_params).scalar()
+
+        # 添加分页
+        skip = params.get("skip", 0)
+        limit = params.get("limit", 10)
+        query_str += " OFFSET :skip ROWS FETCH NEXT :limit ROWS ONLY"
+        query_params["skip"] = skip
+        query_params["limit"] = limit
+
+        # 执行查询
+        query = text(query_str)
+        results = db.execute(query, query_params).all()
+
+        # 转换为响应列表，处理多角色数据
+        user_dict = {}
+        for result in results:
+            user_id = result.id
+            if user_id not in user_dict:
+                # 创建新的用户记录
+                user_dict[user_id] = {
+                    "id": result.id,
+                    "username": result.username,
+                    "email": result.email,
+                    "department_id": result.department_id,
+                    "department_name": result.department_name,
+                    "status": result.status,
+                    "last_login": result.last_login.strftime("%Y-%m-%d %H:%M:%S") if result.last_login else None,
+                    "created_at": result.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    "roles": []
+                }
+            
+            # 添加角色信息（如果有）
+            if result.role_id:
+                user_dict[user_id]["roles"].append({
+                    "id": result.role_id,
+                    "role_name": result.role_name,
+                    "description": result.description
+                })
+
+        # 构建最终的用户列表
+        user_list = []
+        for user_data in user_dict.values():
+            # 获取第一个角色的ID和描述（如果有）
+            role_id = [role["id"] for role in user_data["roles"]]
+            description = user_data["roles"][0]["description"] if user_data["roles"] else None
+            role_names = [role["role_name"] for role in user_data["roles"]]
+            
+            user_list.append(
+                UserTableItem(
+                    id=user_data["id"],
+                    username=user_data["username"],
+                    email=user_data["email"],
+                    department_id=user_data["department_id"],
+                    department_name=user_data["department_name"],
+                    role_id=role_id,
+                    role_name=role_names,
+                    description=description,
+                    status=user_data["status"],
+                    last_login=user_data["last_login"],
+                    created_at=user_data["created_at"]
+                )
+            )
+
+        return UserTableListResponse(
+            list=user_list,
+            total=total or 0
+        )
 
 user = CRUDUser(User) 

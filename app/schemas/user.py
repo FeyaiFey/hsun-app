@@ -2,19 +2,35 @@ from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field, EmailStr
 
-class UserCreate(BaseModel):
-    """用户创建模型"""
+# 基础用户模型
+class UserBase(BaseModel):
+    """用户基础模型"""
     username: str = Field(..., max_length=50, description="用户名")
     email: Optional[EmailStr] = Field(None, description="邮箱")
     department_id: Optional[int] = Field(default=None, description="部门ID")
-    password: str = Field(..., min_length=6, max_length=20, description="密码")
     status: Optional[int] = Field(default=1, description="状态：1-启用，0-禁用")
 
+# 创建用户
+class UserCreate(UserBase):
+    """用户创建模型"""
+    password: str = Field(..., min_length=6, max_length=20, description="密码")
+
+# 更新用户
+class UserUpdate(BaseModel):
+    """用户更新模型"""
+    username: Optional[str] = Field(None, max_length=50)
+    email: Optional[EmailStr] = None
+    department_id: Optional[int] = None
+    status: Optional[int] = None
+    password: Optional[str] = Field(None, min_length=6, max_length=20)
+
+# 用户登录
 class UserLogin(BaseModel):
     """用户登录模型"""
     email: Optional[EmailStr] = Field(None, description="邮箱")
     password: str = Field(..., description="密码")
 
+# 用户信息
 class UserType(BaseModel):
     """用户信息类型"""
     email: Optional[EmailStr] = Field(None, description="邮箱")
@@ -48,11 +64,12 @@ class UserInDB(BaseModel):
     status: Optional[int] = Field(default=1, description="状态：1-启用，0-禁用")
     last_login: Optional[datetime] = Field(default=None,description="上次登录时间")
     created_at: datetime = Field(..., description="创建时间")
-    updated_at: datetime = Field(..., description="创建时间")
+    updated_at: datetime = Field(..., description="更新时间")
 
     class Config:
         from_attributes = True
 
+# Token相关
 class Token(BaseModel):
     """Token模型"""
     access_token: str
@@ -63,10 +80,34 @@ class TokenPayload(BaseModel):
     sub: int = Field(..., description="用户ID")
     exp: datetime = Field(..., description="过期时间")
 
-class UserUpdate(BaseModel):
-    """用户更新模型"""
-    username: Optional[str] = Field(None, max_length=50)
-    email: Optional[EmailStr] = None
-    department_id: Optional[int] = None
-    status: Optional[int] = None
-    password: Optional[str] = Field(None, min_length=6, max_length=20)
+# 密码更新请求
+class UpdatePasswordRequest(BaseModel):
+    """更新密码请求模型"""
+    old_password: str
+    new_password: str
+
+# 批量删除请求
+class BatchDeleteRequest(BaseModel):
+    """批量删除请求模型"""
+    ids: List[int]
+
+# 用户表格列表项
+class UserTableItem(BaseModel):
+    """用户表格列表项"""
+    id: int = Field(..., description="用户ID")
+    username: str = Field(..., description="用户名")
+    email: Optional[str] = Field(None, description="邮箱")
+    department_id: Optional[int] = Field(None, description="部门ID")
+    department_name: Optional[str] = Field(None, description="部门名称")
+    role_id: Optional[List[int]] = Field(None, description="角色ID")
+    role_name: Optional[List[str]] = Field(None, description="角色名称")
+    description: Optional[str] = Field(None, description="描述")
+    status: int = Field(..., description="状态：1-启用，0-禁用")
+    last_login: Optional[str] = Field(None, description="最后登录时间")
+    created_at: str = Field(..., description="创建时间")
+
+# 用户表格列表响应
+class UserTableListResponse(BaseModel):
+    """用户表格列表响应"""
+    list: List[UserTableItem] = Field(..., description="用户列表")
+    total: int = Field(..., description="总记录数")
