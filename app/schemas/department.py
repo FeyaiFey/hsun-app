@@ -48,6 +48,7 @@ class DepartmentList(BaseModel):
     id: int = Field(..., description="部门ID")
     pid: Optional[int] = Field(None, description="父部门ID")
     department_name: str = Field(..., description="部门名称")
+    parent_department: Optional[str] = Field(None, description="父部门名称")
     status: int = Field(..., description="状态：1-启用，0-禁用")
     created_at: str = Field(..., description="创建时间")
 
@@ -71,3 +72,6 @@ class DepartmentTableListResponse(BaseModel):
                 "total": 1
             }
         }
+
+class BatchDeleteRequest(BaseModel):
+    ids: List[int]

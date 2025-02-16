@@ -3,6 +3,7 @@ from sqlmodel import Session, select, func
 from app.models.department import Department
 from app.schemas.department import DepartmentList, DepartmentItem, DepartmentListResponse, DepartmentTableListResponse
 from app.models.user import User
+from sqlalchemy.orm import aliased
 
 class CRUDDepartment:
     """部门CRUD操作类"""
@@ -90,8 +91,12 @@ class CRUDDepartment:
         Returns:
             DepartmentTableListResponse: 部门表格数据和总记录数
         """
-        # 构建基础查询
-        query = select(Department)
+        # 构建基础查询，使用别名进行自连接
+        Department_parent = aliased(Department)
+        query = (
+            select(Department, Department_parent.department_name.label("parent_department_name"))
+            .outerjoin(Department_parent, Department.parent_id == Department_parent.id)
+        )
         
         # 应用过滤条件
         if department_name:
@@ -115,17 +120,18 @@ class CRUDDepartment:
             
         # 应用分页
         query = query.offset(skip).limit(limit)
-        departments = db.exec(query).all()
+        results = db.exec(query).all()
         
         # 转换为响应列表
         department_list = [
             DepartmentList(
-                id=dept.id,
-                pid=dept.parent_id,
-                department_name=dept.department_name,
-                status=dept.status,
-                created_at=dept.created_at.strftime("%Y-%m-%d %H:%M:%S")
-            ) for dept in departments
+                id=result[0].id,
+                pid=result[0].parent_id,
+                department_name=result[0].department_name,
+                parent_department=result[1],  # 父部门名称
+                status=result[0].status,
+                created_at=result[0].created_at.strftime("%Y-%m-%d %H:%M:%S")
+            ) for result in results
         ]
         
         return DepartmentTableListResponse(
