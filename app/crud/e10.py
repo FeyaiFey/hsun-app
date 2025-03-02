@@ -1,6 +1,16 @@
 from typing import List, Optional, Union, Dict, Any
 from sqlmodel import Session, select, text
-from app.schemas.e10 import PurchaseOrder, PurchaseOrderQuery, PurchaseWip, PurchaseWipQuery, PurchaseWipSupplierResponse
+from app.schemas.e10 import (PurchaseOrder, 
+                             PurchaseOrderQuery, 
+                             PurchaseWip, 
+                             PurchaseWipQuery, 
+                             PurchaseWipSupplierResponse,
+                             AssyOrder, 
+                             AssyOrderQuery, 
+                             AssyOrderResponse,
+                             AssyWip,
+                             AssyWipQuery,
+                             AssyWipResponse)
 from app.core.exceptions import CustomException
 from app.core.logger import logger
 
@@ -271,6 +281,29 @@ class CRUDE10:
         except Exception as e:
             logger.error(f"查询采购在途失败: {str(e)}")
             raise CustomException("查询采购在途失败")
+    
+    def get_purchase_supplier(self,db:Session)->List[str]:
+        """获取采购供应商"""
+        try:
+            # 构建基础查询
+            base_query = """
+                SELECT DISTINCT po.SUPPLIER_FULL_NAME
+                FROM PURCHASE_ORDER po
+                LEFT JOIN PURCHASE_ORDER_D p
+                ON po.PURCHASE_ORDER_ID = p.PURCHASE_ORDER_ID 
+                LEFT JOIN ITEM i
+                ON p.ITEM_ID = i.ITEM_BUSINESS_ID
+                LEFT JOIN PURCHASE_ORDER_SD s
+                ON s.PURCHASE_ORDER_D_ID = p.PURCHASE_ORDER_D_ID
+                WHERE (p.PURCHASE_TYPE=1) AND (i.ITEM_CODE LIKE N'CL%WF')
+            """
+            result = db.exec(text(base_query)).all()
+            # 提取供应商名称列表
+            return [row[0] for row in result if row[0]]  # 确保返回非空的供应商名称列表
+        except Exception as e:
+            logger.error(f"获取采购供应商失败: {str(e)}")
+            raise CustomException("获取采购供应商失败")
+        
         
     def get_purchase_wip_supplier(self,db:Session)->List[str]:
         """获取采购在制供应商"""
@@ -288,3 +321,387 @@ class CRUDE10:
         except Exception as e:
             logger.error(f"获取采购在制供应商失败: {str(e)}")
             raise CustomException("获取采购在制供应商失败")
+
+    def get_assy_order_by_params(self,db:Session,params:AssyOrderQuery)->Dict[str,Any]:
+        """获取封装订单列表
+        
+        Args:
+            db: 数据库会话
+            params: 查询参数
+            
+        Returns:
+            Dict[str,Any]: 包含封装订单列表和总数的字典
+        """
+        try:
+            # 构建基础查询
+            base_query = """
+                SELECT 
+                    PO.DOC_NO,
+                    CAST(PO.PURCHASE_DATE AS DATE) AS PURCHASE_DATE,
+                    PO.SUPPLIER_FULL_NAME,
+                    PO.[CLOSE],
+                    CAST(PO_D.BUSINESS_QTY AS INT) AS BUSINESS_QTY,
+                    CAST(PO_D.RECEIPTED_PRICE_QTY AS INT) AS RECEIPTED_PRICE_QTY,
+                    CASE 
+                        WHEN PO.[CLOSE] = N'2' THEN 0
+                        WHEN (PO_D.RECEIPTED_PRICE_QTY / PO_D.BUSINESS_QTY) > 0.992 THEN 0
+                        ELSE CAST(((PO_D.BUSINESS_QTY * 0.996) - PO_D.RECEIPTED_PRICE_QTY) AS INT)
+                    END AS WIP_QTY,
+                    CAST(PO_D.PRICE AS FLOAT) AS PRICE,
+                    ITEM.ITEM_CODE,
+                    ITEM_LOT.LOT_CODE,
+                    Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE,
+                    Z_PROCESSING_PURPOSE.Z_PROCESSING_PURPOSE_NAME,
+                    Z_PACKAGE.REMARK,
+                    Z_LOADING_METHOD.Z_LOADING_METHOD_NAME,
+                    Z_WIRE.Z_WIRE_NAME,
+                    Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_NAME,
+                    FEATURE_GROUP.FEATURE_GROUP_NAME
+                FROM PURCHASE_ORDER PO
+                LEFT JOIN PURCHASE_ORDER_D PO_D 
+                    ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
+                LEFT JOIN PURCHASE_ORDER_SD PO_SD 
+                    ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                LEFT JOIN PURCHASE_ORDER_SSD PO_SSD 
+                    ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+                LEFT JOIN Z_OUT_MO_D 
+                    ON PO_SSD.REFERENCE_SOURCE_ID_ROid = Z_OUT_MO_D.Z_OUT_MO_D_ID
+                LEFT JOIN ITEM 
+                    ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                LEFT JOIN ITEM_LOT 
+                    ON Z_OUT_MO_D.ITEM_LOT_ID = ITEM_LOT.ITEM_LOT_ID
+                LEFT JOIN Z_ASSEMBLY_CODE 
+                    ON Z_OUT_MO_D.Z_PACKAGE_ASSEMBLY_CODE_ID = Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE_ID
+                LEFT JOIN Z_PACKAGE 
+                    ON Z_ASSEMBLY_CODE.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
+                LEFT JOIN Z_PROCESSING_PURPOSE 
+                    ON Z_ASSEMBLY_CODE.Z_PROCESSING_PURPOSE_ID = Z_PROCESSING_PURPOSE.Z_PROCESSING_PURPOSE_ID
+                LEFT JOIN Z_LOADING_METHOD 
+                    ON Z_LOADING_METHOD.Z_LOADING_METHOD_ID = Z_PACKAGE.Z_LOADING_METHOD_ID
+                LEFT JOIN Z_WIRE 
+                    ON Z_WIRE.Z_WIRE_ID = Z_PACKAGE.Z_WIRE_ID
+                LEFT JOIN Z_PACKAGE_TYPE 
+                    ON Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_ID = Z_PACKAGE.Z_PACKAGE_TYPE_ID
+                LEFT JOIN FEATURE_GROUP 
+                    ON FEATURE_GROUP.FEATURE_GROUP_ID = ITEM.FEATURE_GROUP_ID
+                WHERE ITEM.ITEM_CODE LIKE N'BC%AB'
+            """
+            
+            # 构建查询条件
+            conditions = []
+            query_params = {}
+            
+            # 参数验证和清理
+            if params.doc_no and isinstance(params.doc_no, str):
+                conditions.append("AND PO.DOC_NO LIKE :doc_no")
+                query_params["doc_no"] = f"%{self._clean_input(params.doc_no)}%"
+                
+            if params.item_code and isinstance(params.item_code, list):
+                item_codes = [self._clean_input(code) for code in params.item_code]
+                conditions.append("AND ITEM.ITEM_CODE IN :item_codes")
+                query_params["item_codes"] = tuple(item_codes)
+            
+            if params.item_name and isinstance(params.item_name, list):
+                item_names = [self._clean_input(name) for name in params.item_name]
+                conditions.append("AND ITEM.ITEM_NAME IN :item_names")
+                query_params["item_names"] = tuple(item_names)
+            
+            if params.supplier and isinstance(params.supplier, list):
+                suppliers = [self._clean_input(supplier) for supplier in params.supplier]
+                conditions.append("AND PO.SUPPLIER_FULL_NAME IN :suppliers")
+                query_params["suppliers"] = tuple(suppliers)
+                
+            if params.package_type and isinstance(params.package_type, list):
+                package_types = [self._clean_input(package_type) for package_type in params.package_type]
+                conditions.append("AND Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_NAME IN :package_types")
+                query_params["package_types"] = tuple(package_types)
+                
+            if params.is_closed is not None:
+                if params.is_closed == 0:
+                    conditions.append("AND PO.[CLOSE] = 0")
+                else:
+                    conditions.append("AND PO.[CLOSE] != 0")
+
+            if params.order_date_start:
+                conditions.append("AND PO.PURCHASE_DATE >= :order_date_start")
+                query_params["order_date_start"] = params.order_date_start
+
+            if params.order_date_end:
+                conditions.append("AND PO.PURCHASE_DATE <= :order_date_end")
+                query_params["order_date_end"] = params.order_date_end
+                
+            # 拼接查询条件
+            query = base_query + " " + " ".join(conditions)
+            
+            # 添加排序
+            query += " ORDER BY PO.PURCHASE_DATE,PO.DOC_NO"
+
+            # 添加分页
+            if params.pageIndex and params.pageSize:
+                offset = (params.pageIndex - 1) * params.pageSize
+                query += " OFFSET :offset ROWS FETCH NEXT :pageSize ROWS ONLY"
+                query_params["offset"] = offset
+                query_params["pageSize"] = params.pageSize
+
+            # 执行查询
+            stmt = text(query).bindparams(**query_params)
+            result = db.execute(stmt).all()
+            
+            # 获取总记录数
+            count_query = f"""
+                SELECT COUNT(1)
+                FROM PURCHASE_ORDER PO
+                LEFT JOIN PURCHASE_ORDER_D PO_D 
+                    ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
+                LEFT JOIN PURCHASE_ORDER_SD PO_SD 
+                    ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                LEFT JOIN PURCHASE_ORDER_SSD PO_SSD 
+                    ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+                LEFT JOIN Z_OUT_MO_D 
+                    ON PO_SSD.REFERENCE_SOURCE_ID_ROid = Z_OUT_MO_D.Z_OUT_MO_D_ID
+                LEFT JOIN ITEM 
+                    ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                LEFT JOIN ITEM_LOT 
+                    ON Z_OUT_MO_D.ITEM_LOT_ID = ITEM_LOT.ITEM_LOT_ID
+                LEFT JOIN Z_ASSEMBLY_CODE 
+                    ON Z_OUT_MO_D.Z_PACKAGE_ASSEMBLY_CODE_ID = Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE_ID
+                LEFT JOIN Z_PACKAGE 
+                    ON Z_ASSEMBLY_CODE.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
+                LEFT JOIN Z_PROCESSING_PURPOSE 
+                    ON Z_ASSEMBLY_CODE.Z_PROCESSING_PURPOSE_ID = Z_PROCESSING_PURPOSE.Z_PROCESSING_PURPOSE_ID
+                LEFT JOIN Z_LOADING_METHOD 
+                    ON Z_LOADING_METHOD.Z_LOADING_METHOD_ID = Z_PACKAGE.Z_LOADING_METHOD_ID
+                LEFT JOIN Z_WIRE 
+                    ON Z_WIRE.Z_WIRE_ID = Z_PACKAGE.Z_WIRE_ID
+                LEFT JOIN Z_PACKAGE_TYPE 
+                    ON Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_ID = Z_PACKAGE.Z_PACKAGE_TYPE_ID
+                LEFT JOIN FEATURE_GROUP 
+                    ON FEATURE_GROUP.FEATURE_GROUP_ID = ITEM.FEATURE_GROUP_ID
+                WHERE ITEM.ITEM_CODE LIKE N'BC%AB'
+                {' '.join(conditions)}
+            """
+            total = db.execute(text(count_query).bindparams(**{k:v for k,v in query_params.items() if k not in ['offset', 'pageSize']})).scalar()
+            
+            # 转换为响应对象
+            assy_orders = [
+                AssyOrder(
+                    DOC_NO=row.DOC_NO,
+                    PURCHASE_DATE=row.PURCHASE_DATE,
+                    SUPPLIER_FULL_NAME=row.SUPPLIER_FULL_NAME,
+                    CLOSE=row.CLOSE,
+                    BUSINESS_QTY=row.BUSINESS_QTY,
+                    RECEIPTED_PRICE_QTY=row.RECEIPTED_PRICE_QTY,
+                    WIP_QTY=row.WIP_QTY,
+                    PRICE=row.PRICE,
+                    ITEM_CODE=row.ITEM_CODE,
+                    LOT_CODE=row.LOT_CODE,
+                    Z_ASSEMBLY_CODE=row.Z_ASSEMBLY_CODE,
+                    Z_PROCESSING_PURPOSE_NAME=row.Z_PROCESSING_PURPOSE_NAME,
+                    Z_PACKAGE_TYPE_NAME=row.Z_PACKAGE_TYPE_NAME,
+                    FEATURE_GROUP_NAME=row.FEATURE_GROUP_NAME
+                ) for row in result
+            ]
+            
+            return {
+                "list": assy_orders,
+                "total": total or 0
+            }
+            
+        except Exception as e:
+            logger.error(f"查询封装订单失败: {str(e)}")
+            raise CustomException("查询封装订单失败")
+        
+    def get_assy_wip_by_params(self,db:Session,params:AssyWipQuery)->Dict[str,Any]:
+        """获取封装在制"""
+        try:
+            # 构建基础查询
+            base_query = """
+                SELECT 
+                WIP.[订单号],
+                ITEM.ITEM_CODE,
+                ZPP.Z_PROCESSING_PURPOSE_NAME,
+                CASE 
+                    WHEN WIP.[当前工序] = N'已完成' THEN NULL
+                    ELSE DATEDIFF(DAY, WIP.modified_at, GETDATE()) 
+                END
+                AS STRANDED,
+                WIP.[当前工序],
+                WIP.[预计交期],
+                WIP.finished_at,
+                WIP.[在线合计],
+                WIP.[仓库库存],
+                WIP.[扣留信息],
+                WIP.[次日预计],
+                WIP.[三日预计],
+                WIP.[七日预计],
+                WIP.[研磨],
+                WIP.[切割],
+                WIP.[待装片],
+                WIP.[装片],
+                WIP.[银胶固化],
+                WIP.[等离子清洗1],
+                WIP.[键合],
+                WIP.[三目检],
+                WIP.[等离子清洗2],
+                WIP.[塑封],
+                WIP.[后固化],
+                WIP.[回流焊],
+                WIP.[电镀],
+                WIP.[打印],
+                WIP.[后切割],
+                WIP.[切筋成型],
+                WIP.[测编打印],
+                WIP.[外观检],
+                WIP.[包装],
+                WIP.[待入库]
+                FROM huaxinAdmin_wip_assy WIP
+                LEFT JOIN PURCHASE_ORDER PO ON PO.DOC_NO = WIP.[订单号]
+                LEFT JOIN PURCHASE_ORDER_D PO_D ON PO.PURCHASE_ORDER_ID = PO_D.PURCHASE_ORDER_ID
+                LEFT JOIN PURCHASE_ORDER_SD PO_SD ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                LEFT JOIN PURCHASE_ORDER_SSD PO_SSD ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+                LEFT JOIN Z_OUT_MO_D ZOMD ON PO_SSD.REFERENCE_SOURCE_ID_ROid = ZOMD.Z_OUT_MO_D_ID
+                LEFT JOIN ITEM ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                LEFT JOIN ITEM_LOT ON ZOMD.ITEM_LOT_ID = ITEM_LOT.ITEM_LOT_ID
+                LEFT JOIN Z_ASSEMBLY_CODE ZAC ON ZOMD.Z_PACKAGE_ASSEMBLY_CODE_ID = ZAC.Z_ASSEMBLY_CODE_ID
+                LEFT JOIN Z_PACKAGE ON ZAC.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
+                LEFT JOIN Z_PROCESSING_PURPOSE ZPP ON ZAC.Z_PROCESSING_PURPOSE_ID = ZPP.Z_PROCESSING_PURPOSE_ID
+                WHERE 1=1
+            """
+            result = db.execute(text(base_query)).all()
+            
+            # 构建查询条件
+            conditions = []
+            query_params = {}
+            
+            # 参数验证和清理
+            if params.doc_no and isinstance(params.doc_no, str):
+                conditions.append("AND WIP.[订单号] LIKE :doc_no")
+                query_params["doc_no"] = f"%{self._clean_input(params.doc_no)}%"
+            
+            if params.item_code and isinstance(params.item_code, str):
+                conditions.append("AND ITEM.ITEM_CODE LIKE :item_code")
+                query_params["item_code"] = f"%{self._clean_input(params.item_code)}%"
+                
+            if params.supplier and isinstance(params.supplier, str):
+                conditions.append("AND PO.SUPPLIER_FULL_NAME LIKE :supplier")
+                query_params["supplier"] = f"%{self._clean_input(params.supplier)}%"
+                
+            if params.current_process and isinstance(params.current_process, str):
+                conditions.append("AND WIP.[当前工序] LIKE :current_process")
+                query_params["current_process"] = f"%{self._clean_input(params.current_process)}%"
+                
+            if params.is_finished is not None:
+                if params.is_finished == 1:
+                    conditions.append("AND WIP.[当前工序] = N'已完成'")
+                else:
+                    conditions.append("AND WIP.[当前工序] != N'已完成'")
+                    
+            if params.is_stranded is not None:
+                if params.is_stranded == 0:
+                    conditions.append("""
+                                      AND CASE 
+                                      WHEN WIP.[当前工序] = N'已完成' THEN NULL
+                                      ELSE DATEDIFF(DAY, WIP.modified_at, GETDATE()) 
+                                      END = 0
+                                      """)
+                else:
+                    conditions.append("""
+                                      AND CASE 
+                                      WHEN WIP.[当前工序] = N'已完成' THEN NULL
+                                      ELSE DATEDIFF(DAY, WIP.modified_at, GETDATE()) 
+                                      END != 0
+                                      """)
+                    
+            if params.days is not None:
+                if params.days == 1:
+                    conditions.append("AND WIP.[次日预计] > 0")
+                elif params.days == 3:
+                    conditions.append("AND WIP.[三日预计] > 0")
+                elif params.days == 7:
+                    conditions.append("AND WIP.[七日预计] > 0")
+                    
+            # 拼接查询条件
+            query = base_query + " " + " ".join(conditions)
+            
+            # 添加排序
+            query += " ORDER BY WIP.[订单号]"
+            
+            # 添加分页
+            if params.pageIndex and params.pageSize:
+                offset = (params.pageIndex - 1) * params.pageSize
+                query += " OFFSET :offset ROWS FETCH NEXT :pageSize ROWS ONLY"
+                query_params["offset"] = offset
+                query_params["pageSize"] = params.pageSize
+                
+            # 执行查询
+            stmt = text(query).bindparams(**query_params)
+            result = db.execute(stmt).all()
+            
+            # 获取总记录数
+            count_query = f"""
+                SELECT COUNT(1)
+                FROM huaxinAdmin_wip_assy WIP
+                LEFT JOIN PURCHASE_ORDER PO ON PO.DOC_NO = WIP.[订单号]
+                LEFT JOIN PURCHASE_ORDER_D PO_D ON PO.PURCHASE_ORDER_ID = PO_D.PURCHASE_ORDER_ID
+                LEFT JOIN PURCHASE_ORDER_SD PO_SD ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                LEFT JOIN PURCHASE_ORDER_SSD PO_SSD ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID 
+                LEFT JOIN Z_OUT_MO_D ZOMD ON PO_SSD.REFERENCE_SOURCE_ID_ROid = ZOMD.Z_OUT_MO_D_ID
+                LEFT JOIN ITEM ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                LEFT JOIN ITEM_LOT ON ZOMD.ITEM_LOT_ID = ITEM_LOT.ITEM_LOT_ID
+                LEFT JOIN Z_ASSEMBLY_CODE ZAC ON ZOMD.Z_PACKAGE_ASSEMBLY_CODE_ID = ZAC.Z_ASSEMBLY_CODE_ID
+                LEFT JOIN Z_PACKAGE ON ZAC.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
+                LEFT JOIN Z_PROCESSING_PURPOSE ZPP ON ZAC.Z_PROCESSING_PURPOSE_ID = ZPP.Z_PROCESSING_PURPOSE_ID 
+                WHERE 1=1
+                {' '.join(conditions)}
+            """
+            total = db.execute(text(count_query).bindparams(**{k:v for k,v in query_params.items() if k not in ['offset', 'pageSize']})).scalar()
+            
+            # 转换为响应对象
+            assy_wips = [
+                AssyWip(
+                    DOC_NO=row.订单号,
+                    ITEM_CODE=row.ITEM_CODE,
+                    Z_PROCESSING_PURPOSE_NAME=row.Z_PROCESSING_PURPOSE_NAME,
+                    STRANDED=row.STRANDED,
+                    CURRENT_PROCESS=row.当前工序,
+                    EXPECTED_DELIVERY_DATE=row.预计交期,
+                    FINISHED_AT=row.finished_at,
+                    ONLINE_TOTAL=row.在线合计,
+                    WAREHOUSE_INVENTORY=row.仓库库存,
+                    HOLD_INFO=row.扣留信息,
+                    NEXT_DAY_EXPECTED=row.次日预计,
+                    THREE_DAY_EXPECTED=row.三日预计,
+                    SEVEN_DAY_EXPECTED=row.七日预计,
+                    POLISHING=row.研磨,
+                    CUTTING=row.切割,
+                    WAITING_FOR_INSTALLATION=row.待装片,
+                    INSTALLATION=row.装片,
+                    SILVER_GLUE_CURE=row.银胶固化,
+                    PLASMA_CLEANING_1=row.等离子清洗1,
+                    BONDING=row.键合,
+                    THREE_POINT_INSPECTION=row.三目检,
+                    PLASMA_CLEANING_2=row.等离子清洗2,
+                    SEALING=row.塑封,
+                    POST_CURE=row.后固化,
+                    REFLOW_SOLDERING=row.回流焊,
+                    ELECTROPLATING=row.电镀,
+                    PRINTING=row.打印,
+                    POST_CUTTING=row.后切割,
+                    CUTTING_AND_SHAPING=row.切筋成型,
+                    MEASUREMENT_AND_PRINTING=row.测编打印,
+                    APPEARANCE_INSPECTION=row.外观检,    
+                    PACKING=row.包装,
+                    WAITING_FOR_WAREHOUSE_INVENTORY=row.待入库
+                ) for row in result
+            ]
+            
+            return {
+                "list": assy_wips,
+                "total": total or 0
+            }
+            
+        except Exception as e:
+            logger.error(f"查询封装在制失败: {str(e)}")
+            raise CustomException("查询封装在制失败")
+        
+                

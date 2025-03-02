@@ -5,7 +5,8 @@ from app.core.cache import MemoryCache
 from app.core.exceptions import CustomException
 from app.core.error_codes import ErrorCode, get_error_message
 from app.core.monitor import MetricsManager
-from app.schemas.e10 import PurchaseOrder, PurchaseOrderQuery, PurchaseWip, PurchaseWipQuery, PurchaseWipSupplierResponse
+from app.schemas.e10 import (PurchaseOrder, PurchaseOrderQuery, PurchaseWip, PurchaseWipQuery, PurchaseWipSupplierResponse, PurchaseSupplierResponse,
+                             AssyOrder, AssyOrderQuery, AssyOrderResponse, AssyWip, AssyWipQuery)
 from app.crud.e10 import CRUDE10
 
 class E10Service:
@@ -197,6 +198,136 @@ class E10Service:
             raise
         except Exception as e:
             logger.error(f"获取采购在制供应商失败: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
+
+    async def get_purchase_supplier(self) -> List[PurchaseSupplierResponse]:
+        """获取采购供应商"""
+        try:
+            # 从数据库获取供应商列表
+            suppliers = self.crud_e10.get_purchase_supplier(self.db)
+            # 转换为Element Plus选择框需要的格式
+            options = [{"value": supplier, "label": supplier} for supplier in suppliers]
+            return options
+        except CustomException:
+            raise
+        except Exception as e:
+            logger.error(f"获取采购供应商失败: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
+    
+    async def get_assy_order_by_params(
+        self,
+        params: AssyOrderQuery
+    ) -> Dict[str, Any]:
+        """根据参数获取封装订单"""
+        try:
+            # 构建缓存键
+            cache_key = f"e10:assy_orders:params:{hash(frozenset(params.model_dump().items()))}"
+            
+            # 尝试从缓存获取
+            try:
+                cached_data = self.cache.get(cache_key)
+                if cached_data:
+                    self.metrics.track_cache_metrics(hit=True)
+                    logger.debug(f"命中缓存: {cache_key}")
+                    return {
+                        "list": [AssyOrder(**item) for item in cached_data["list"]],
+                        "total": cached_data["total"]
+                    }
+            except Exception as cache_error:
+                logger.warning(f"缓存获取失败: {str(cache_error)}")
+
+            self.metrics.track_cache_metrics(hit=False)
+            
+            # 从数据库获取数据
+            db_result = self.crud_e10.get_assy_order_by_params(self.db, params)
+            
+            # 构造返回结果
+            result = {
+                "list": db_result["list"],
+                "total": db_result["total"]
+            }
+            
+            # 缓存结果
+            try:
+                cache_data = {
+                    "list": [item.model_dump() for item in result["list"]],
+                    "total": result["total"]
+                }
+                success = self.cache.set(cache_key, cache_data, expire=3600)  # 缓存1小时
+                if success:
+                    logger.debug(f"成功设置缓存: {cache_key}")
+                else:
+                    logger.warning(f"设置缓存失败: {cache_key}")
+            except Exception as cache_error:
+                logger.warning(f"缓存设置失败: {str(cache_error)}")
+        
+            return result
+            
+        except CustomException:
+            raise
+        except Exception as e:
+            logger.error(f"获取封装订单失败: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
+        
+    async def get_assy_wip_by_params(
+        self,
+        params: AssyWipQuery
+    ) -> Dict[str, Any]:
+        """根据参数获取封装在制"""
+        try:
+            # 构建缓存键
+            cache_key = f"e10:assy_wips:params:{hash(frozenset(params.model_dump().items()))}"
+            
+            # 尝试从缓存获取
+            try:
+                cached_data = self.cache.get(cache_key)
+                if cached_data:
+                    self.metrics.track_cache_metrics(hit=True)
+                    logger.debug(f"命中缓存: {cache_key}")
+                    return {
+                        "list": [AssyWip(**item) for item in cached_data["list"]],
+                        "total": cached_data["total"]
+                    }
+            except Exception as cache_error:
+                logger.warning(f"缓存获取失败: {str(cache_error)}")
+
+            self.metrics.track_cache_metrics(hit=False)
+            
+            # 从数据库获取数据
+            db_result = self.crud_e10.get_assy_wip_by_params(self.db, params)
+            
+            # 构造返回结果
+            result = {
+                "list": db_result["list"],
+                "total": db_result["total"]
+            }
+            
+            # 缓存结果
+            try:
+                cache_data = {
+                    "list": [item.model_dump() for item in result["list"]],
+                    "total": result["total"]
+                }
+                success = self.cache.set(cache_key, cache_data, expire=3600)  # 缓存1小时
+                if success:
+                    logger.debug(f"成功设置缓存: {cache_key}")
+                else:
+                    logger.warning(f"设置缓存失败: {cache_key}")
+            except Exception as cache_error:
+                logger.warning(f"缓存设置失败: {str(cache_error)}")
+        
+            return result
+        
+        except CustomException:
+            raise
+        except Exception as e:
+            logger.error(f"获取封装在制失败: {str(e)}")
             raise CustomException(
                 message=get_error_message(ErrorCode.DB_ERROR)
             )
