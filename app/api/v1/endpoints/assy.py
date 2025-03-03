@@ -24,12 +24,43 @@ cache = MemoryCache()
 @router.get("/table", response_model=IResponse[AssyOrderResponse])
 @monitor_request
 async def get_assy_order_by_params(
-    params: AssyOrderQuery = Depends(),
+    pageIndex: int = Query(1, description="页码"),
+    pageSize: int = Query(50, description="每页数量"),
+    item_code: Optional[str] = Query(None, description="品号，多个用逗号分隔"),
+    doc_no: Optional[str] = Query(None, description="单号"),
+    supplier: Optional[str] = Query(None, description="供应商，多个用逗号分隔"),
+    package_type: Optional[str] = Query(None, description="封装类型，多个用逗号分隔"),
+    is_closed: Optional[int] = Query(None, description="是否结案"),
+    order_date_start: Optional[str] = Query(None, description="订单日期开始"),
+    order_date_end: Optional[str] = Query(None, description="订单日期结束"),
     db: Session = Depends(get_db),
     # current_user: User = Depends(get_current_active_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
+        # 构建查询参数
+        params = AssyOrderQuery(
+            pageIndex=pageIndex,
+            pageSize=pageSize,
+            doc_no=doc_no,
+            is_closed=is_closed
+        )
+        
+        # 处理日期参数
+        if order_date_start:
+            params.order_date_start = date.fromisoformat(order_date_start)
+        if order_date_end:
+            params.order_date_end = date.fromisoformat(order_date_end)
+            
+        # 处理可能包含多个值的参数
+        if item_code:
+            params.item_code = [code.strip() for code in item_code.split(',') if code.strip()]
+        if supplier:
+            params.supplier = [s.strip() for s in supplier.split(',') if s.strip()]
+        if package_type:
+            params.package_type = [pt.strip() for pt in package_type.split(',') if pt.strip()]
+            
+        # 调用服务层方法获取数据
         result = await e10_service.get_assy_order_by_params(params)
         return CustomResponse.success(data=result)
     except CustomException as e:

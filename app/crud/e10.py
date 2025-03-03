@@ -401,23 +401,24 @@ class CRUDE10:
                 
             if params.item_code and isinstance(params.item_code, list):
                 item_codes = [self._clean_input(code) for code in params.item_code]
-                conditions.append("AND ITEM.ITEM_CODE IN :item_codes")
-                query_params["item_codes"] = tuple(item_codes)
-            
-            if params.item_name and isinstance(params.item_name, list):
-                item_names = [self._clean_input(name) for name in params.item_name]
-                conditions.append("AND ITEM.ITEM_NAME IN :item_names")
-                query_params["item_names"] = tuple(item_names)
+                placeholders = [f":item_code_{i}" for i in range(len(item_codes))]
+                conditions.append(f"AND ITEM.ITEM_CODE IN ({','.join(placeholders)})")
+                for i, code in enumerate(item_codes):
+                    query_params[f"item_code_{i}"] = code
             
             if params.supplier and isinstance(params.supplier, list):
                 suppliers = [self._clean_input(supplier) for supplier in params.supplier]
-                conditions.append("AND PO.SUPPLIER_FULL_NAME IN :suppliers")
-                query_params["suppliers"] = tuple(suppliers)
+                placeholders = [f":supplier_{i}" for i in range(len(suppliers))]
+                conditions.append(f"AND PO.SUPPLIER_FULL_NAME IN ({','.join(placeholders)})")
+                for i, supplier in enumerate(suppliers):
+                    query_params[f"supplier_{i}"] = supplier
                 
             if params.package_type and isinstance(params.package_type, list):
                 package_types = [self._clean_input(package_type) for package_type in params.package_type]
-                conditions.append("AND Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_NAME IN :package_types")
-                query_params["package_types"] = tuple(package_types)
+                placeholders = [f":package_type_{i}" for i in range(len(package_types))]
+                conditions.append(f"AND Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_NAME IN ({','.join(placeholders)})")
+                for i, package_type in enumerate(package_types):
+                    query_params[f"package_type_{i}"] = package_type
                 
             if params.is_closed is not None:
                 if params.is_closed == 0:

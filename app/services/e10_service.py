@@ -224,8 +224,19 @@ class E10Service:
     ) -> Dict[str, Any]:
         """根据参数获取封装订单"""
         try:
-            # 构建缓存键
-            cache_key = f"e10:assy_orders:params:{hash(frozenset(params.model_dump().items()))}"
+            # 构建缓存键 - 处理列表类型参数
+            params_dict = params.model_dump()
+            cache_params = {}
+            
+            for key, value in params_dict.items():
+                if isinstance(value, list):
+                    # 将列表转换为排序后的元组，因为元组是可哈希的
+                    cache_params[key] = tuple(sorted(value)) if value else None
+                else:
+                    cache_params[key] = value
+                    
+            # 使用可哈希的键值对生成缓存键
+            cache_key = f"e10:assy_orders:params:{hash(frozenset(cache_params.items()))}"
             
             # 尝试从缓存获取
             try:
