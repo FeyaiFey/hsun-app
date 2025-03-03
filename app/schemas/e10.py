@@ -133,6 +133,7 @@ class AssyWipQuery(BaseModel):
 class AssyWip(BaseModel):
     """封装在制"""
     DOC_NO: Optional[str] = Field(..., description="订单号")
+    SUPPLIER_FULL_NAME: Optional[str] = Field(..., description="供应商全称")
     ITEM_CODE: Optional[str] = Field(..., description="品号")
     Z_PROCESSING_PURPOSE_NAME: Optional[str] = Field(..., description="加工方式")
     STRANDED: Optional[int] = Field(..., description="滞留天数")
@@ -170,3 +171,16 @@ class AssyWipResponse(BaseModel):
     """封装在制响应"""
     list: List[AssyWip] = Field(..., description="封装在制列表")
     total: int = Field(..., description="总条数")
+
+class AssyWipItemsQuery(BaseModel):
+    """封装在制品号查询参数"""
+    item_code: str = Field(..., description="品号")
+
+class AssyWipItems(BaseModel):
+    """封装在制品号响应"""
+    label: str = Field(..., description="品号")
+    value: str = Field(..., description="品号值")
+
+class AssyWipItemsResponse(BaseModel):
+    """封装在制品号响应"""
+    list: List[AssyWipItems] = Field(..., description="封装在制品号列表")

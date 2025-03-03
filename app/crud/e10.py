@@ -10,7 +10,10 @@ from app.schemas.e10 import (PurchaseOrder,
                              AssyOrderResponse,
                              AssyWip,
                              AssyWipQuery,
-                             AssyWipResponse)
+                             AssyWipResponse,
+                             AssyWipItems,
+                             AssyWipItemsQuery,
+                             AssyWipItemsResponse)
 from app.core.exceptions import CustomException
 from app.core.logger import logger
 
@@ -518,6 +521,7 @@ class CRUDE10:
             base_query = """
                 SELECT 
                 WIP.[订单号],
+                PO.SUPPLIER_FULL_NAME,
                 ITEM.ITEM_CODE,
                 ZPP.Z_PROCESSING_PURPOSE_NAME,
                 CASE 
@@ -660,6 +664,7 @@ class CRUDE10:
             assy_wips = [
                 AssyWip(
                     DOC_NO=row.订单号,
+                    SUPPLIER_FULL_NAME=row.SUPPLIER_FULL_NAME,
                     ITEM_CODE=row.ITEM_CODE,
                     Z_PROCESSING_PURPOSE_NAME=row.Z_PROCESSING_PURPOSE_NAME,
                     STRANDED=row.STRANDED,
@@ -704,4 +709,44 @@ class CRUDE10:
             logger.error(f"查询封装在制失败: {str(e)}")
             raise CustomException("查询封装在制失败")
         
-                
+    def get_assy_wip_items(self,db:Session,params:AssyWipItemsQuery)->Dict[str,Any]:
+        """获取封装在制品号"""
+        try:
+            base_query = """
+                SELECT DISTINCT ITEM_CODE
+                FROM ITEM
+                WHERE ITEM_CODE LIKE N'BC%AB'
+            """
+
+            # 构建查询条件
+            conditions = []
+            query_params = {}
+
+            if params.item_code:
+                # 将输入的品号转换为大写
+                item_code = params.item_code.upper()
+                conditions.append("AND ITEM_CODE LIKE :item_code")
+                query_params["item_code"] = f"%{self._clean_input(item_code)}%"
+
+            # 拼接查询条件
+            query = base_query + " " + " ".join(conditions) 
+
+            # 执行查询
+            stmt = text(query).bindparams(**query_params)
+            result = db.execute(stmt).all()
+
+            # 转换为响应对象
+            items = [
+                {
+                    "label": row.ITEM_CODE,
+                    "value": row.ITEM_CODE
+                } for row in result
+            ]
+
+            return {
+                "list": items
+            }
+        except Exception as e:
+            logger.error(f"获取封装在制品号失败: {str(e)}")
+            raise CustomException("获取封装在制品号失败")
+        

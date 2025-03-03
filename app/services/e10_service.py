@@ -6,7 +6,7 @@ from app.core.exceptions import CustomException
 from app.core.error_codes import ErrorCode, get_error_message
 from app.core.monitor import MetricsManager
 from app.schemas.e10 import (PurchaseOrder, PurchaseOrderQuery, PurchaseWip, PurchaseWipQuery, PurchaseWipSupplierResponse, PurchaseSupplierResponse,
-                             AssyOrder, AssyOrderQuery, AssyOrderResponse, AssyWip, AssyWipQuery)
+                             AssyOrder, AssyOrderQuery, AssyOrderResponse, AssyWip, AssyWipQuery, AssyWipItemsResponse, AssyWipItemsQuery, AssyWipItems)
 from app.crud.e10 import CRUDE10
 
 class E10Service:
@@ -331,6 +331,50 @@ class E10Service:
             raise CustomException(
                 message=get_error_message(ErrorCode.DB_ERROR)
             )
+    
+    async def get_assy_wip_items(self,params:AssyWipItemsQuery) -> Dict[str, List[AssyWipItems]]:
+        """获取封装在制品号"""
+        try:
+            # 构建缓存键
+            cache_key = f"e10:assy_wip_items:params:{hash(frozenset(params.model_dump().items()))}"
+
+            # 尝试从缓存获取
+            cached_data = self.cache.get(cache_key)
+            if cached_data:
+                self.metrics.track_cache_metrics(hit=True)
+                logger.debug(f"命中缓存: {cache_key}")
+                return {"list": [AssyWipItems(**item) for item in cached_data["list"]]}
+            
+            self.metrics.track_cache_metrics(hit=False)
+
+            # 从数据库获取数据
+            db_result = self.crud_e10.get_assy_wip_items(self.db, params)
+            
+            # 转换为响应格式
+            items = [AssyWipItems(**item) for item in db_result["list"]]
+            
+            # 缓存结果
+            try:
+                success = self.cache.set(cache_key, {"list": [item.model_dump() for item in items]}, expire=3600)  # 缓存1小时
+                if success:
+                    logger.debug(f"成功设置缓存: {cache_key}")
+                else:
+                    logger.warning(f"设置缓存失败: {cache_key}")
+            except Exception as cache_error:
+                logger.warning(f"缓存设置失败: {str(cache_error)}")
+                
+            return {"list": items}
+        
+        except CustomException:
+            raise
+        except Exception as e:
+            logger.error(f"获取封装在制品号失败: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
+            
+
+
 
 # 创建服务实例
 e10_service = E10Service(None, None)  # 在应用启动时注入实际的 db 和 cache
