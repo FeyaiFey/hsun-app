@@ -6,7 +6,9 @@ from app.core.exceptions import CustomException
 from app.core.error_codes import ErrorCode, get_error_message
 from app.core.monitor import MetricsManager
 from app.schemas.e10 import (PurchaseOrder, PurchaseOrderQuery, PurchaseWip, PurchaseWipQuery, PurchaseWipSupplierResponse, PurchaseSupplierResponse,
-                             AssyOrder, AssyOrderQuery, AssyWip, AssyWipQuery, AssyOrderItemsQuery, AssyOrderItems)
+                             AssyOrder, AssyOrderQuery, AssyWip, AssyWipQuery, AssyOrderItemsQuery, AssyOrderItems,
+                             AssyOrderPackageTypeQuery, AssyOrderPackageType, AssyOrderSupplierQuery, AssyOrderSupplier
+                             )
 from app.crud.e10 import CRUDE10
 
 class E10Service:
@@ -383,8 +385,88 @@ class E10Service:
             raise CustomException(
                 message=get_error_message(ErrorCode.DB_ERROR)
             )
-            
 
+    async def get_assy_order_package_type(self,params:AssyOrderPackageTypeQuery) -> Dict[str,Any]:
+        """获取封装订单类型"""
+        try:
+            # 构建缓存键
+            cache_key = f"e10:assy_order_package_type:params:{hash(frozenset(params.model_dump().items()))}"
+
+            # 尝试从缓存获取
+            cached_data = self.cache.get(cache_key)
+            if cached_data:
+                self.metrics.track_cache_metrics(hit=True)
+                logger.debug(f"命中缓存: {cache_key}")
+                return {"list": [AssyOrderPackageType(**item) for item in cached_data["list"]]}
+            
+            self.metrics.track_cache_metrics(hit=False)
+
+            # 从数据库获取数据
+            db_result = self.crud_e10.get_assy_order_package_type(self.db, params)
+            
+            # 转换为响应格式
+            package_types = [AssyOrderPackageType(**item) for item in db_result["list"]]
+            
+            # 缓存结果
+            try:
+                success = self.cache.set(cache_key, {"list": [item.model_dump() for item in package_types]}, expire=3600)  # 缓存1小时
+                if success:
+                    logger.debug(f"成功设置缓存: {cache_key}")
+                else:
+                    logger.warning(f"设置缓存失败: {cache_key}")
+            except Exception as cache_error:
+                logger.warning(f"缓存设置失败: {str(cache_error)}")
+                
+            return {"list": package_types}
+        
+        except CustomException:
+            raise
+        except Exception as e:
+            logger.error(f"获取封装订单类型失败: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
+        
+    async def get_assy_order_supplier(self,params:AssyOrderSupplierQuery) -> Dict[str,Any]:
+        """获取封装订单供应商"""
+        try:
+            # 构建缓存键
+            cache_key = f"e10:assy_order_supplier:params:{hash(frozenset(params.model_dump().items()))}"
+
+            # 尝试从缓存获取
+            cached_data = self.cache.get(cache_key)
+            if cached_data:
+                self.metrics.track_cache_metrics(hit=True)
+                logger.debug(f"命中缓存: {cache_key}")
+                return {"list": [AssyOrderSupplier(**item) for item in cached_data["list"]]}
+            
+            self.metrics.track_cache_metrics(hit=False)
+
+            # 从数据库获取数据
+            db_result = self.crud_e10.get_assy_order_supplier(self.db, params)
+            
+            # 转换为响应格式
+            suppliers = [AssyOrderSupplier(**item) for item in db_result["list"]]
+            
+            # 缓存结果
+            try:
+                success = self.cache.set(cache_key, {"list": [item.model_dump() for item in suppliers]}, expire=3600)  # 缓存1小时
+                if success:
+                    logger.debug(f"成功设置缓存: {cache_key}")
+                else:
+                    logger.warning(f"设置缓存失败: {cache_key}")
+            except Exception as cache_error:
+                logger.warning(f"缓存设置失败: {str(cache_error)}")
+                
+            return {"list": suppliers}
+        
+        except CustomException:
+            raise
+        except Exception as e:
+            logger.error(f"获取封装订单供应商失败: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
 
 
 # 创建服务实例

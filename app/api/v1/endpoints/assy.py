@@ -13,7 +13,10 @@ from app.core.exceptions import CustomException
 from app.core.response import CustomResponse
 from app.core.error_codes import ErrorCode, get_error_message
 from app.models.user import User
-from app.schemas.e10 import AssyOrderQuery, AssyOrderResponse, AssyWipQuery, AssyWipResponse, AssyOrderItemsQuery, AssyOrderItemsResponse
+from app.schemas.e10 import (
+    AssyOrderQuery, AssyOrderResponse, AssyWipQuery, AssyWipResponse, AssyOrderItemsQuery, AssyOrderItemsResponse,
+    AssyOrderPackageTypeQuery, AssyOrderPackageTypeResponse, AssyOrderSupplierQuery, AssyOrderSupplierResponse
+)
 from app.services.e10_service import E10Service
 
 router = APIRouter()
@@ -107,12 +110,17 @@ async def get_assy_wip_by_params(
 @router.get("/items", response_model=IResponse[AssyOrderItemsResponse])
 @monitor_request
 async def get_assy_wip_items(
+    item_code: Optional[str] = Query(None, description="品号"),
     db: Session = Depends(get_db),
-    params: AssyOrderItemsQuery = Depends(),
     # current_user: User = Depends(get_current_active_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
+        # 构建查询参数
+        params = AssyOrderItemsQuery(
+            item_code=item_code
+        )
+        logger.info(f"接收到的参数: {params.model_dump()}")
         result = await e10_service.get_assy_order_items(params)
         return CustomResponse.success(data=result)
     except CustomException as e:
@@ -129,4 +137,65 @@ async def get_assy_wip_items(
             message=get_error_message(ErrorCode.SYSTEM_ERROR),
             name="SystemError"
         )
+
+@router.get("/package_type", response_model=IResponse[AssyOrderPackageTypeResponse])
+@monitor_request
+async def get_assy_order_package_type(
+    package_type: Optional[str] = Query(None, description="封装类型"),
+    db: Session = Depends(get_db),
+    # current_user: User = Depends(get_current_active_user)
+) -> Any:
+    try:
+        e10_service = E10Service(db, cache)
+        # 构建查询参数
+        params = AssyOrderPackageTypeQuery(
+            package_type=package_type
+        )
+        logger.info(f"接收到的参数: {params.model_dump()}")
+        result = await e10_service.get_assy_order_package_type(params)
+        return CustomResponse.success(data=result)
+    except CustomException as e:
+        logger.error(f"获取封装类型失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="AssyError"
+        )
+    except Exception as e:
+        logger.error(f"获取封装类型失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
+        )
     
+@router.get("/supplier", response_model=IResponse[AssyOrderSupplierResponse])
+@monitor_request
+async def get_assy_order_supplier(
+    supplier: Optional[str] = Query(None, description="供应商"),
+    db: Session = Depends(get_db),
+    # current_user: User = Depends(get_current_active_user)
+) -> Any:
+    try:
+        e10_service = E10Service(db, cache)
+        # 构建查询参数
+        params = AssyOrderSupplierQuery(
+            supplier=supplier
+        )
+        logger.info(f"接收到的参数: {params.model_dump()}")
+        result = await e10_service.get_assy_order_supplier(params)
+        return CustomResponse.success(data=result)
+    except CustomException as e:
+        logger.error(f"获取封装供应商失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="AssyError"
+        )
+    except Exception as e:
+        logger.error(f"获取封装供应商失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
+        )

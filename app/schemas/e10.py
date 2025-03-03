@@ -120,7 +120,7 @@ class AssyOrderResponse(BaseModel):
 
 class AssyOrderItemsQuery(BaseModel):
     """封装订单品号查询参数"""
-    item_code: Optional[List[str]] = Field(None, description="品号")
+    item_code: Optional[str] = Field(None, description="品号")
 
 class AssyOrderItems(BaseModel):
     """封装订单品号响应"""
@@ -184,3 +184,30 @@ class AssyWipResponse(BaseModel):
     """封装在制响应"""
     list: List[AssyWip] = Field(..., description="封装在制列表")
     total: int = Field(..., description="总条数")
+
+class AssyOrderPackageTypeQuery(BaseModel):
+    """封装订单类型查询参数"""
+    package_type: Optional[str] = Field(None, description="封装类型")
+
+class AssyOrderPackageType(BaseModel):
+    """封装订单类型"""
+    label: str = Field(..., description="封装类型")
+    value: str = Field(..., description="封装类型值")
+
+class AssyOrderPackageTypeResponse(BaseModel):
+    """封装订单类型响应"""
+    list: List[AssyOrderPackageType] = Field(..., description="封装订单类型列表")
+
+class AssyOrderSupplierQuery(BaseModel):
+    """封装订单供应商查询参数"""
+    supplier: Optional[str] = Field(None, description="供应商")
+
+class AssyOrderSupplier(BaseModel):
+    """封装订单供应商"""
+    label: str = Field(..., description="供应商")
+    value: str = Field(..., description="供应商值")
+
+class AssyOrderSupplierResponse(BaseModel):
+    """封装订单供应商响应"""
+    list: List[AssyOrderSupplier] = Field(..., description="封装订单供应商列表")
+

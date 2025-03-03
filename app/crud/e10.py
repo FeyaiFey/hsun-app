@@ -8,7 +8,9 @@ from app.schemas.e10 import (PurchaseOrder,
                              AssyOrderQuery, 
                              AssyWip,
                              AssyWipQuery,
-                             AssyOrderItemsQuery)
+                             AssyOrderItemsQuery,
+                             AssyOrderPackageTypeQuery,
+                             AssyOrderSupplierQuery)
 from app.core.exceptions import CustomException
 from app.core.logger import logger
 
@@ -720,6 +722,7 @@ class CRUDE10:
 
             if params.item_code:
                 # 将输入的品号转换为大写
+                logger.info(f"获取封装在制品号参数: {params.item_code}")
                 item_code = params.item_code.upper()
                 conditions.append("AND ITEM_CODE LIKE :item_code")
                 query_params["item_code"] = f"%{self._clean_input(item_code)}%"
@@ -745,4 +748,86 @@ class CRUDE10:
         except Exception as e:
             logger.error(f"获取封装在制品号失败: {str(e)}")
             raise CustomException("获取封装在制品号失败")
+    
+    def get_assy_order_package_type(self,db:Session,params:AssyOrderPackageTypeQuery)->Dict[str,Any]:
+        """获取封装订单类型"""
+        try:
+            base_query = """
+                SELECT DISTINCT Z_PACKAGE_TYPE_NAME
+                FROM Z_PACKAGE_TYPE
+                WHERE 1=1
+            """
+
+            # 构建查询条件
+            conditions = []
+            query_params = {}
+
+            if params.package_type:
+                # 将输入的封装类型转换为大写
+                package_type = params.package_type.upper()
+                conditions.append("AND Z_PACKAGE_TYPE_NAME LIKE :package_type")
+                query_params["package_type"] = f"%{self._clean_input(package_type)}%"
+
+            # 拼接查询条件
+            query = base_query + " " + " ".join(conditions)
+
+            # 执行查询
+            stmt = text(query).bindparams(**query_params)
+            result = db.execute(stmt).all()
+
+            # 转换为响应对象
+            package_types = [
+                {
+                    "label": row.Z_PACKAGE_TYPE_NAME,
+                    "value": row.Z_PACKAGE_TYPE_NAME
+                } for row in result
+            ]   
+
+            return {
+                "list": package_types
+            }
+        except Exception as e:
+            logger.error(f"获取封装订单类型失败: {str(e)}")
+            raise CustomException("获取封装订单类型失败")
+        
+    def get_assy_order_supplier(self,db:Session,params:AssyOrderSupplierQuery)->Dict[str,Any]:
+        """获取封装订单供应商"""
+        try:
+            base_query = """
+                SELECT DISTINCT SUPPLIER_FULL_NAME
+                FROM PURCHASE_ORDER
+                WHERE 1=1
+            """
+
+            # 构建查询条件
+            conditions = []
+            query_params = {}
+
+            if params.supplier:
+                conditions.append("AND SUPPLIER_FULL_NAME LIKE :supplier")
+                query_params["supplier"] = f"%{self._clean_input(params.supplier)}%"
+
+            # 拼接查询条件
+            query = base_query + " " + " ".join(conditions)
+
+            # 执行查询
+            stmt = text(query).bindparams(**query_params)
+            result = db.execute(stmt).all()
+
+            # 转换为响应对象
+            suppliers = [
+                {
+                    "label": row.SUPPLIER_FULL_NAME,
+                    "value": row.SUPPLIER_FULL_NAME
+                } for row in result
+            ]
+
+            return {
+                "list": suppliers
+            }
+        except Exception as e:
+            logger.error(f"获取封装订单供应商失败: {str(e)}")
+            raise CustomException("获取封装订单供应商失败") 
+        
+        
         
