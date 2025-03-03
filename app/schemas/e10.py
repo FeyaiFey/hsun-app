@@ -118,6 +118,19 @@ class AssyOrderResponse(BaseModel):
     list: List[AssyOrder] = Field(..., description="封装订单列表")
     total: int = Field(..., description="总条数")
 
+class AssyOrderItemsQuery(BaseModel):
+    """封装订单品号查询参数"""
+    item_code: Optional[List[str]] = Field(None, description="品号")
+
+class AssyOrderItems(BaseModel):
+    """封装订单品号响应"""
+    label: str = Field(..., description="品号")
+    value: str = Field(..., description="品号值")
+
+class AssyOrderItemsResponse(BaseModel):
+    """封装订单品号响应"""
+    list: List[AssyOrderItems] = Field(..., description="封装订单品号列表")
+
 class AssyWipQuery(BaseModel):
     """封装在制查询参数"""
     doc_no: Optional[str] = Field(None, description="封装订单号")
@@ -171,16 +184,3 @@ class AssyWipResponse(BaseModel):
     """封装在制响应"""
     list: List[AssyWip] = Field(..., description="封装在制列表")
     total: int = Field(..., description="总条数")
-
-class AssyWipItemsQuery(BaseModel):
-    """封装在制品号查询参数"""
-    item_code: str = Field(..., description="品号")
-
-class AssyWipItems(BaseModel):
-    """封装在制品号响应"""
-    label: str = Field(..., description="品号")
-    value: str = Field(..., description="品号值")
-
-class AssyWipItemsResponse(BaseModel):
-    """封装在制品号响应"""
-    list: List[AssyWipItems] = Field(..., description="封装在制品号列表")

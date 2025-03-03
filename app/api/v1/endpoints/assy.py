@@ -13,7 +13,7 @@ from app.core.exceptions import CustomException
 from app.core.response import CustomResponse
 from app.core.error_codes import ErrorCode, get_error_message
 from app.models.user import User
-from app.schemas.e10 import AssyOrderQuery, AssyOrderResponse, AssyWipQuery, AssyWipResponse, AssyWipItemsResponse, AssyWipItemsQuery
+from app.schemas.e10 import AssyOrderQuery, AssyOrderResponse, AssyWipQuery, AssyWipResponse, AssyOrderItemsQuery, AssyOrderItemsResponse
 from app.services.e10_service import E10Service
 
 router = APIRouter()
@@ -104,16 +104,16 @@ async def get_assy_wip_by_params(
             name="SystemError"
         )
 
-@router.get("/wip/items", response_model=IResponse[AssyWipItemsResponse])
+@router.get("/items", response_model=IResponse[AssyOrderItemsResponse])
 @monitor_request
 async def get_assy_wip_items(
     db: Session = Depends(get_db),
-    params: AssyWipItemsQuery = Depends(),
+    params: AssyOrderItemsQuery = Depends(),
     # current_user: User = Depends(get_current_active_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
-        result = await e10_service.get_assy_wip_items(params)
+        result = await e10_service.get_assy_order_items(params)
         return CustomResponse.success(data=result)
     except CustomException as e:
         logger.error(f"获取封装在制品号失败: {str(e)}")

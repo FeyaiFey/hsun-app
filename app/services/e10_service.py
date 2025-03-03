@@ -6,7 +6,7 @@ from app.core.exceptions import CustomException
 from app.core.error_codes import ErrorCode, get_error_message
 from app.core.monitor import MetricsManager
 from app.schemas.e10 import (PurchaseOrder, PurchaseOrderQuery, PurchaseWip, PurchaseWipQuery, PurchaseWipSupplierResponse, PurchaseSupplierResponse,
-                             AssyOrder, AssyOrderQuery, AssyOrderResponse, AssyWip, AssyWipQuery, AssyWipItemsResponse, AssyWipItemsQuery, AssyWipItems)
+                             AssyOrder, AssyOrderQuery, AssyWip, AssyWipQuery, AssyOrderItemsQuery, AssyOrderItems)
 from app.crud.e10 import CRUDE10
 
 class E10Service:
@@ -343,26 +343,26 @@ class E10Service:
                 message=get_error_message(ErrorCode.DB_ERROR)
             )
     
-    async def get_assy_wip_items(self,params:AssyWipItemsQuery) -> Dict[str, List[AssyWipItems]]:
+    async def get_assy_order_items(self,params:AssyOrderItemsQuery) -> Dict[str, List[AssyOrderItems]]:
         """获取封装在制品号"""
         try:
             # 构建缓存键
-            cache_key = f"e10:assy_wip_items:params:{hash(frozenset(params.model_dump().items()))}"
+            cache_key = f"e10:assy_order_items:params:{hash(frozenset(params.model_dump().items()))}"
 
             # 尝试从缓存获取
             cached_data = self.cache.get(cache_key)
             if cached_data:
                 self.metrics.track_cache_metrics(hit=True)
                 logger.debug(f"命中缓存: {cache_key}")
-                return {"list": [AssyWipItems(**item) for item in cached_data["list"]]}
+                return {"list": [AssyOrderItems(**item) for item in cached_data["list"]]}
             
             self.metrics.track_cache_metrics(hit=False)
 
             # 从数据库获取数据
-            db_result = self.crud_e10.get_assy_wip_items(self.db, params)
+            db_result = self.crud_e10.get_assy_order_items(self.db, params)
             
             # 转换为响应格式
-            items = [AssyWipItems(**item) for item in db_result["list"]]
+            items = [AssyOrderItems(**item) for item in db_result["list"]]
             
             # 缓存结果
             try:

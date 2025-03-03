@@ -4,16 +4,11 @@ from app.schemas.e10 import (PurchaseOrder,
                              PurchaseOrderQuery, 
                              PurchaseWip, 
                              PurchaseWipQuery, 
-                             PurchaseWipSupplierResponse,
                              AssyOrder, 
                              AssyOrderQuery, 
-                             AssyOrderResponse,
                              AssyWip,
                              AssyWipQuery,
-                             AssyWipResponse,
-                             AssyWipItems,
-                             AssyWipItemsQuery,
-                             AssyWipItemsResponse)
+                             AssyOrderItemsQuery)
 from app.core.exceptions import CustomException
 from app.core.logger import logger
 
@@ -710,7 +705,7 @@ class CRUDE10:
             logger.error(f"查询封装在制失败: {str(e)}")
             raise CustomException("查询封装在制失败")
         
-    def get_assy_wip_items(self,db:Session,params:AssyWipItemsQuery)->Dict[str,Any]:
+    def get_assy_order_items(self,db:Session,params:AssyOrderItemsQuery)->Dict[str,Any]:
         """获取封装在制品号"""
         try:
             base_query = """
