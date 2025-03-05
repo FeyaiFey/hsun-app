@@ -13,7 +13,7 @@ from app.core.exceptions import CustomException
 from app.core.response import CustomResponse
 from app.core.error_codes import ErrorCode, get_error_message
 from app.models.user import User
-from app.schemas.e10 import (PurchaseOrderQuery, 
+from app.schemas.purchase import (PurchaseOrderQuery, 
                              PurchaseOrderResponse, 
                              PurchaseWipQuery, 
                              PurchaseWipResponse, 

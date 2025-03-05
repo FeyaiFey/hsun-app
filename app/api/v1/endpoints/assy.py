@@ -13,7 +13,7 @@ from app.core.exceptions import CustomException
 from app.core.response import CustomResponse
 from app.core.error_codes import ErrorCode, get_error_message
 from app.models.user import User
-from app.schemas.e10 import (
+from app.schemas.assy import (
     AssyOrderQuery, AssyOrderResponse, AssyWipQuery, AssyWipResponse, AssyOrderItemsQuery, AssyOrderItemsResponse,
     AssyOrderPackageTypeQuery, AssyOrderPackageTypeResponse, AssyOrderSupplierQuery, AssyOrderSupplierResponse
 )
@@ -37,7 +37,7 @@ async def get_assy_order_by_params(
     order_date_start: Optional[str] = Query(None, description="订单日期开始"),
     order_date_end: Optional[str] = Query(None, description="订单日期结束"),
     db: Session = Depends(get_db),
-    # current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -86,7 +86,7 @@ async def get_assy_order_by_params(
 async def get_assy_wip_by_params(
     params: AssyWipQuery = Depends(),
     db: Session = Depends(get_db),
-    # current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -112,7 +112,7 @@ async def get_assy_wip_by_params(
 async def get_assy_wip_items(
     item_code: Optional[str] = Query(None, description="品号"),
     db: Session = Depends(get_db),
-    # current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -143,7 +143,7 @@ async def get_assy_wip_items(
 async def get_assy_order_package_type(
     package_type: Optional[str] = Query(None, description="封装类型"),
     db: Session = Depends(get_db),
-    # current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -151,7 +151,6 @@ async def get_assy_order_package_type(
         params = AssyOrderPackageTypeQuery(
             package_type=package_type
         )
-        logger.info(f"接收到的参数: {params.model_dump()}")
         result = await e10_service.get_assy_order_package_type(params)
         return CustomResponse.success(data=result)
     except CustomException as e:
@@ -174,7 +173,7 @@ async def get_assy_order_package_type(
 async def get_assy_order_supplier(
     supplier: Optional[str] = Query(None, description="供应商"),
     db: Session = Depends(get_db),
-    # current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
