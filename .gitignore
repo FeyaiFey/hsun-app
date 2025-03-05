@@ -15,7 +15,6 @@ out/
 .DS_Store
 
 # 环境文件
-.env
 .venv/
 venv/
 .env.local
