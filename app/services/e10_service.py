@@ -583,9 +583,7 @@ class E10Service:
                     logger.warning(f"设置缓存失败: {cache_key}")
             except Exception as cache_error:
                 logger.warning(f"缓存设置失败: {str(cache_error)}")
-        
             return result
-            
         except CustomException:
             raise
         except Exception as e:
@@ -777,36 +775,54 @@ class E10Service:
     async def get_stock_by_params(self,params:StockQuery) -> Dict[str,Any]:
         """获取库存"""
         try:
-            # 构建缓存键
-            cache_key = f"e10:stock:params:{hash(frozenset(params.model_dump().items()))}"
+            # 构建缓存键 - 处理列表类型参数
+            params_dict = params.model_dump()
+            cache_params = {}
+            
+            for key, value in params_dict.items():
+                if isinstance(value, list):
+                    # 将列表转换为排序后的元组，因为元组是可哈希的
+                    cache_params[key] = tuple(sorted(value)) if value else None
+                else:
+                    cache_params[key] = value
+                    
+            # 使用可哈希的键值对生成缓存键
+            cache_key = f"e10:stock:params:{hash(frozenset(cache_params.items()))}"
 
             # 尝试从缓存获取
-            cached_data = self.cache.get(cache_key)
-            if cached_data:
-                self.metrics.track_cache_metrics(hit=True)
-                logger.debug(f"命中缓存: {cache_key}")
-                return {"list": [Stock(**item) for item in cached_data["list"]]}
-            
+            try:
+                cached_data = self.cache.get(cache_key)
+                if cached_data:
+                    self.metrics.track_cache_metrics(hit=True)
+                    logger.debug(f"命中缓存: {cache_key}")
+                    return {"list": [Stock(**item) for item in cached_data["list"]]}
+            except Exception as cache_error:
+                logger.warning(f"缓存获取失败: {str(cache_error)}")
+
             self.metrics.track_cache_metrics(hit=False)
 
             # 从数据库获取数据
             db_result = self.crud_e10.get_stock_by_params(self.db, params)
-            
-            # 转换为响应格式
-            stocks = [Stock(**item) for item in db_result["list"]]
+
+            # 构造返回结果
+            result = {
+                "list": db_result["list"]
+            }
             
             # 缓存结果
             try:
-                success = self.cache.set(cache_key, {"list": [item.model_dump() for item in stocks]}, expire=3600)  # 缓存1小时
+                cache_data = {
+                    "list": [item.model_dump() for item in result["list"]]
+                }
+                success = self.cache.set(cache_key, cache_data, expire=3600)  # 缓存1小时
                 if success:
                     logger.debug(f"成功设置缓存: {cache_key}")
                 else:
                     logger.warning(f"设置缓存失败: {cache_key}")
             except Exception as cache_error:
                 logger.warning(f"缓存设置失败: {str(cache_error)}")
-                
-            return {"list": stocks}
-        
+
+            return result
         except CustomException:
             raise
         except Exception as e:
@@ -833,12 +849,14 @@ class E10Service:
             # 从数据库获取数据
             db_result = self.crud_e10.get_wafer_id_qty_detail_by_params(self.db, params)
             
-            # 转换为响应格式
-            wafer_id_qty_details = [WaferIdQtyDetail(**item) for item in db_result["list"]]
+            # 构造返回结果
+            result = {
+                "list": db_result["list"]
+            }
             
             # 缓存结果
             try:
-                success = self.cache.set(cache_key, {"list": [item.model_dump() for item in wafer_id_qty_details]}, expire=3600)  # 缓存1小时
+                success = self.cache.set(cache_key, {"list": [item.model_dump() for item in result["list"]]}, expire=3600)  # 缓存1小时
                 if success:
                     logger.debug(f"成功设置缓存: {cache_key}")
                 else:
@@ -846,7 +864,7 @@ class E10Service:
             except Exception as cache_error:
                 logger.warning(f"缓存设置失败: {str(cache_error)}")
                     
-            return {"list": wafer_id_qty_details}
+            return result
         
         except CustomException:
             raise

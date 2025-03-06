@@ -584,7 +584,6 @@ class CRUDE10:
             logger.error(f"获取采购供应商失败: {str(e)}")
             raise CustomException("获取采购供应商失败")
         
-        
     def get_purchase_wip_supplier(self,db:Session)->List[str]:
         """获取采购在制供应商"""
         try:
@@ -782,12 +781,10 @@ class CRUDE10:
                     FEATURE_GROUP_NAME=row.FEATURE_GROUP_NAME
                 ) for row in result
             ]
-            
             return {
                 "list": assy_orders,
                 "total": total or 0
             }
-            
         except Exception as e:
             logger.error(f"查询封装订单失败: {str(e)}")
             raise CustomException("查询封装订单失败")
@@ -1108,16 +1105,16 @@ class CRUDE10:
             logger.error(f"获取封装订单供应商失败: {str(e)}")
             raise CustomException("获取封装订单供应商失败") 
         
-    def get_stock_by_params(self, db: Session, params: StockQuery) -> List[Stock]:
-        """根据参数获取库存列表"""
+    def get_stock_by_params(self,db:Session,params:StockQuery)->Dict[str,Any]:
+        """获取库存"""
         try:
             base_query = """
-                    SELECT 
+                    SELECT TOP 100
                     FG.FEATURE_GROUP_NAME,
                     ITEM.ITEM_CODE,ITEM.ITEM_NAME,
                     IL.LOT_CODE,
                     W.WAREHOUSE_NAME,
-                    CAST(SUM(A.INVENTORY_QTY) AS INT) AS INVENTORY_QTY,CAST(SUM(A.SECOND_QTY) AS INT) AS SECOND_QTY,
+                    CAST(SUM(A.INVENTORY_QTY) AS INT) AS INVENTORY_QTY,CAST(SUM(A.SECOND_QTY) AS FLOAT) AS SECOND_QTY,
                     B.Z_BIN_LEVEL_NAME,
                     T.Z_TESTING_PROGRAM_NAME,
                     BP.Z_BURNING_PROGRAM_NAME
@@ -1141,81 +1138,81 @@ class CRUDE10:
                     HAVING SUM(A.INVENTORY_QTY) > 0 
                     """
             # 构建查询条件
-            conditions = []
+            having_conditions = []
             query_params = {}
 
             # 参数验证和清理
-            if params.feature_group_name and isinstance(params.feature_group_name, list):
+            if params.feature_group_name:
                 feature_group_names = [self._clean_input(name) for name in params.feature_group_name]
                 placeholders = [f":feature_group_name_{i}" for i in range(len(feature_group_names))]
-                conditions.append(f"AND FG.FEATURE_GROUP_NAME IN ({','.join(placeholders)})")
+                having_conditions.append(f"AND FG.FEATURE_GROUP_NAME IN ({','.join(placeholders)})")
                 for i, name in enumerate(feature_group_names):
                     query_params[f"feature_group_name_{i}"] = name
-            
-            if params.item_code and isinstance(params.item_code, list):
+
+            if params.item_code:
                 item_codes = [self._clean_input(code) for code in params.item_code]
                 placeholders = [f":item_code_{i}" for i in range(len(item_codes))]
-                conditions.append(f"AND ITEM.ITEM_CODE IN ({','.join(placeholders)})")
+                having_conditions.append(f"AND ITEM.ITEM_CODE IN ({','.join(placeholders)})")
                 for i, code in enumerate(item_codes):
                     query_params[f"item_code_{i}"] = code
-            
-            if params.item_name and isinstance(params.item_name, list):
+
+            if params.item_name:
                 item_names = [self._clean_input(name) for name in params.item_name]
                 placeholders = [f":item_name_{i}" for i in range(len(item_names))]
-                conditions.append(f"AND ITEM.ITEM_NAME IN ({','.join(placeholders)})")
+                having_conditions.append(f"AND ITEM.ITEM_NAME IN ({','.join(placeholders)})")
                 for i, name in enumerate(item_names):
                     query_params[f"item_name_{i}"] = name
-            
-            if params.warehouse_name and isinstance(params.warehouse_name, list):
+
+            if params.warehouse_name:
                 warehouse_names = [self._clean_input(name) for name in params.warehouse_name]
                 placeholders = [f":warehouse_name_{i}" for i in range(len(warehouse_names))]
-                conditions.append(f"AND W.WAREHOUSE_NAME IN ({','.join(placeholders)})")
+                having_conditions.append(f"AND W.WAREHOUSE_NAME IN ({','.join(placeholders)})")
                 for i, name in enumerate(warehouse_names):
                     query_params[f"warehouse_name_{i}"] = name
-            
-            if params.testing_program and isinstance(params.testing_program, list):
-                testing_programs = [self._clean_input(program) for program in params.testing_program]
+
+            if params.testing_program:
+                testing_programs = [self._clean_input(name) for name in params.testing_program]
                 placeholders = [f":testing_program_{i}" for i in range(len(testing_programs))]
-                conditions.append(f"AND T.Z_TESTING_PROGRAM_NAME IN ({','.join(placeholders)})")
-                for i, program in enumerate(testing_programs):
-                    query_params[f"testing_program_{i}"] = program
-            
-            if params.burning_program and isinstance(params.burning_program, list):
-                burning_programs = [self._clean_input(program) for program in params.burning_program]
+                having_conditions.append(f"AND T.Z_TESTING_PROGRAM_NAME IN ({','.join(placeholders)})")
+                for i, name in enumerate(testing_programs):
+                    query_params[f"testing_program_{i}"] = name
+
+            if params.burning_program:
+                burning_programs = [self._clean_input(name) for name in params.burning_program]
                 placeholders = [f":burning_program_{i}" for i in range(len(burning_programs))]
-                conditions.append(f"AND BP.Z_BURNING_PROGRAM_NAME IN ({','.join(placeholders)})")
-                for i, program in enumerate(burning_programs):
-                    query_params[f"burning_program_{i}"] = program
-            
-            # 拼接查询条件
-            query = base_query + " " + " ".join(conditions)
-            
-            # 添加排序
-            query += " ORDER BY ITEM.ITEM_CODE,IL.LOT_CODE"
-            
+                having_conditions.append(f"AND BP.Z_BURNING_PROGRAM_NAME IN ({','.join(placeholders)})")
+                for i, name in enumerate(burning_programs):
+                    query_params[f"burning_program_{i}"] = name
+
+            # 构建完整的 SQL 查询语句
+            if having_conditions:
+                query = f"{base_query} {' '.join(having_conditions)} ORDER BY ITEM.ITEM_CODE,IL.LOT_CODE"
+            else:
+                query = f"{base_query} ORDER BY ITEM.ITEM_CODE,IL.LOT_CODE"
+
             # 执行查询
             stmt = text(query).bindparams(**query_params)
             result = db.execute(stmt).all()
-            
+
             # 转换为响应对象
             stocks = [
                 Stock(
-                    feature_group_name=row.FEATURE_GROUP_NAME,
-                    item_code=row.ITEM_CODE,
-                    item_name=row.ITEM_NAME,
-                    lot_code=row.LOT_CODE,
-                    warehouse_name=row.WAREHOUSE_NAME,
-                    inventory_qty=row.INVENTORY_QTY,
-                    second_qty=row.SECOND_QTY,
-                    bin_level_name=row.Z_BIN_LEVEL_NAME,
-                    testing_program_name=row.Z_TESTING_PROGRAM_NAME,
-                    burning_program_name=row.Z_BURNING_PROGRAM_NAME
+                    FEATURE_GROUP_NAME=row.FEATURE_GROUP_NAME,
+                    ITEM_CODE=row.ITEM_CODE,
+                    ITEM_NAME=row.ITEM_NAME,
+                    LOT_CODE=row.LOT_CODE,
+                    WAREHOUSE_NAME=row.WAREHOUSE_NAME,
+                    INVENTORY_QTY=row.INVENTORY_QTY,
+                    SECOND_QTY=row.SECOND_QTY,
+                    BIN_LEVEL_NAME=row.Z_BIN_LEVEL_NAME,
+                    TESTING_PROGRAM=row.Z_TESTING_PROGRAM_NAME,
+                    BURNING_PROGRAM=row.Z_BURNING_PROGRAM_NAME
                 ) for row in result
             ]
-            return stocks
+            return {"list": stocks}
         except Exception as e:
-            logger.error(f"获取库存列表失败: {e}")
-            raise CustomException(status_code=500, message="获取库存列表失败") 
+            logger.error(f"查询库存失败: {str(e)}")
+            raise CustomException("查询库存失败")
     
     def get_wafer_id_qty_detail_by_params(self,db:Session,params:WaferIdQtyDetailQuery)->List[WaferIdQtyDetail]:
         """根据参数获取晶圆ID数量明细"""
@@ -1225,9 +1222,9 @@ class CRUDE10:
                 ITEM.ITEM_CODE,ITEM.ITEM_NAME,
                 IL.LOT_CODE,
                 T.Z_TESTING_PROGRAM_NAME,
-                A.WF_ID + '#',
+                (A.WF_ID + '#') AS WF_ID,
                 B.Z_BIN_LEVEL_NAME,
-                CAST(A.INVENTORY_QTY AS INT) AS INVENTORY_QTY,CAST(A.SECOND_QTY AS INT) AS SECOND_QTY,
+                CAST(A.INVENTORY_QTY AS INT) AS INVENTORY_QTY,CAST(A.SECOND_QTY AS FLOAT) AS SECOND_QTY,
                 W.WAREHOUSE_NAME
                 FROM Z_WF_IC_WAREHOUSE_BIN A
                 LEFT JOIN ITEM
@@ -1249,11 +1246,11 @@ class CRUDE10:
             query_params = {}
 
             if params.item_code:
-                conditions.append("AND ITEM.ITEM_CODE = :item_code")
+                conditions.append("AND ITEM.ITEM_CODE LIKE :item_code")
                 query_params["item_code"] = f"%{self._clean_input(params.item_code)}%"
 
             if params.lot_code:
-                conditions.append("AND IL.LOT_CODE = :lot_code")
+                conditions.append("AND IL.LOT_CODE LIKE :lot_code")
                 query_params["lot_code"] = f"%{self._clean_input(params.lot_code)}%"
                 
             # 拼接查询条件
@@ -1261,6 +1258,8 @@ class CRUDE10:
 
             # 添加排序
             query += " ORDER BY ITEM.ITEM_CODE,IL.LOT_CODE,CAST(A.WF_ID AS INT)"
+
+            logger.info(f"查询条件: {query}")
             
             # 执行查询
             stmt = text(query).bindparams(**query_params)
@@ -1269,19 +1268,19 @@ class CRUDE10:
             # 转换为响应对象
             wafer_id_qty_details = [
                 WaferIdQtyDetail(
-                    item_code=row.ITEM_CODE,
-                    item_name=row.ITEM_NAME,
-                    lot_code=row.LOT_CODE,
-                    testing_program_name=row.Z_TESTING_PROGRAM_NAME,
-                    wafer_id=row.WF_ID,
-                    bin_level_name=row.Z_BIN_LEVEL_NAME,
-                    inventory_qty=row.INVENTORY_QTY,
-                    second_qty=row.SECOND_QTY,
-                    warehouse_name=row.WAREHOUSE_NAME
+                    ITEM_CODE=row.ITEM_CODE,
+                    ITEM_NAME=row.ITEM_NAME,
+                    LOT_CODE=row.LOT_CODE,
+                    Z_TESTING_PROGRAM_NAME=row.Z_TESTING_PROGRAM_NAME,
+                    WF_ID=row.WF_ID,
+                    Z_BIN_LEVEL_NAME=row.Z_BIN_LEVEL_NAME,
+                    INVENTORY_QTY=row.INVENTORY_QTY,
+                    SECOND_QTY=row.SECOND_QTY,
+                    WAREHOUSE_NAME=row.WAREHOUSE_NAME
                 ) for row in result
             ]
 
-            return wafer_id_qty_details
+            return {"list": wafer_id_qty_details}
         
         except Exception as e:
             logger.error(f"获取晶圆ID数量明细失败: {str(e)}")

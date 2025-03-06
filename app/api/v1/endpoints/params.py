@@ -38,7 +38,7 @@ cache = MemoryCache()
 async def get_feature_group_name(
     feature_group_name: Optional[str] = Query(None, description="品号群组"),
     db: Session = Depends(get_db),
-    # current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)

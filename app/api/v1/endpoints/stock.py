@@ -37,14 +37,7 @@ async def get_stock_by_params(
     try:
         e10_service = E10Service(db, cache)
         # 构建查询参数
-        params = StockQuery(
-            feature_group_name=feature_group_name,
-            item_code=item_code,
-            item_name=item_name,
-            warehouse_name=warehouse_name,
-            testing_program=testing_program,
-            burning_program=burning_program
-        )
+        params = StockQuery()
     
         # 处理可能包含多个值的参数
         if feature_group_name:

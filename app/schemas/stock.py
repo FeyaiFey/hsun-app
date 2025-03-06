@@ -13,13 +13,13 @@ class StockQuery(BaseModel):
 
 class Stock(BaseModel):
     """库存"""
-    FEAT_GROUP_NAME: Optional[str] = Field(None, description="品号群组")
+    FEATURE_GROUP_NAME: Optional[str] = Field(None, description="品号群组")
     ITEM_CODE: Optional[str] = Field(None, description="品号")
     ITEM_NAME: Optional[str] = Field(None, description="品名")
     LOT_CODE: Optional[str] = Field(None, description="批号")
     WAREHOUSE_NAME: Optional[str] = Field(None, description="仓库")
     INVENTORY_QTY: Optional[int] = Field(None, description="库存数量")
-    SECOND_QTY: Optional[int] = Field(None, description="第二数量")
+    SECOND_QTY: Optional[float] = Field(None, description="第二数量")
     Z_BIN_LEVEL_NAME: Optional[str] = Field(None, description="BIN等级")
     Z_TESTING_PROGRAM_NAME: Optional[str] = Field(None, description="测试程序")
     Z_BURNING_PROGRAM_NAME: Optional[str] = Field(None, description="烧录程序")
@@ -37,9 +37,9 @@ class WaferIdQtyDetail(BaseModel):
     """晶圆ID数量明细"""
     ITEM_CODE: Optional[str] = Field(None, description="品号")
     LOT_CODE: Optional[str] = Field(None, description="批号")
-    WF_ID: Optional[int] = Field(None, description="晶圆ID")
+    WF_ID: Optional[str] = Field(None, description="晶圆ID")
     INVENTORY_QTY: Optional[int] = Field(None, description="库存数量")
-    SECOND_QTY: Optional[int] = Field(None, description="第二数量")
+    SECOND_QTY: Optional[float] = Field(None, description="第二数量")
     Z_BIN_LEVEL_NAME: Optional[str] = Field(None, description="BIN等级")
     Z_TESTING_PROGRAM_NAME: Optional[str] = Field(None, description="测试程序")
     WAREHOUSE_NAME: Optional[str] = Field(None, description="仓库")
