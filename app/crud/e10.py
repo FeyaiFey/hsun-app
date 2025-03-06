@@ -1258,8 +1258,6 @@ class CRUDE10:
 
             # 添加排序
             query += " ORDER BY ITEM.ITEM_CODE,IL.LOT_CODE,CAST(A.WF_ID AS INT)"
-
-            logger.info(f"查询条件: {query}")
             
             # 执行查询
             stmt = text(query).bindparams(**query_params)
