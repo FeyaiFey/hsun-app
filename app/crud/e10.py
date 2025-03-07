@@ -1204,9 +1204,9 @@ class CRUDE10:
                     WAREHOUSE_NAME=row.WAREHOUSE_NAME,
                     INVENTORY_QTY=row.INVENTORY_QTY,
                     SECOND_QTY=row.SECOND_QTY,
-                    BIN_LEVEL_NAME=row.Z_BIN_LEVEL_NAME,
-                    TESTING_PROGRAM=row.Z_TESTING_PROGRAM_NAME,
-                    BURNING_PROGRAM=row.Z_BURNING_PROGRAM_NAME
+                    Z_BIN_LEVEL_NAME=row.Z_BIN_LEVEL_NAME,
+                    Z_TESTING_PROGRAM_NAME=row.Z_TESTING_PROGRAM_NAME,
+                    Z_BURNING_PROGRAM_NAME=row.Z_BURNING_PROGRAM_NAME
                 ) for row in result
             ]
             return {"list": stocks}
