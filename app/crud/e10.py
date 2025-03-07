@@ -663,7 +663,7 @@ class CRUDE10:
                     ON Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_ID = Z_PACKAGE.Z_PACKAGE_TYPE_ID
                 LEFT JOIN FEATURE_GROUP 
                     ON FEATURE_GROUP.FEATURE_GROUP_ID = ITEM.FEATURE_GROUP_ID
-                WHERE ITEM.ITEM_CODE LIKE N'BC%AB'
+                WHERE ITEM.ITEM_CODE LIKE N'BC%AB' AND PO.DOC_NO NOT LIKE N'3501-%'
             """
             
             # 构建查询条件
@@ -757,7 +757,7 @@ class CRUDE10:
                     ON Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_ID = Z_PACKAGE.Z_PACKAGE_TYPE_ID
                 LEFT JOIN FEATURE_GROUP 
                     ON FEATURE_GROUP.FEATURE_GROUP_ID = ITEM.FEATURE_GROUP_ID
-                WHERE ITEM.ITEM_CODE LIKE N'BC%AB'
+                WHERE ITEM.ITEM_CODE LIKE N'BC%AB' AND PO.DOC_NO NOT LIKE N'3501-%'
                 {' '.join(conditions)}
             """
             total = db.execute(text(count_query).bindparams(**{k:v for k,v in query_params.items() if k not in ['offset', 'pageSize']})).scalar()
@@ -778,7 +778,7 @@ class CRUDE10:
                     Z_ASSEMBLY_CODE=row.Z_ASSEMBLY_CODE,
                     Z_PROCESSING_PURPOSE_NAME=row.Z_PROCESSING_PURPOSE_NAME,
                     Z_PACKAGE_TYPE_NAME=row.Z_PACKAGE_TYPE_NAME,
-                    FEATURE_GROUP_NAME=row.FEATURE_GROUP_NAME
+                    Z_FEATURE_GROUP_NAME=row.FEATURE_GROUP_NAME
                 ) for row in result
             ]
             return {
@@ -1158,10 +1158,11 @@ class CRUDE10:
 
             if params.item_name:
                 item_names = [self._clean_input(name) for name in params.item_name]
-                placeholders = [f":item_name_{i}" for i in range(len(item_names))]
-                having_conditions.append(f"AND ITEM.ITEM_NAME IN ({','.join(placeholders)})")
+                item_name_conditions = []
                 for i, name in enumerate(item_names):
-                    query_params[f"item_name_{i}"] = name
+                    item_name_conditions.append(f"ITEM.ITEM_NAME LIKE :item_name_{i}")
+                    query_params[f"item_name_{i}"] = f"%{name}%"
+                having_conditions.append(f"AND ({' OR '.join(item_name_conditions)})")
 
             if params.warehouse_name:
                 warehouse_names = [self._clean_input(name) for name in params.warehouse_name]
