@@ -1268,7 +1268,6 @@ class CRUDE10:
             wafer_id_qty_details = [
                 WaferIdQtyDetail(
                     ITEM_CODE=row.ITEM_CODE,
-                    ITEM_NAME=row.ITEM_NAME,
                     LOT_CODE=row.LOT_CODE,
                     Z_TESTING_PROGRAM_NAME=row.Z_TESTING_PROGRAM_NAME,
                     WF_ID=row.WF_ID,
@@ -1285,4 +1284,3 @@ class CRUDE10:
             logger.error(f"获取晶圆ID数量明细失败: {str(e)}")
             raise CustomException(status_code=500, message="获取晶圆ID数量明细失败")
             
-

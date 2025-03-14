@@ -47,3 +47,13 @@ class WaferIdQtyDetail(BaseModel):
 class WaferIdQtyDetailResponse(BaseModel):
     """晶圆ID数量明细响应"""
     list: List[WaferIdQtyDetail] = Field(..., description="晶圆ID数量明细列表")
+
+class StockSummaryQuery(BaseModel):
+    """库存汇总查询参数"""
+    item_name: Optional[str] = Field(None, description="品名")
+    warehouse_name: Optional[str] = Field(None, description="仓库")
+    
+class StockSummary(BaseModel):
+    """库存汇总"""
+    ITEM_NAME: Optional[str] = Field(None, description="品名")
+    WAREHOUSE_NAME: Optional[str] = Field(None, description="仓库")
