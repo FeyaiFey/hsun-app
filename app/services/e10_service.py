@@ -9,7 +9,7 @@ from app.schemas.purchase import (PurchaseOrder, PurchaseOrderQuery, PurchaseWip
 from app.schemas.assy import (AssyOrder, AssyOrderQuery, AssyWip, AssyWipQuery, AssyOrderItemsQuery, AssyOrderItems,
                              AssyOrderPackageTypeQuery, AssyOrderPackageType, AssyOrderSupplierQuery, AssyOrderSupplier
                              )
-from app.schemas.stock import (StockQuery, Stock, WaferIdQtyDetailQuery, WaferIdQtyDetail)
+from app.schemas.stock import (StockQuery, Stock, WaferIdQtyDetailQuery, WaferIdQtyDetail, StockSummaryQuery, StockSummary)
 from app.schemas.e10 import (FeatureGroupName, FeatureGroupNameQuery, ItemCode, ItemCodeQuery, ItemName, ItemNameQuery,
                              WarehouseName, WarehouseNameQuery, TestingProgram, TestingProgramQuery, BurningProgram, BurningProgramQuery,
                              LotCode, LotCodeQuery
@@ -394,6 +394,21 @@ class E10Service:
             raise CustomException(
                 message=get_error_message(ErrorCode.DB_ERROR)
             )
+    
+    async def get_stock_summary_by_params(self,params:StockSummaryQuery) -> Dict[str,Any]:
+        """获取库存汇总"""
+        try:
+            # 从数据库获取数据
+            db_result = self.crud_e10.get_stock_summary_by_params(self.db, params)
+            return db_result
+        except CustomException:
+            raise
+        except Exception as e:
+            logger.error(f"获取库存汇总失败: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
+
     
 # 创建服务实例
 e10_service = E10Service(None, None)  # 在应用启动时注入实际的 db 和 cache

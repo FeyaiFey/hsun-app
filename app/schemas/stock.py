@@ -52,8 +52,14 @@ class StockSummaryQuery(BaseModel):
     """库存汇总查询参数"""
     item_name: Optional[str] = Field(None, description="品名")
     warehouse_name: Optional[str] = Field(None, description="仓库")
-    
+    feature_group_name: Optional[str] = Field(None, description="品号群组")
+
 class StockSummary(BaseModel):
-    """库存汇总"""
-    ITEM_NAME: Optional[str] = Field(None, description="品名")
-    WAREHOUSE_NAME: Optional[str] = Field(None, description="仓库")
+    FEATURE_GROUP_NAME: str = Field(..., description="品号群组")
+    ITEM_NAME: str = Field(..., description="品名")
+    WAREHOUSE_NAME: str = Field(..., description="仓库")
+    INVENTORY_QTY: float = Field(..., description="库存数量")
+    AVERAGE_STOCK_AGE: int = Field(..., description="平均库存天数")
+
+class StockSummaryResponse(BaseModel):
+    list: List[StockSummary] = Field(..., description="库存汇总列表")

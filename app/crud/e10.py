@@ -2,8 +2,19 @@ from typing import List, Optional, Union, Dict, Any
 from sqlmodel import Session, select, text
 from app.schemas.purchase import (PurchaseOrder,PurchaseOrderQuery,PurchaseWip,PurchaseWipQuery)
 from app.schemas.assy import (AssyOrder,AssyOrderQuery,AssyWip,AssyWipQuery,AssyOrderItemsQuery,AssyOrderPackageTypeQuery,AssyOrderSupplierQuery)
-from app.schemas.stock import (StockQuery,Stock,WaferIdQtyDetailQuery,WaferIdQtyDetail)
-from app.schemas.e10 import (FeatureGroupNameQuery,ItemCodeQuery,ItemNameQuery,WarehouseNameQuery,TestingProgramQuery,BurningProgramQuery,LotCodeQuery)
+from app.schemas.stock import (StockQuery,
+                             Stock,
+                             WaferIdQtyDetailQuery,
+                             WaferIdQtyDetail,
+                             StockSummaryQuery,
+                             StockSummary)
+from app.schemas.e10 import (FeatureGroupNameQuery,
+                             ItemCodeQuery,
+                             ItemNameQuery,
+                             WarehouseNameQuery,
+                             TestingProgramQuery,
+                             BurningProgramQuery,
+                             LotCodeQuery)
 from app.core.exceptions import CustomException
 from app.core.logger import logger
 
@@ -1283,4 +1294,64 @@ class CRUDE10:
         except Exception as e:
             logger.error(f"获取晶圆ID数量明细失败: {str(e)}")
             raise CustomException(status_code=500, message="获取晶圆ID数量明细失败")
-            
+    
+    def get_stock_summary_by_params(self,db:Session,params:StockSummaryQuery)->List[StockSummary]:
+        """根据参数获取库存汇总"""
+        try:
+            base_query = """
+                SELECT 
+                FG.FEATURE_GROUP_NAME,
+                ITEM.ITEM_NAME,
+                W.WAREHOUSE_NAME,
+                CAST(SUM(A.INVENTORY_QTY) AS INT) AS INVENTORY_QTY,
+                AVG(DATEDIFF(Month, ITEM.CreateDate , GETDATE())) AS AVERAGE_STOCK_AGE
+                FROM Z_WF_IC_WAREHOUSE_BIN A
+                LEFT JOIN ITEM
+                ON ITEM.ITEM_BUSINESS_ID = A.ITEM_ID
+                LEFT JOIN FEATURE_GROUP FG
+                ON FG.FEATURE_GROUP_ID = ITEM.FEATURE_GROUP_ID
+                LEFT JOIN WAREHOUSE W
+                ON A.WAREHOUSE_ID = W.WAREHOUSE_ID
+                WHERE W.WAREHOUSE_NAME NOT LIKE N'%原材料%'
+            """
+            # 构建查询条件
+            conditions = []
+            query_params = {}
+            if params.item_name:
+                conditions.append("AND ITEM.ITEM_NAME LIKE :item_name")
+                query_params["item_name"] = f"%{self._clean_input(params.item_name)}%"
+
+            if params.feature_group_name:
+                conditions.append("AND FG.FEATURE_GROUP_NAME LIKE :feature_group_name")
+                query_params["feature_group_name"] = f"%{self._clean_input(params.feature_group_name)}%"
+
+            if params.warehouse_name:
+                conditions.append("AND W.WAREHOUSE_NAME LIKE :warehouse_name")
+                query_params["warehouse_name"] = f"%{self._clean_input(params.warehouse_name)}%"
+
+            # 拼接查询条件
+            query = base_query + " " + " ".join(conditions)
+
+            query += """ GROUP BY FG.FEATURE_GROUP_NAME,ITEM.ITEM_NAME,W.WAREHOUSE_NAME
+                        HAVING SUM(A.INVENTORY_QTY) > 0
+                        ORDER BY ITEM.ITEM_NAME
+                    """
+            # 执行查询
+            stmt = text(query).bindparams(**query_params)
+            result = db.execute(stmt).all()
+
+            # 转换为响应对象
+            stock_summaries = [
+                StockSummary(
+                    FEATURE_GROUP_NAME=row.FEATURE_GROUP_NAME,
+                    ITEM_NAME=row.ITEM_NAME,
+                    WAREHOUSE_NAME=row.WAREHOUSE_NAME,
+                    INVENTORY_QTY=row.INVENTORY_QTY,
+                    AVERAGE_STOCK_AGE=row.AVERAGE_STOCK_AGE
+                ) for row in result
+            ]
+            return {"list": stock_summaries}
+        except Exception as e:
+            logger.error(f"获取库存汇总失败: {str(e)}")
+            raise CustomException("获取库存汇总失败")
+

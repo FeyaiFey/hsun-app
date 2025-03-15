@@ -13,7 +13,13 @@ from app.core.exceptions import CustomException
 from app.core.response import CustomResponse
 from app.core.error_codes import ErrorCode, get_error_message
 from app.models.user import User
-from app.schemas.stock import (StockQuery, StockResponse, WaferIdQtyDetailResponse, WaferIdQtyDetailQuery)
+from app.schemas.stock import (StockQuery, 
+                               StockResponse, 
+                               WaferIdQtyDetailResponse, 
+                               WaferIdQtyDetailQuery,
+                               StockSummaryResponse,
+                               StockSummaryQuery
+                               )
 from app.services.e10_service import E10Service
 
 router = APIRouter()
@@ -111,3 +117,39 @@ async def get_wafer_id_qty_detail_by_params(
             name="WaferIdQtyDetailError"
         )
     
+@router.get("/summary", response_model=IResponse[StockSummaryResponse])
+@monitor_request
+async def get_stock_summary_by_params(
+    item_name: Optional[str] = Query(None, description="品名"),
+    warehouse_name: Optional[str] = Query(None, description="仓库"),
+    feature_group_name: Optional[str] = Query(None, description="品号群组"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+) -> Any:
+    """根据参数获取库存汇总"""
+    try:
+        e10_service = E10Service(db, cache)
+        # 构建查询参数
+        params = StockSummaryQuery(
+            item_name=item_name,
+            warehouse_name=warehouse_name,
+            feature_group_name=feature_group_name
+        )
+        # 调用服务层方法获取数据
+        result = await e10_service.get_stock_summary_by_params(params)
+        return CustomResponse.success(data=result)
+    except CustomException as e:
+        logger.error(f"获取库存汇总失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="StockSummaryError"
+        )
+    except Exception as e:
+        logger.error(f"获取库存汇总失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.DB_ERROR),
+            name="StockSummaryError"
+        )
+
