@@ -33,6 +33,7 @@ async def get_stock_by_params(
     feature_group_name: Optional[str] = Query(None, description="品号群组,多个用逗号分隔"),
     item_code: Optional[str] = Query(None, description="品号,多个用逗号分隔"),
     item_name: Optional[str] = Query(None, description="品名,多个用逗号分隔"),
+    lot_code: Optional[str] = Query(None, description="批号,多个用逗号分隔"),
     warehouse_name: Optional[str] = Query(None, description="仓库,多个用逗号分隔"),
     testing_program: Optional[str] = Query(None, description="测试程序,多个用逗号分隔"),
     burning_program: Optional[str] = Query(None, description="烧录程序,多个用逗号分隔"),
@@ -54,6 +55,9 @@ async def get_stock_by_params(
 
         if item_name:
             params.item_name = [name.strip() for name in item_name.split(',') if name.strip()]
+
+        if lot_code:
+            params.lot_code = [code.strip() for code in lot_code.split(',') if code.strip()]
 
         if warehouse_name:
             params.warehouse_name = [name.strip() for name in warehouse_name.split(',') if name.strip()]

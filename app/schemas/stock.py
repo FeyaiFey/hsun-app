@@ -7,6 +7,7 @@ class StockQuery(BaseModel):
     feature_group_name: Optional[List[str]] = Field(None, description="品号群组")
     item_code: Optional[List[str]] = Field(None, description="品号")
     item_name: Optional[List[str]] = Field(None, description="品名")
+    lot_code: Optional[List[str]] = Field(None, description="批号")
     warehouse_name: Optional[List[str]] = Field(None, description="仓库")
     testing_program: Optional[List[str]] = Field(None, description="测试程序")
     burning_program: Optional[List[str]] = Field(None, description="烧录程序")

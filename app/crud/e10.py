@@ -1171,9 +1171,16 @@ class CRUDE10:
                 item_names = [self._clean_input(name) for name in params.item_name]
                 item_name_conditions = []
                 for i, name in enumerate(item_names):
-                    item_name_conditions.append(f"ITEM.ITEM_NAME LIKE :item_name_{i}")
+                    item_name_conditions.append(f"UPPER(ITEM.ITEM_NAME) LIKE UPPER(:item_name_{i})")
                     query_params[f"item_name_{i}"] = f"%{name}%"
                 having_conditions.append(f"AND ({' OR '.join(item_name_conditions)})")
+
+            if params.lot_code:
+                lot_codes = [self._clean_input(code) for code in params.lot_code]
+                placeholders = [f":lot_code_{i}" for i in range(len(lot_codes))]
+                having_conditions.append(f"AND UPPER(IL.LOT_CODE) IN ({','.join([f'UPPER({p})' for p in placeholders])})")
+                for i, code in enumerate(lot_codes):
+                    query_params[f"lot_code_{i}"] = code
 
             if params.warehouse_name:
                 warehouse_names = [self._clean_input(name) for name in params.warehouse_name]
@@ -1185,14 +1192,14 @@ class CRUDE10:
             if params.testing_program:
                 testing_programs = [self._clean_input(name) for name in params.testing_program]
                 placeholders = [f":testing_program_{i}" for i in range(len(testing_programs))]
-                having_conditions.append(f"AND T.Z_TESTING_PROGRAM_NAME IN ({','.join(placeholders)})")
+                having_conditions.append(f"AND UPPER(T.Z_TESTING_PROGRAM_NAME) IN ({','.join([f'UPPER({p})' for p in placeholders])})")
                 for i, name in enumerate(testing_programs):
                     query_params[f"testing_program_{i}"] = name
 
             if params.burning_program:
                 burning_programs = [self._clean_input(name) for name in params.burning_program]
                 placeholders = [f":burning_program_{i}" for i in range(len(burning_programs))]
-                having_conditions.append(f"AND BP.Z_BURNING_PROGRAM_NAME IN ({','.join(placeholders)})")
+                having_conditions.append(f"AND UPPER(BP.Z_BURNING_PROGRAM_NAME) IN ({','.join([f'UPPER({p})' for p in placeholders])})")
                 for i, name in enumerate(burning_programs):
                     query_params[f"burning_program_{i}"] = name
 
