@@ -1176,11 +1176,12 @@ class CRUDE10:
                 having_conditions.append(f"AND ({' OR '.join(item_name_conditions)})")
 
             if params.lot_code:
-                lot_codes = [self._clean_input(code) for code in params.lot_code]
-                placeholders = [f":lot_code_{i}" for i in range(len(lot_codes))]
-                having_conditions.append(f"AND UPPER(IL.LOT_CODE) IN ({','.join([f'UPPER({p})' for p in placeholders])})")
-                for i, code in enumerate(lot_codes):
-                    query_params[f"lot_code_{i}"] = code
+                lot_codes = [self._clean_input(lot) for lot in params.lot_code]
+                lot_code_conditions = []
+                for i, lot in enumerate(lot_codes):
+                    lot_code_conditions.append(f"UPPER(IL.LOT_CODE) LIKE UPPER(:lot_code_{i})")
+                    query_params[f"lot_code_{i}"] = f"%{lot}%"
+                having_conditions.append(f"AND ({' OR '.join(lot_code_conditions)})")
 
             if params.warehouse_name:
                 warehouse_names = [self._clean_input(name) for name in params.warehouse_name]
