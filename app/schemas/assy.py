@@ -1,6 +1,6 @@
 from datetime import datetime, date
-from typing import Optional, List, Dict
-from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Union
+from pydantic import BaseModel, Field, validator
 
 class AssyOrderQuery(BaseModel):
     """封装订单查询参数"""
@@ -59,11 +59,20 @@ class AssyWipQuery(BaseModel):
     item_code: Optional[str] = Field(None, description="品号")
     supplier: Optional[str] = Field(None, description="供应商")
     current_process: Optional[str] = Field(None, description="当前工序")
-    is_finished: Optional[int] = Field(None, description="是否完成")
-    is_stranded: Optional[int] = Field(None, description="是否滞留")
+    is_finished: Optional[Union[int, str]] = Field(None, description="是否完成")
+    is_stranded: Optional[Union[int, str]] = Field(None, description="是否滞留")
     days: Optional[int] = Field(None, description="某日内产出预计")
     pageIndex: Optional[int] = Field(default=1, ge=1, description="页码")
     pageSize: Optional[int] = Field(default=10, ge=1, le=100, description="每页数量")
+
+    @validator('is_finished', 'is_stranded')
+    def validate_int_or_empty(cls, v):
+        if v is None or v == '':
+            return None
+        try:
+            return int(v)
+        except (ValueError, TypeError):
+            return None
 
 class AssyWip(BaseModel):
     """封装在制"""

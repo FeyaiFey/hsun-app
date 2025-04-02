@@ -1,10 +1,11 @@
 from datetime import datetime, date
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
 from pydantic import BaseModel, Field
+from pydantic import validator
 
 class PurchaseOrderQuery(BaseModel):
     """采购订单查询参数"""
-    receipt_close: Optional[int] = Field(default=None, description="已结束？")
+    receipt_close: Optional[Union[int, str]] = Field(default=None, description="已结束？")
     doc_no: Optional[str] = None
     item_code: Optional[str] = None
     item_name: Optional[str] = None
@@ -13,6 +14,15 @@ class PurchaseOrderQuery(BaseModel):
     purchase_date_end: Optional[date] = None
     pageIndex: Optional[int] = Field(default=1, ge=1, description="页码")
     pageSize: Optional[int] = Field(default=10, ge=1, le=100, description="每页数量")
+
+    @validator('receipt_close')
+    def validate_int_or_empty(cls, v):
+        if v is None or v == '':
+            return None
+        try:
+            return int(v)
+        except (ValueError, TypeError):
+            return None
 
 class PurchaseOrder(BaseModel):
     """采购订单"""
@@ -42,11 +52,20 @@ class PurchaseWipQuery(BaseModel):
     item_name: Optional[str] = Field(None, description="品名")
     supplier: Optional[str] = Field(None, description="供应商")
     status: Optional[str] = Field(None, description="状态")
-    is_finished: Optional[int] = Field(None, description="是否完成")
-    is_stranded: Optional[int] = Field(None, description="是否滞留")
+    is_finished: Optional[Union[int, str]] = Field(None, description="是否完成")
+    is_stranded: Optional[Union[int, str]] = Field(None, description="是否滞留")
     days: Optional[int] = Field(None, description="某日内产出预计")
     pageIndex: Optional[int] = Field(default=1, ge=1, description="页码")
     pageSize: Optional[int] = Field(default=10, ge=1, le=100, description="每页数量")
+
+    @validator('is_finished', 'is_stranded')
+    def validate_int_or_empty(cls, v):
+        if v is None or v == '':
+            return None
+        try:
+            return int(v)
+        except (ValueError, TypeError):
+            return None
 
 class PurchaseWip(BaseModel):
     """采购在制"""

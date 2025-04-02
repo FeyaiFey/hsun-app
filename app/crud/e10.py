@@ -845,7 +845,7 @@ class CRUDE10:
                 WIP.[包装],
                 WIP.[待入库]
                 FROM huaxinAdmin_wip_assy WIP
-                LEFT JOIN PURCHASE_ORDER PO ON PO.DOC_NO = WIP.[订单号]
+                INNER JOIN PURCHASE_ORDER PO ON PO.DOC_NO = WIP.[订单号]
                 LEFT JOIN PURCHASE_ORDER_D PO_D ON PO.PURCHASE_ORDER_ID = PO_D.PURCHASE_ORDER_ID
                 LEFT JOIN PURCHASE_ORDER_SD PO_SD ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
                 LEFT JOIN PURCHASE_ORDER_SSD PO_SSD ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
@@ -1120,8 +1120,7 @@ class CRUDE10:
         """获取库存"""
         try:
             base_query = """
-                    SELECT TOP 100
-                    FG.FEATURE_GROUP_NAME,
+                    SELECT FG.FEATURE_GROUP_NAME,
                     ITEM.ITEM_CODE,ITEM.ITEM_NAME,
                     IL.LOT_CODE,
                     W.WAREHOUSE_NAME,
