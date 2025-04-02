@@ -1,7 +1,7 @@
 from typing import List, Optional, Union, Dict, Any
 from sqlmodel import Session, select, text
 from app.schemas.purchase import (PurchaseOrder,PurchaseOrderQuery,PurchaseWip,PurchaseWipQuery)
-from app.schemas.assy import (AssyOrder,AssyOrderQuery,AssyWip,AssyWipQuery,AssyOrderItemsQuery,AssyOrderPackageTypeQuery,AssyOrderSupplierQuery)
+from app.schemas.assy import (AssyOrder,AssyOrderQuery,AssyWip,AssyWipQuery,AssyOrderItemsQuery,AssyOrderPackageTypeQuery,AssyOrderSupplierQuery,AssyBomQuery,AssyBom)
 from app.schemas.stock import (StockQuery,
                              Stock,
                              WaferIdQtyDetailQuery,
@@ -17,6 +17,10 @@ from app.schemas.e10 import (FeatureGroupNameQuery,
                              LotCodeQuery)
 from app.core.exceptions import CustomException
 from app.core.logger import logger
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+import io
 
 
 class CRUDE10:
@@ -613,120 +617,150 @@ class CRUDE10:
             raise CustomException("获取采购在制供应商失败")
 
     def get_assy_order_by_params(self,db:Session,params:AssyOrderQuery)->Dict[str,Any]:
-        """获取封装订单列表
-        
-        Args:
-            db: 数据库会话
-            params: 查询参数
-            
-        Returns:
-            Dict[str,Any]: 包含封装订单列表和总数的字典
-        """
+        """获取封装订单列表"""
         try:
             # 构建基础查询
             base_query = """
-                SELECT 
-                    PO.DOC_NO,
-                    CAST(PO.PURCHASE_DATE AS DATE) AS PURCHASE_DATE,
-                    PO.SUPPLIER_FULL_NAME,
-                    PO.[CLOSE],
-                    CAST(PO_D.BUSINESS_QTY AS INT) AS BUSINESS_QTY,
-                    CAST(PO_D.RECEIPTED_PRICE_QTY AS INT) AS RECEIPTED_PRICE_QTY,
-                    CASE 
-                        WHEN PO.[CLOSE] = N'2' THEN 0
-                        WHEN (PO_D.RECEIPTED_PRICE_QTY / PO_D.BUSINESS_QTY) > 0.992 THEN 0
-                        ELSE CAST(((PO_D.BUSINESS_QTY * 0.996) - PO_D.RECEIPTED_PRICE_QTY) AS INT)
-                    END AS WIP_QTY,
-                    CAST(PO_D.PRICE AS FLOAT) AS PRICE,
-                    ITEM.ITEM_CODE,
-                    ITEM_LOT.LOT_CODE,
-                    Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE,
-                    Z_PROCESSING_PURPOSE.Z_PROCESSING_PURPOSE_NAME,
-                    Z_PACKAGE.REMARK,
-                    Z_LOADING_METHOD.Z_LOADING_METHOD_NAME,
-                    Z_WIRE.Z_WIRE_NAME,
-                    Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_NAME,
-                    FEATURE_GROUP.FEATURE_GROUP_NAME
-                FROM PURCHASE_ORDER PO
-                LEFT JOIN PURCHASE_ORDER_D PO_D 
-                    ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
-                LEFT JOIN PURCHASE_ORDER_SD PO_SD 
-                    ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
-                LEFT JOIN PURCHASE_ORDER_SSD PO_SSD 
-                    ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
-                LEFT JOIN Z_OUT_MO_D 
-                    ON PO_SSD.REFERENCE_SOURCE_ID_ROid = Z_OUT_MO_D.Z_OUT_MO_D_ID
-                LEFT JOIN ITEM 
-                    ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
-                LEFT JOIN ITEM_LOT 
-                    ON Z_OUT_MO_D.ITEM_LOT_ID = ITEM_LOT.ITEM_LOT_ID
-                LEFT JOIN Z_ASSEMBLY_CODE 
-                    ON Z_OUT_MO_D.Z_PACKAGE_ASSEMBLY_CODE_ID = Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE_ID
-                LEFT JOIN Z_PACKAGE 
-                    ON Z_ASSEMBLY_CODE.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
-                LEFT JOIN Z_PROCESSING_PURPOSE 
-                    ON Z_ASSEMBLY_CODE.Z_PROCESSING_PURPOSE_ID = Z_PROCESSING_PURPOSE.Z_PROCESSING_PURPOSE_ID
-                LEFT JOIN Z_LOADING_METHOD 
-                    ON Z_LOADING_METHOD.Z_LOADING_METHOD_ID = Z_PACKAGE.Z_LOADING_METHOD_ID
-                LEFT JOIN Z_WIRE 
-                    ON Z_WIRE.Z_WIRE_ID = Z_PACKAGE.Z_WIRE_ID
-                LEFT JOIN Z_PACKAGE_TYPE 
-                    ON Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_ID = Z_PACKAGE.Z_PACKAGE_TYPE_ID
-                LEFT JOIN FEATURE_GROUP 
-                    ON FEATURE_GROUP.FEATURE_GROUP_ID = ITEM.FEATURE_GROUP_ID
-                WHERE ITEM.ITEM_CODE LIKE N'BC%AB' AND PO.DOC_NO NOT LIKE N'3501-%'
+                SELECT *
+                FROM (
+                    SELECT
+                        hpl.ID,
+                        hpl.DOC_NO,
+                        hpl.ITEM_CODE,
+                        hpl.Z_PACKAGE_TYPE_NAME,
+                        hpl.LOT_CODE,
+                        hpl.BUSINESS_QTY,
+                        hpl.RECEIPTED_PRICE_QTY,
+                        0 AS WIP_QTY,
+                        hpl.Z_PROCESSING_PURPOSE_NAME,
+                        hpl.Z_TESTING_PROGRAM_NAME,
+                        hpl.Z_ASSEMBLY_CODE,
+                        hpl.Z_WIRE_NAME,
+                        hpl.REMARK,
+                        hpl.PURCHASE_DATE,
+                        ISNULL(hpl.FIRST_ARRIVAL_DATE, DATEADD(MONTH, 2, hpl.PURCHASE_DATE)) AS FIRST_ARRIVAL_DATE,
+                        hpl.SUPPLIER_FULL_NAME,
+                        hpl.RECEIPT_CLOSE
+                    FROM HSUN_PACKAGE_LIST hpl
+                    UNION ALL
+                    SELECT
+                        ROW_NUMBER() OVER (ORDER BY PO.PURCHASE_DATE, PO.DOC_NO) + 115617 AS ID,
+                        PO.DOC_NO,
+                        ITEM.ITEM_CODE,
+                        Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_NAME,
+                        ITEM_LOT.LOT_CODE,
+                        CAST(PO_D.BUSINESS_QTY AS INT) AS BUSINESS_QTY,
+                        CAST(PO_D.RECEIPTED_PRICE_QTY AS INT) AS RECEIPTED_PRICE_QTY,
+                        CASE 
+                            WHEN PO.[CLOSE] = N'2' THEN 0
+                            WHEN PO_D.BUSINESS_QTY <> 0 AND (PO_D.RECEIPTED_PRICE_QTY / PO_D.BUSINESS_QTY) > 0.992 THEN 0
+                            ELSE CAST(((PO_D.BUSINESS_QTY * 0.996) - PO_D.RECEIPTED_PRICE_QTY) AS INT)
+                        END AS WIP_QTY,
+                        Z_PROCESSING_PURPOSE.Z_PROCESSING_PURPOSE_NAME,
+                        ZTP.Z_TESTING_PROGRAM_NAME,
+                        Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE,
+                        Z_WIRE.Z_WIRE_NAME,
+                        Z_PACKAGE.REMARK,
+                        CAST(PO.PURCHASE_DATE AS DATE) AS PURCHASE_DATE,
+                        CAST(PR.CreateDate AS DATE) AS FIRST_ARRIVAL_DATE,
+                        PO.SUPPLIER_FULL_NAME,
+                        PO_SD.RECEIPT_CLOSE
+                    FROM PURCHASE_ORDER PO
+                    LEFT JOIN PURCHASE_ORDER_D PO_D 
+                        ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
+                    LEFT JOIN PURCHASE_ORDER_SD PO_SD 
+                        ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                    LEFT JOIN PURCHASE_ORDER_SSD PO_SSD 
+                        ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+                    LEFT JOIN Z_OUT_MO_D 
+                        ON PO_SSD.REFERENCE_SOURCE_ID_ROid = Z_OUT_MO_D.Z_OUT_MO_D_ID
+                    LEFT JOIN ITEM 
+                        ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                    LEFT JOIN ITEM_LOT 
+                        ON Z_OUT_MO_D.ITEM_LOT_ID = ITEM_LOT.ITEM_LOT_ID
+                    LEFT JOIN Z_ASSEMBLY_CODE 
+                        ON Z_OUT_MO_D.Z_PACKAGE_ASSEMBLY_CODE_ID = Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE_ID
+                    LEFT JOIN Z_ASSEMBLY_CODE ZAC
+                        ON Z_OUT_MO_D.Z_TESTING_ASSEMBLY_CODE_ID = ZAC.Z_ASSEMBLY_CODE_ID
+                    LEFT JOIN Z_TESTING_PROGRAM ZTP
+                        ON ZAC.PROGRAM_ROid = ZTP.Z_TESTING_PROGRAM_ID
+                    LEFT JOIN Z_PACKAGE 
+                        ON Z_ASSEMBLY_CODE.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
+                    LEFT JOIN Z_PROCESSING_PURPOSE 
+                        ON Z_ASSEMBLY_CODE.Z_PROCESSING_PURPOSE_ID = Z_PROCESSING_PURPOSE.Z_PROCESSING_PURPOSE_ID
+                    LEFT JOIN Z_LOADING_METHOD 
+                        ON Z_LOADING_METHOD.Z_LOADING_METHOD_ID = Z_PACKAGE.Z_LOADING_METHOD_ID
+                    LEFT JOIN Z_WIRE 
+                        ON Z_WIRE.Z_WIRE_ID = Z_PACKAGE.Z_WIRE_ID
+                    LEFT JOIN Z_PACKAGE_TYPE 
+                        ON Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_ID = Z_PACKAGE.Z_PACKAGE_TYPE_ID
+                    LEFT JOIN FEATURE_GROUP 
+                        ON FEATURE_GROUP.FEATURE_GROUP_ID = ITEM.FEATURE_GROUP_ID
+                    OUTER APPLY (
+                        SELECT TOP 1 *
+                        FROM PURCHASE_RECEIPT_D PRD
+                        WHERE PRD.ORDER_SOURCE_ID_ROid = PO_SD.PURCHASE_ORDER_SD_ID
+                        ORDER BY PRD.CreateDate
+                    ) PR
+                    WHERE PO.PURCHASE_TYPE = 2 
+                        AND PO.PURCHASE_DATE > '2024-10-21' 
+                        AND ITEM.ITEM_CODE LIKE N'BC%AB' 
+                        AND PO.SUPPLIER_FULL_NAME <> N'温州镁芯微电子有限公司'  
+                        AND PO.SUPPLIER_FULL_NAME <> N'苏州荐恒电子科技有限公司'  
+                        AND PO.SUPPLIER_FULL_NAME <> N'深圳市华新源科技有限公司'
+                ) AS CombinedResults
+                WHERE 1=1
             """
-            
+
             # 构建查询条件
             conditions = []
             query_params = {}
             
             # 参数验证和清理
             if params.doc_no and isinstance(params.doc_no, str):
-                conditions.append("AND PO.DOC_NO LIKE :doc_no")
+                conditions.append("AND UPPER(DOC_NO) LIKE UPPER(:doc_no)")
                 query_params["doc_no"] = f"%{self._clean_input(params.doc_no)}%"
                 
-            if params.item_code and isinstance(params.item_code, list):
-                item_codes = [self._clean_input(code) for code in params.item_code]
-                placeholders = [f":item_code_{i}" for i in range(len(item_codes))]
-                conditions.append(f"AND ITEM.ITEM_CODE IN ({','.join(placeholders)})")
-                for i, code in enumerate(item_codes):
-                    query_params[f"item_code_{i}"] = code
+            if params.item_code and isinstance(params.item_code, str):
+                conditions.append("AND UPPER(ITEM_CODE) LIKE UPPER(:item_code)")
+                query_params["item_code"] = f"%{self._clean_input(params.item_code)}%"
             
-            if params.supplier and isinstance(params.supplier, list):
-                suppliers = [self._clean_input(supplier) for supplier in params.supplier]
-                placeholders = [f":supplier_{i}" for i in range(len(suppliers))]
-                conditions.append(f"AND PO.SUPPLIER_FULL_NAME IN ({','.join(placeholders)})")
-                for i, supplier in enumerate(suppliers):
-                    query_params[f"supplier_{i}"] = supplier
+            if params.lot_code and isinstance(params.lot_code, str):
+                conditions.append("AND UPPER(LOT_CODE) LIKE UPPER(:lot_code)")
+                query_params["lot_code"] = f"%{self._clean_input(params.lot_code)}%"
+            
+            if params.supplier and isinstance(params.supplier, str):
+                conditions.append("AND SUPPLIER_FULL_NAME LIKE :supplier")
+                query_params["supplier"] = f"%{self._clean_input(params.supplier)}%"
                 
-            if params.package_type and isinstance(params.package_type, list):
-                package_types = [self._clean_input(package_type) for package_type in params.package_type]
-                placeholders = [f":package_type_{i}" for i in range(len(package_types))]
-                conditions.append(f"AND Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_NAME IN ({','.join(placeholders)})")
-                for i, package_type in enumerate(package_types):
-                    query_params[f"package_type_{i}"] = package_type
+            if params.package_type and isinstance(params.package_type, str):
+                conditions.append("AND UPPER(Z_PACKAGE_TYPE_NAME) LIKE UPPER(:package_type)")
+                query_params["package_type"] = f"%{self._clean_input(params.package_type)}%"
+                
+            if params.assembly_code and isinstance(params.assembly_code, str):
+                conditions.append("AND UPPER(Z_ASSEMBLY_CODE) LIKE UPPER(:assembly_code)")
+                query_params["assembly_code"] = f"%{self._clean_input(params.assembly_code)}%"
                 
             if params.is_closed is not None:
                 if params.is_closed == 0:
-                    conditions.append("AND PO.[CLOSE] = 0")
+                    conditions.append("AND RECEIPT_CLOSE = 0")
                 else:
-                    conditions.append("AND PO.[CLOSE] != 0")
+                    conditions.append("AND RECEIPT_CLOSE != 0")
 
             if params.order_date_start:
-                conditions.append("AND PO.PURCHASE_DATE >= :order_date_start")
+                conditions.append("AND PURCHASE_DATE >= :order_date_start")
                 query_params["order_date_start"] = params.order_date_start
 
             if params.order_date_end:
-                conditions.append("AND PO.PURCHASE_DATE <= :order_date_end")
+                conditions.append("AND PURCHASE_DATE <= :order_date_end")
                 query_params["order_date_end"] = params.order_date_end
                 
             # 拼接查询条件
             query = base_query + " " + " ".join(conditions)
             
             # 添加排序
-            query += " ORDER BY PO.PURCHASE_DATE,PO.DOC_NO"
-
+            query += " ORDER BY PURCHASE_DATE, DOC_NO"
+            
             # 添加分页
             if params.pageIndex and params.pageSize:
                 offset = (params.pageIndex - 1) * params.pageSize
@@ -740,56 +774,118 @@ class CRUDE10:
             
             # 获取总记录数
             count_query = f"""
-                SELECT COUNT(1)
-                FROM PURCHASE_ORDER PO
-                LEFT JOIN PURCHASE_ORDER_D PO_D 
-                    ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
-                LEFT JOIN PURCHASE_ORDER_SD PO_SD 
-                    ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
-                LEFT JOIN PURCHASE_ORDER_SSD PO_SSD 
-                    ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
-                LEFT JOIN Z_OUT_MO_D 
-                    ON PO_SSD.REFERENCE_SOURCE_ID_ROid = Z_OUT_MO_D.Z_OUT_MO_D_ID
-                LEFT JOIN ITEM 
-                    ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
-                LEFT JOIN ITEM_LOT 
-                    ON Z_OUT_MO_D.ITEM_LOT_ID = ITEM_LOT.ITEM_LOT_ID
-                LEFT JOIN Z_ASSEMBLY_CODE 
-                    ON Z_OUT_MO_D.Z_PACKAGE_ASSEMBLY_CODE_ID = Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE_ID
-                LEFT JOIN Z_PACKAGE 
-                    ON Z_ASSEMBLY_CODE.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
-                LEFT JOIN Z_PROCESSING_PURPOSE 
-                    ON Z_ASSEMBLY_CODE.Z_PROCESSING_PURPOSE_ID = Z_PROCESSING_PURPOSE.Z_PROCESSING_PURPOSE_ID
-                LEFT JOIN Z_LOADING_METHOD 
-                    ON Z_LOADING_METHOD.Z_LOADING_METHOD_ID = Z_PACKAGE.Z_LOADING_METHOD_ID
-                LEFT JOIN Z_WIRE 
-                    ON Z_WIRE.Z_WIRE_ID = Z_PACKAGE.Z_WIRE_ID
-                LEFT JOIN Z_PACKAGE_TYPE 
-                    ON Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_ID = Z_PACKAGE.Z_PACKAGE_TYPE_ID
-                LEFT JOIN FEATURE_GROUP 
-                    ON FEATURE_GROUP.FEATURE_GROUP_ID = ITEM.FEATURE_GROUP_ID
-                WHERE ITEM.ITEM_CODE LIKE N'BC%AB' AND PO.DOC_NO NOT LIKE N'3501-%'
-                {' '.join(conditions)}
+                SELECT COUNT(1) 
+                FROM (
+                    SELECT
+                        hpl.ID,
+                        hpl.DOC_NO,
+                        hpl.ITEM_CODE,
+                        hpl.Z_PACKAGE_TYPE_NAME,
+                        hpl.LOT_CODE,
+                        hpl.BUSINESS_QTY,
+                        hpl.RECEIPTED_PRICE_QTY,
+                        0 AS WIP_QTY,
+                        hpl.Z_PROCESSING_PURPOSE_NAME,
+                        hpl.Z_TESTING_PROGRAM_NAME,
+                        hpl.Z_ASSEMBLY_CODE,
+                        hpl.Z_WIRE_NAME,
+                        hpl.REMARK,
+                        hpl.PURCHASE_DATE,
+                        ISNULL(hpl.FIRST_ARRIVAL_DATE, DATEADD(MONTH, 2, hpl.PURCHASE_DATE)) AS FIRST_ARRIVAL_DATE,
+                        hpl.SUPPLIER_FULL_NAME,
+                        hpl.RECEIPT_CLOSE
+                    FROM HSUN_PACKAGE_LIST hpl
+                    UNION ALL
+                    SELECT
+                        ROW_NUMBER() OVER (ORDER BY PO.PURCHASE_DATE, PO.DOC_NO) + 115617 AS ID,
+                        PO.DOC_NO,
+                        ITEM.ITEM_CODE,
+                        Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_NAME,
+                        ITEM_LOT.LOT_CODE,
+                        CAST(PO_D.BUSINESS_QTY AS INT) AS BUSINESS_QTY,
+                        CAST(PO_D.RECEIPTED_PRICE_QTY AS INT) AS RECEIPTED_PRICE_QTY,
+                        CASE 
+                            WHEN PO.[CLOSE] = N'2' THEN 0
+                            WHEN PO_D.BUSINESS_QTY <> 0 AND (PO_D.RECEIPTED_PRICE_QTY / PO_D.BUSINESS_QTY) > 0.992 THEN 0
+                            ELSE CAST(((PO_D.BUSINESS_QTY * 0.996) - PO_D.RECEIPTED_PRICE_QTY) AS INT)
+                        END AS WIP_QTY,
+                        Z_PROCESSING_PURPOSE.Z_PROCESSING_PURPOSE_NAME,
+                        ZTP.Z_TESTING_PROGRAM_NAME,
+                        Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE,
+                        Z_WIRE.Z_WIRE_NAME,
+                        Z_PACKAGE.REMARK,
+                        CAST(PO.PURCHASE_DATE AS DATE) AS PURCHASE_DATE,
+                        CAST(PR.CreateDate AS DATE) AS FIRST_ARRIVAL_DATE,
+                        PO.SUPPLIER_FULL_NAME,
+                        PO_SD.RECEIPT_CLOSE
+                    FROM PURCHASE_ORDER PO
+                    LEFT JOIN PURCHASE_ORDER_D PO_D 
+                        ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
+                    LEFT JOIN PURCHASE_ORDER_SD PO_SD 
+                        ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                    LEFT JOIN PURCHASE_ORDER_SSD PO_SSD 
+                        ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+                    LEFT JOIN Z_OUT_MO_D 
+                        ON PO_SSD.REFERENCE_SOURCE_ID_ROid = Z_OUT_MO_D.Z_OUT_MO_D_ID
+                    LEFT JOIN ITEM 
+                        ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                    LEFT JOIN ITEM_LOT 
+                        ON Z_OUT_MO_D.ITEM_LOT_ID = ITEM_LOT.ITEM_LOT_ID
+                    LEFT JOIN Z_ASSEMBLY_CODE 
+                        ON Z_OUT_MO_D.Z_PACKAGE_ASSEMBLY_CODE_ID = Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE_ID
+                    LEFT JOIN Z_ASSEMBLY_CODE ZAC
+                        ON Z_OUT_MO_D.Z_TESTING_ASSEMBLY_CODE_ID = ZAC.Z_ASSEMBLY_CODE_ID
+                    LEFT JOIN Z_TESTING_PROGRAM ZTP
+                        ON ZAC.PROGRAM_ROid = ZTP.Z_TESTING_PROGRAM_ID
+                    LEFT JOIN Z_PACKAGE 
+                        ON Z_ASSEMBLY_CODE.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
+                    LEFT JOIN Z_PROCESSING_PURPOSE 
+                        ON Z_ASSEMBLY_CODE.Z_PROCESSING_PURPOSE_ID = Z_PROCESSING_PURPOSE.Z_PROCESSING_PURPOSE_ID
+                    LEFT JOIN Z_LOADING_METHOD 
+                        ON Z_LOADING_METHOD.Z_LOADING_METHOD_ID = Z_PACKAGE.Z_LOADING_METHOD_ID
+                    LEFT JOIN Z_WIRE 
+                        ON Z_WIRE.Z_WIRE_ID = Z_PACKAGE.Z_WIRE_ID
+                    LEFT JOIN Z_PACKAGE_TYPE 
+                        ON Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_ID = Z_PACKAGE.Z_PACKAGE_TYPE_ID
+                    LEFT JOIN FEATURE_GROUP 
+                        ON FEATURE_GROUP.FEATURE_GROUP_ID = ITEM.FEATURE_GROUP_ID
+                    OUTER APPLY (
+                        SELECT TOP 1 *
+                        FROM PURCHASE_RECEIPT_D PRD
+                        WHERE PRD.ORDER_SOURCE_ID_ROid = PO_SD.PURCHASE_ORDER_SD_ID
+                        ORDER BY PRD.CreateDate
+                    ) PR
+                    WHERE PO.PURCHASE_TYPE = 2 
+                        AND PO.PURCHASE_DATE > '2024-10-21' 
+                        AND ITEM.ITEM_CODE LIKE N'BC%AB' 
+                        AND PO.SUPPLIER_FULL_NAME <> N'温州镁芯微电子有限公司'  
+                        AND PO.SUPPLIER_FULL_NAME <> N'苏州荐恒电子科技有限公司'  
+                        AND PO.SUPPLIER_FULL_NAME <> N'深圳市华新源科技有限公司'
+                ) t
+                WHERE 1=1 {' '.join(conditions)}
             """
             total = db.execute(text(count_query).bindparams(**{k:v for k,v in query_params.items() if k not in ['offset', 'pageSize']})).scalar()
             
             # 转换为响应对象
             assy_orders = [
                 AssyOrder(
+                    ID=row.ID,
                     DOC_NO=row.DOC_NO,
-                    PURCHASE_DATE=row.PURCHASE_DATE,
-                    SUPPLIER_FULL_NAME=row.SUPPLIER_FULL_NAME,
-                    CLOSE=row.CLOSE,
+                    ITEM_CODE=row.ITEM_CODE,
+                    Z_PACKAGE_TYPE_NAME=row.Z_PACKAGE_TYPE_NAME,
+                    LOT_CODE=row.LOT_CODE,
                     BUSINESS_QTY=row.BUSINESS_QTY,
                     RECEIPTED_PRICE_QTY=row.RECEIPTED_PRICE_QTY,
                     WIP_QTY=row.WIP_QTY,
-                    PRICE=row.PRICE,
-                    ITEM_CODE=row.ITEM_CODE,
-                    LOT_CODE=row.LOT_CODE,
-                    Z_ASSEMBLY_CODE=row.Z_ASSEMBLY_CODE,
                     Z_PROCESSING_PURPOSE_NAME=row.Z_PROCESSING_PURPOSE_NAME,
-                    Z_PACKAGE_TYPE_NAME=row.Z_PACKAGE_TYPE_NAME,
-                    Z_FEATURE_GROUP_NAME=row.FEATURE_GROUP_NAME
+                    Z_TESTING_PROGRAM_NAME=row.Z_TESTING_PROGRAM_NAME,
+                    Z_ASSEMBLY_CODE=row.Z_ASSEMBLY_CODE,
+                    Z_WIRE_NAME=row.Z_WIRE_NAME,
+                    REMARK=row.REMARK,
+                    PURCHASE_DATE=row.PURCHASE_DATE,
+                    FIRST_ARRIVAL_DATE=row.FIRST_ARRIVAL_DATE,
+                    SUPPLIER_FULL_NAME=row.SUPPLIER_FULL_NAME,
+                    RECEIPT_CLOSE=row.RECEIPT_CLOSE
                 ) for row in result
             ]
             return {
@@ -799,6 +895,154 @@ class CRUDE10:
         except Exception as e:
             logger.error(f"查询封装订单失败: {str(e)}")
             raise CustomException("查询封装订单失败")
+    
+    def get_assy_bom_by_params(self, db: Session, params: AssyBomQuery) -> Dict[str, Any]:
+        """根据参数获取封装订单BOM"""
+        try:
+            # 构建基础查询
+            base_query = """
+                SELECT
+                    MAIN_CHIP,
+                    ITEM_CODE,
+                    ITEM_NAME,
+                    LOT_CODE_NAME,
+                    BUSINESS_QTY,
+                    SECOND_QTY,
+                    WAFER_ID
+                FROM HSUN_BOM_LIST
+                WHERE 1=1
+            """
+
+            # 添加查询条件
+            if params.doc_no:
+                base_query += " AND DOC_NO = :doc_no"
+
+            # 执行查询
+            result = db.execute(text(base_query).bindparams(doc_no=params.doc_no)).all()
+            
+            # 构造返回结果
+            return {
+                "list": [
+                    AssyBom(
+                        MAIN_CHIP=row.MAIN_CHIP,
+                        ITEM_CODE=row.ITEM_CODE,
+                        ITEM_NAME=row.ITEM_NAME,
+                        LOT_CODE_NAME=row.LOT_CODE_NAME,
+                        BUSINESS_QTY=row.BUSINESS_QTY,
+                        SECOND_QTY=row.SECOND_QTY,
+                        WAFER_ID=row.WAFER_ID
+                    ) for row in result
+                ]
+            }
+        except Exception as e:
+            logger.error(f"获取封装订单BOM失败: {str(e)}")
+            raise CustomException("获取封装订单BOM失败")
+    
+        
+    def export_assy_order_to_excel(self, db: Session, params: AssyOrderQuery) -> bytes:
+        """导出封装订单数据到Excel"""
+        try:
+            # 获取数据
+            result = self.get_assy_order_by_params(db, params)
+            assy_orders = result["list"]
+            
+            # 创建工作簿和工作表
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "封装订单"
+            
+            # 定义表头
+            headers = [
+                "订单编号", "芯片名称", "封装形式", "打印批号", "订单数量", 
+                "收货数量", "在制数量", "加工方式", "测试程序", 
+                "打线图号", "打线材料", "备注", "订单日期", "首到日期", 
+                "供应商", "状态"
+            ]
+            
+            # 设置列宽
+            column_widths = {
+                'A': 15,  # 订单号
+                'B': 20,  # 品号
+                'C': 15,  # 封装形式
+                'D': 15,  # 打印批号
+                'E': 12,  # 订单数量
+                'F': 12,  # 收货数量
+                'G': 12,  # 在制数量
+                'H': 15,  # 加工方式
+                'I': 15,  # 测试程序
+                'J': 15,  # 打线图号
+                'K': 10,  # 打线材料
+                'L': 20,  # 备注
+                'M': 12,  # 订单日期
+                'N': 12,  # 首到日期
+                'O': 25,  # 供应商
+                'P': 10   # 状态
+            }
+            
+            # 设置样式
+            header_font = Font(name='微软雅黑', size=11, bold=True, color='FFFFFF')
+            header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+            header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            cell_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+            
+            # 写入表头
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col, value=header)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = header_alignment
+                cell.border = border
+                ws.column_dimensions[get_column_letter(col)].width = column_widths[get_column_letter(col)]
+            
+            # 写入数据
+            for row, order in enumerate(assy_orders, 2):
+                data = [
+                    order.DOC_NO,
+                    order.ITEM_CODE,
+                    order.Z_PACKAGE_TYPE_NAME,
+                    order.LOT_CODE,
+                    order.BUSINESS_QTY,
+                    order.RECEIPTED_PRICE_QTY,
+                    order.WIP_QTY,
+                    order.Z_PROCESSING_PURPOSE_NAME,
+                    order.Z_TESTING_PROGRAM_NAME,
+                    order.Z_ASSEMBLY_CODE,
+                    order.Z_WIRE_NAME,
+                    order.REMARK,
+                    order.PURCHASE_DATE.strftime('%Y-%m-%d') if order.PURCHASE_DATE else '',
+                    order.FIRST_ARRIVAL_DATE.strftime('%Y-%m-%d') if order.FIRST_ARRIVAL_DATE else '',
+                    order.SUPPLIER_FULL_NAME,
+                    '已关闭' if order.RECEIPT_CLOSE else '未关闭'
+                ]
+                
+                for col, value in enumerate(data, 1):
+                    cell = ws.cell(row=row, column=col, value=value)
+                    cell.alignment = cell_alignment
+                    cell.border = border
+                    
+                    # 设置数字列的格式
+                    if col in [5, 6, 7]:  # 订单数量、已收货数量、在制数量
+                        cell.number_format = '#,##0'
+            
+            # 冻结首行
+            ws.freeze_panes = 'A2'
+            
+            # 保存到内存
+            excel_file = io.BytesIO()
+            wb.save(excel_file)
+            excel_file.seek(0)
+            
+            return excel_file.getvalue()
+            
+        except Exception as e:
+            logger.error(f"导出封装订单Excel失败: {str(e)}")
+            raise CustomException("导出封装订单Excel失败")
         
     def get_assy_wip_by_params(self,db:Session,params:AssyWipQuery)->Dict[str,Any]:
         """获取封装在制"""
@@ -1114,7 +1358,7 @@ class CRUDE10:
             }
         except Exception as e:
             logger.error(f"获取封装订单供应商失败: {str(e)}")
-            raise CustomException("获取封装订单供应商失败") 
+            raise CustomException("获取封装订单供应商失败")
         
     def get_stock_by_params(self,db:Session,params:StockQuery)->Dict[str,Any]:
         """获取库存"""
@@ -1361,4 +1605,6 @@ class CRUDE10:
         except Exception as e:
             logger.error(f"获取库存汇总失败: {str(e)}")
             raise CustomException("获取库存汇总失败")
+
+    
 

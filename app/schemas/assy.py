@@ -5,40 +5,59 @@ from pydantic import BaseModel, Field, validator
 class AssyOrderQuery(BaseModel):
     """封装订单查询参数"""
     doc_no: Optional[str] = Field(None, description="封装订单号")
-    item_code: Optional[List[str]] = Field(None, description="品号")
-    item_name: Optional[List[str]] = Field(None, description="品名")
-    supplier: Optional[List[str]] = Field(None, description="供应商")
-    package_type: Optional[List[str]] = Field(None, description="封装类型")
-    is_closed: Optional[int] = Field(None, description="是否关闭")
+    item_code: Optional[str] = Field(None, description="品号")
+    lot_code: Optional[str] = Field(None, description="批号")
+    package_type: Optional[str] = Field(None, description="封装类型")
+    supplier: Optional[str] = Field(None, description="供应商")
+    assembly_code: Optional[str] = Field(None, description="打线图号")
     order_date_start: Optional[date] = Field(None, description="工单日期开始")
     order_date_end: Optional[date] = Field(None, description="工单日期结束")
+    is_closed: Optional[int] = Field(None, description="是否关闭")
     pageIndex: Optional[int] = Field(default=1, ge=1, description="页码")
     pageSize: Optional[int] = Field(default=50, ge=1, le=100, description="每页数量")
     
 class AssyOrder(BaseModel):
     """封装订单"""
+    ID: Optional[int] = Field(None, description="ID")
     DOC_NO: Optional[str] = Field(None, description="封装订单号")
     ITEM_CODE: Optional[str] = Field(None, description="品号")
-    Z_PROCESSING_PURPOSE_NAME: Optional[str] = Field(None, description="加工方式")
-    Z_ASSEMBLY_CODE: Optional[str] = Field(None, description="打线图号")
+    Z_PACKAGE_TYPE_NAME: Optional[str] = Field(None, description="封装类型")
     LOT_CODE: Optional[str] = Field(None, description="批号")
     BUSINESS_QTY: Optional[int] = Field(None, description="业务数量")
     RECEIPTED_PRICE_QTY: Optional[int] = Field(None, description="收货数量")
     WIP_QTY: Optional[int] = Field(None, description="在制数量")
-    PRICE: Optional[float] = Field(None, description="单价")
-    Z_PACKAGE_TYPE_NAME: Optional[str] = Field(None, description="封装类型")
-    REMARK: Optional[str] = Field(None, description="备注")
-    Z_LOADING_METHOD_NAME: Optional[str] = Field(None, description="装片方式")
+    Z_PROCESSING_PURPOSE_NAME: Optional[str] = Field(None, description="加工方式")
+    Z_TESTING_PROGRAM_NAME: Optional[str] = Field(None, description="测试程序")
+    Z_ASSEMBLY_CODE: Optional[str] = Field(None, description="打线图号")
     Z_WIRE_NAME: Optional[str] = Field(None, description="线材")
-    Z_FEATURE_GROUP_NAME: Optional[str] = Field(None, description="品号群组")
-    CLOSE: Optional[int] = Field(None, description="是否关闭")
+    REMARK: Optional[str] = Field(None, description="备注")
     PURCHASE_DATE: Optional[date] = Field(None, description="采购日期")
+    FIRST_ARRIVAL_DATE: Optional[date] = Field(None, description="首次到料日期")
     SUPPLIER_FULL_NAME: Optional[str] = Field(None, description="供应商全称")
-
+    RECEIPT_CLOSE: Optional[int] = Field(None, description="收货关闭") 
+    
 class AssyOrderResponse(BaseModel):
     """封装订单响应"""
     list: List[AssyOrder] = Field(..., description="封装订单列表")
     total: int = Field(..., description="总条数")
+
+class AssyBomQuery(BaseModel):
+    """封装订单BOM查询参数"""
+    doc_no: Optional[str] = Field(None, description="封装订单号")
+
+class AssyBom(BaseModel):
+    """封装订单BOM"""
+    MAIN_CHIP: Optional[str] = Field(None, description="AB芯片")
+    ITEM_CODE: Optional[str] = Field(None, description="晶圆品号")
+    ITEM_NAME: Optional[str] = Field(None, description="晶圆品名")
+    LOT_CODE_NAME: Optional[str] = Field(None, description="晶圆批号")
+    BUSINESS_QTY: Optional[int] = Field(None, description="业务数量")
+    SECOND_QTY: Optional[float] = Field(None, description="晶圆数量")
+    WAFER_ID: Optional[str] = Field(None, description="晶圆片号")
+    
+class AssyBomResponse(BaseModel):
+    """封装订单BOM响应"""
+    list: List[AssyBom] = Field(..., description="封装订单BOM列表")
 
 class AssyOrderItemsQuery(BaseModel):
     """封装订单品号查询参数"""

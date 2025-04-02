@@ -7,7 +7,8 @@ from app.core.error_codes import ErrorCode, get_error_message
 from app.core.monitor import MetricsManager
 from app.schemas.purchase import (PurchaseOrder, PurchaseOrderQuery, PurchaseWip, PurchaseWipQuery, PurchaseWipSupplierResponse, PurchaseSupplierResponse)
 from app.schemas.assy import (AssyOrder, AssyOrderQuery, AssyWip, AssyWipQuery, AssyOrderItemsQuery, AssyOrderItems,
-                             AssyOrderPackageTypeQuery, AssyOrderPackageType, AssyOrderSupplierQuery, AssyOrderSupplier
+                             AssyOrderPackageTypeQuery, AssyOrderPackageType, AssyOrderSupplierQuery, AssyOrderSupplier,
+                             AssyBomQuery, AssyBom
                              )
 from app.schemas.stock import (StockQuery, Stock, WaferIdQtyDetailQuery, WaferIdQtyDetail, StockSummaryQuery, StockSummary)
 from app.schemas.e10 import (FeatureGroupName, FeatureGroupNameQuery, ItemCode, ItemCodeQuery, ItemName, ItemNameQuery,
@@ -289,6 +290,32 @@ class E10Service:
                 message=get_error_message(ErrorCode.DB_ERROR)
             )
         
+    async def export_assy_order(self, params: AssyOrderQuery) -> bytes:
+        """导出封装订单数据到Excel"""
+        try:
+            return self.crud_e10.export_assy_order_to_excel(self.db, params)
+        except Exception as e:
+            logger.error(f"导出封装订单失败: {str(e)}")
+            raise CustomException("导出封装订单失败") 
+    
+    async def get_assy_bom_by_params(self,params:AssyBomQuery) -> Dict[str,Any]:
+        """根据参数获取封装订单BOM"""
+        try:
+            # 从数据库获取数据
+            db_result = self.crud_e10.get_assy_bom_by_params(self.db, params)
+            # 构造返回结果
+            result = {
+                "list": db_result["list"]
+            }
+            return result
+        except CustomException:
+            raise
+        except Exception as e:
+            logger.error(f"获取封装订单BOM失败: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
+        
     async def get_assy_wip_by_params(
         self,
         params: AssyWipQuery
@@ -408,7 +435,6 @@ class E10Service:
             raise CustomException(
                 message=get_error_message(ErrorCode.DB_ERROR)
             )
-
     
 # 创建服务实例
 e10_service = E10Service(None, None)  # 在应用启动时注入实际的 db 和 cache
