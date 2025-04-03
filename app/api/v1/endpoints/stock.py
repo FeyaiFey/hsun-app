@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, status, Query
 from sqlmodel import Session
 from typing import Any, List, Optional
-from datetime import date
+from datetime import date, datetime
+import io
+from fastapi.responses import StreamingResponse
+from urllib.parse import quote
 
 from app.db.session import get_db
 from app.schemas.response import IResponse
@@ -84,6 +87,77 @@ async def get_stock_by_params(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message=get_error_message(ErrorCode.DB_ERROR),
             name="StockError"
+        )
+    
+@router.get("/export")
+@monitor_request
+async def export_stock_by_params(
+    feature_group_name: Optional[str] = Query(None, description="品号群组,多个用逗号分隔"),
+    item_code: Optional[str] = Query(None, description="品号,多个用逗号分隔"),
+    item_name: Optional[str] = Query(None, description="品名,多个用逗号分隔"),
+    lot_code: Optional[str] = Query(None, description="批号,多个用逗号分隔"),
+    warehouse_name: Optional[str] = Query(None, description="仓库,多个用逗号分隔"),
+    testing_program: Optional[str] = Query(None, description="测试程序,多个用逗号分隔"),
+    burning_program: Optional[str] = Query(None, description="烧录程序,多个用逗号分隔"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+) -> Any:
+    try:
+        e10_service = E10Service(db, cache)
+        
+        # 构建查询参数
+        params = StockQuery()
+        
+        # 处理可能包含多个值的参数
+        if feature_group_name:
+            params.feature_group_name = [name.strip() for name in feature_group_name.split(',') if name.strip()]
+
+        if item_code:
+            params.item_code = [code.strip() for code in item_code.split(',') if code.strip()]
+
+        if item_name:
+            params.item_name = [name.strip() for name in item_name.split(',') if name.strip()]
+
+        if lot_code:
+            params.lot_code = [code.strip() for code in lot_code.split(',') if code.strip()]
+
+        if warehouse_name:
+            params.warehouse_name = [name.strip() for name in warehouse_name.split(',') if name.strip()]
+
+        if testing_program:
+            params.testing_program = [name.strip() for name in testing_program.split(',') if name.strip()]
+        
+        if burning_program:
+            params.burning_program = [name.strip() for name in burning_program.split(',') if name.strip()]
+            
+        excel_data = await e10_service.export_stock_by_params(params)
+        
+        # 生成文件名
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"库存查询_{current_time}.xlsx"
+        
+        # 对文件名进行URL编码
+        encoded_filename = quote(filename)
+        
+        # 返回文件流
+        return StreamingResponse(
+            io.BytesIO(excel_data),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={encoded_filename}"}
+        )
+    except CustomException as e:
+        logger.error(f"导出库存失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="StockExportError"
+        )
+    except Exception as e:
+        logger.error(f"导出库存失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.DB_ERROR),
+            name="StockExportError"
         )
 
 @router.get("/wafer_id_qty_detail", response_model=IResponse[WaferIdQtyDetailResponse])

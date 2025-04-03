@@ -436,5 +436,15 @@ class E10Service:
                 message=get_error_message(ErrorCode.DB_ERROR)
             )
     
+    async def export_stock_by_params(self, params: StockQuery) -> bytes:
+        """导出库存数据到Excel"""
+        try:
+            return self.crud_e10.export_stock_by_params(self.db, params)
+        except Exception as e:
+            logger.error(f"导出库存失败: {str(e)}")
+            raise CustomException("导出库存失败")
+        
+    
+    
 # 创建服务实例
 e10_service = E10Service(None, None)  # 在应用启动时注入实际的 db 和 cache

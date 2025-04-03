@@ -901,15 +901,37 @@ class CRUDE10:
         try:
             # 构建基础查询
             base_query = """
-                SELECT
-                    MAIN_CHIP,
-                    ITEM_CODE,
-                    ITEM_NAME,
-                    LOT_CODE_NAME,
-                    BUSINESS_QTY,
-                    SECOND_QTY,
-                    WAFER_ID
-                FROM HSUN_BOM_LIST
+                SELECT * FROM
+                (
+                SELECT * FROM HSUN_BOM_LIST
+                UNION ALL
+                SELECT 
+                ROW_NUMBER() OVER (ORDER BY PO.PURCHASE_DATE,PO.DOC_NO) + 16820 AS ID,
+                PO.DOC_NO,
+                ZOMSD.Z_MAIN_CHIP,
+                ITEM.ITEM_CODE,
+                ITEM.ITEM_NAME,
+                IL.LOT_CODE,
+                CAST(ZOMSD.BUSINESS_QTY AS FLOAT) AS BUSINESS_QTY,
+                CAST(ZOMSD.SECOND_QTY AS FLOAT) AS SECOND_QTY,
+                ZOMSD.Z_WF_ID_STRING
+                FROM PURCHASE_ORDER PO
+                LEFT JOIN PURCHASE_ORDER_D PO_D
+                ON PO.PURCHASE_ORDER_ID = PO_D.PURCHASE_ORDER_ID
+                LEFT JOIN PURCHASE_ORDER_SD PO_SD
+                ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                LEFT JOIN PURCHASE_ORDER_SSD PO_SSD
+                ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+                LEFT JOIN Z_OUT_MO_D ZOMD
+                ON ZOMD.Z_OUT_MO_D_ID = PO_SSD.REFERENCE_SOURCE_ID_ROid
+                LEFT JOIN Z_OUT_MO_SD ZOMSD
+                ON ZOMSD.Z_OUT_MO_D_ID = ZOMD.Z_OUT_MO_D_ID
+                LEFT JOIN ITEM
+                ON ZOMSD.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                LEFT JOIN ITEM_LOT IL
+                ON IL.ITEM_LOT_ID = ZOMSD.ITEM_LOT_ID
+                WHERE PO_D.PURCHASE_TYPE=2)
+                AS ALL_BOM
                 WHERE 1=1
             """
 
@@ -938,7 +960,6 @@ class CRUDE10:
             logger.error(f"获取封装订单BOM失败: {str(e)}")
             raise CustomException("获取封装订单BOM失败")
     
-        
     def export_assy_order_to_excel(self, db: Session, params: AssyOrderQuery) -> bytes:
         """导出封装订单数据到Excel"""
         try:
@@ -1099,7 +1120,7 @@ class CRUDE10:
                 LEFT JOIN Z_ASSEMBLY_CODE ZAC ON ZOMD.Z_PACKAGE_ASSEMBLY_CODE_ID = ZAC.Z_ASSEMBLY_CODE_ID
                 LEFT JOIN Z_PACKAGE ON ZAC.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
                 LEFT JOIN Z_PROCESSING_PURPOSE ZPP ON ZAC.Z_PROCESSING_PURPOSE_ID = ZPP.Z_PROCESSING_PURPOSE_ID
-                WHERE 1=1
+                WHERE 1=1 AND ITEM.ITEM_CODE LIKE N'BC%AB'
             """
             result = db.execute(text(base_query)).all()
             
@@ -1606,5 +1627,91 @@ class CRUDE10:
             logger.error(f"获取库存汇总失败: {str(e)}")
             raise CustomException("获取库存汇总失败")
 
-    
+    def export_stock_by_params(self,db:Session,params:StockQuery)->bytes:
+        """导出库存数据到Excel"""
+        try:
+            # 获取库存数据
+            result = self.get_stock_by_params(db, params)
+            stock_list = result["list"]
+            
+            # 创建Excel工作簿
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "库存数据"
+            
+            # 定义表头
+            headers = ["品号群组", "物料名称", "物料编码", "批号", "BIN等级", "测试程序", "烧录程序","仓库","库存数量","数量片数"]
+            
+            # 设置列宽
+            column_widths = {
+               'A': 15,
+               'B': 25,
+               'C': 30,
+               'D': 20,
+               'E': 10,
+               'F': 20,
+               'G': 20,
+               'H': 20,
+               'I': 12,
+               'J': 10
+            }
+            
+            # 设置样式
+            header_font = Font(name='微软雅黑', size=11, bold=True, color='FFFFFF')
+            header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+            header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            cell_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+            
+            # 写入表头
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col, value=header)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = header_alignment
+                cell.border = border
+                ws.column_dimensions[get_column_letter(col)].width = column_widths[get_column_letter(col)]
+            
+            # 写入数据
+            for row, order in enumerate(stock_list, 2):
+                data = [
+                    order.FEATURE_GROUP_NAME if order.FEATURE_GROUP_NAME else '',
+                    order.ITEM_NAME if order.ITEM_NAME else '',
+                    order.ITEM_CODE if order.ITEM_CODE else '',
+                    order.LOT_CODE if order.LOT_CODE else '',
+                    order.Z_BIN_LEVEL_NAME if order.Z_BIN_LEVEL_NAME else '',
+                    order.Z_TESTING_PROGRAM_NAME if order.Z_TESTING_PROGRAM_NAME else '',
+                    order.Z_BURNING_PROGRAM_NAME if order.Z_BURNING_PROGRAM_NAME else '',
+                    order.WAREHOUSE_NAME if order.WAREHOUSE_NAME else '',
+                    order.INVENTORY_QTY if order.INVENTORY_QTY is not None else 0,
+                    order.SECOND_QTY if order.SECOND_QTY is not None else 0.0
+                ]
 
+                for col, value in enumerate(data, 1):
+                    cell = ws.cell(row=row, column=col, value=value)
+                    cell.alignment = cell_alignment
+                    cell.border = border
+                    
+                    # 设置数字列的格式
+                    if col in [9, 10]:  # 库存数量、数量片数
+                        cell.number_format = '#,##0'
+                    
+            # 冻结首行
+            ws.freeze_panes = 'A2'
+            
+            # 保存到内存
+            excel_file = io.BytesIO()
+            wb.save(excel_file)
+            excel_file.seek(0)
+            
+            return excel_file.getvalue()
+            
+        except Exception as e:
+            logger.error(f"导出库存Excel失败: {str(e)}")
+            raise CustomException("导出库存Excel失败")
+                    
