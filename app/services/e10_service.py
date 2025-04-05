@@ -11,6 +11,7 @@ from app.schemas.assy import (AssyOrder, AssyOrderQuery, AssyWip, AssyWipQuery, 
                              AssyBomQuery, AssyBom
                              )
 from app.schemas.stock import (StockQuery, Stock, WaferIdQtyDetailQuery, WaferIdQtyDetail, StockSummaryQuery, StockSummary)
+from app.schemas.report import GlobalReport
 from app.schemas.e10 import (FeatureGroupName, FeatureGroupNameQuery, ItemCode, ItemCodeQuery, ItemName, ItemNameQuery,
                              WarehouseName, WarehouseNameQuery, TestingProgram, TestingProgramQuery, BurningProgram, BurningProgramQuery,
                              LotCode, LotCodeQuery
@@ -444,7 +445,20 @@ class E10Service:
             logger.error(f"导出库存失败: {str(e)}")
             raise CustomException("导出库存失败")
         
+    async def get_global_report(self) -> List[GlobalReport]:
+        """获取综合报表"""
+        try:
+            return self.crud_e10.get_global_report(self.db)
+        except Exception as e:
+            logger.error(f"获取综合报表失败: {str(e)}")
+            raise CustomException("获取综合报表失败")
     
-    
-# 创建服务实例
+    async def export_global_report(self) -> bytes:
+        """导出综合报表"""
+        try:
+            return self.crud_e10.export_global_report(self.db)
+        except Exception as e:
+            logger.error(f"导出综合报表失败: {str(e)}")
+            raise CustomException("导出综合报表失败")
+        
 e10_service = E10Service(None, None)  # 在应用启动时注入实际的 db 和 cache

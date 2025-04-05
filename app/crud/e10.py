@@ -15,6 +15,7 @@ from app.schemas.e10 import (FeatureGroupNameQuery,
                              TestingProgramQuery,
                              BurningProgramQuery,
                              LotCodeQuery)
+from app.schemas.report import GlobalReport
 from app.core.exceptions import CustomException
 from app.core.logger import logger
 from openpyxl import Workbook
@@ -1714,4 +1715,369 @@ class CRUDE10:
         except Exception as e:
             logger.error(f"导出库存Excel失败: {str(e)}")
             raise CustomException("导出库存Excel失败")
+        
+    def get_global_report(self,db:Session)->List[GlobalReport]:
+        """获取综合报表"""
+        try:
+            base_query = text("""
+                WITH SD AS(
+                SELECT 
+                    STK.ITEM_NAME,
+                    STK.TOTAL_FINISHED_GOODS,
+                    STK.TOP_FINISHED_GOODS,
+                    STK.BACK_FINISHED_GOODS,
+                    STK.TOTAL_SEMI_MANUFACTURED,
+                    STK.TOP_SEMI_MANUFACTURED,
+                    STK.BACK_SEMI_MANUFACTURED,
+                    SGK.SG_QTY,
+                    SGK.SG_FINISHED_GOODS,
+                    SGK.SG_SEMI_MANUFACTURED,
+                    NO_TESTED_WAFER,
+                    TESTED_WAFER,
+                    OUTSOURCING_WAFER
+                FROM
+                    (
+                    SELECT 
+                    ITEM_NAME,
+                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CP%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS TOTAL_FINISHED_GOODS,
+                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CP%ZY%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS TOP_FINISHED_GOODS,
+                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CP%BY%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS BACK_FINISHED_GOODS,
+                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'BC%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS TOTAL_SEMI_MANUFACTURED,
+                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'BC%ZY%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS TOP_SEMI_MANUFACTURED,
+                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'BC%BY%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS BACK_SEMI_MANUFACTURED,
+                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%WF' THEN SECOND_QTY ELSE 0 END) AS FLOAT) AS NO_TESTED_WAFER,
+                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%CP' THEN SECOND_QTY ELSE 0 END) AS FLOAT) AS TESTED_WAFER,
+                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%WG' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS OUTSOURCING_WAFER
+                    FROM
+                    (
+                        SELECT 
+                        ITEM.ITEM_CODE,
+                        CASE 
+                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
+                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
+                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
+                            ELSE ITEM.ITEM_NAME
+                        END AS ITEM_NAME,
+                        SUM(A.INVENTORY_QTY) AS INVENTORY_QTY,
+                        SUM(A.SECOND_QTY) AS SECOND_QTY
+                        FROM Z_WF_IC_WAREHOUSE_BIN A
+                        LEFT JOIN ITEM
+                            ON ITEM.ITEM_BUSINESS_ID = A.ITEM_ID
+                        LEFT JOIN WAREHOUSE W
+                            ON A.WAREHOUSE_ID = W.WAREHOUSE_ID
+                        WHERE A.INVENTORY_QTY > 0
+                        GROUP BY
+                            ITEM.ITEM_CODE,
+                            CASE 
+                                WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
+                                WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
+                                WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
+                                ELSE ITEM.ITEM_NAME
+                            END
+                        ) AS NT
+                    GROUP BY ITEM_NAME
+                    ) AS STK
+                LEFT JOIN 
+                    (SELECT 
+                        CASE 
+                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
+                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
+                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
+                            ELSE ITEM.ITEM_NAME
+                        END AS ITEM_NAME,
+                        CAST(SUM(A.INVENTORY_QTY) AS INT) AS SG_QTY,
+                        CAST(SUM(CASE WHEN W.WAREHOUSE_NAME=N'苏工院（半成品）' THEN A.INVENTORY_QTY ELSE 0 END) AS INT) AS SG_SEMI_MANUFACTURED,
+                        CAST(SUM(CASE WHEN W.WAREHOUSE_NAME=N'苏工院（产成品）' THEN A.INVENTORY_QTY ELSE 0 END) AS INT) AS SG_FINISHED_GOODS
+                        FROM Z_WF_IC_WAREHOUSE_BIN A
+                        LEFT JOIN ITEM
+                        ON ITEM.ITEM_BUSINESS_ID = A.ITEM_ID
+                        LEFT JOIN WAREHOUSE W
+                        ON A.WAREHOUSE_ID = W.WAREHOUSE_ID
+                        WHERE A.INVENTORY_QTY > 0 AND (W.WAREHOUSE_NAME = N'苏工院（半成品）' OR W.WAREHOUSE_NAME = N'苏工院（产成品）')
+                        GROUP BY 
+                        CASE 
+                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
+                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
+                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
+                            ELSE ITEM.ITEM_NAME
+                        END) AS SGK
+                    ON STK.ITEM_NAME = SGK.ITEM_NAME
+                    ),
                     
+                WIP AS
+                (	
+                    SELECT
+                    ITEM_NAME,
+                    SUM(CASE WHEN ITEM_CODE LIKE N'CL%WF' THEN WIP_QTY ELSE 0 END ) AS PURCHASE_WIP_QTY,
+                    SUM(CASE WHEN ITEM_CODE LIKE N'CL%WG' THEN WIP_QTY ELSE 0 END ) AS OUTSOURCING_WIP_QTY,
+                    SUM(CASE WHEN ITEM_CODE LIKE N'BC%AB' THEN WIP_QTY ELSE 0 END ) AS PACKAGE_WIP_QTY,
+                    SUM(CASE WHEN ITEM_CODE LIKE N'BC%ZY%AB' THEN WIP_QTY ELSE 0 END ) AS PACKAGE_TOP_WIP_QTY,
+                    SUM(CASE WHEN ITEM_CODE LIKE N'BC%BY%AB' THEN WIP_QTY ELSE 0 END ) AS PACKAGE_BACK_WIP_QTY,
+                    SUM(CASE WHEN ITEM_CODE LIKE N'CL%CP' THEN WIP_QTY ELSE 0 END ) AS CP_WIP_QTY,
+                    SUM(CASE WHEN ITEM_CODE LIKE N'CP%' THEN WIP_QTY ELSE 0 END ) AS SECONDARY_OUTSOURCING_WIP_QTY
+                    FROM
+                    (	
+                        SELECT
+                            ITEM.ITEM_CODE,
+                            CASE 
+                                    WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
+                                    WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
+                                    WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
+                                    ELSE ITEM.ITEM_NAME
+                                END AS ITEM_NAME,
+                            SUM(
+                            CASE 
+                                    WHEN PO.[CLOSE] <> N'0' THEN 0
+                                    WHEN PO_D.BUSINESS_QTY <> 0 AND (PO_D.RECEIPTED_PRICE_QTY / PO_D.BUSINESS_QTY) > 0.992 THEN 0
+                                    ELSE CAST((PO_D.BUSINESS_QTY*0.996 - PO_D.RECEIPTED_PRICE_QTY) AS INT)
+                            END) AS WIP_QTY
+                        FROM PURCHASE_ORDER PO
+                        LEFT JOIN PURCHASE_ORDER_D PO_D 
+                                ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
+                        LEFT JOIN PURCHASE_ORDER_SD PO_SD 
+                                ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                        LEFT JOIN ITEM
+                                ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                        WHERE PO_SD.RECEIPT_CLOSE = 0
+                                AND  
+                                ((CASE 
+                                        WHEN PO.[CLOSE] <> N'0' THEN 0
+                                        WHEN PO_D.BUSINESS_QTY <> 0 AND (PO_D.RECEIPTED_PRICE_QTY / PO_D.BUSINESS_QTY) > 0.992 THEN 0
+                                        ELSE CAST(((PO_D.BUSINESS_QTY * 0.996) - PO_D.RECEIPTED_PRICE_QTY) AS INT)
+                                END) > 996
+                                OR PO.PURCHASE_DATE > DATEADD(MONTH, -3, GETDATE()))
+                        GROUP BY 
+                        ITEM.ITEM_CODE,
+                        CASE 
+                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
+                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
+                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
+                            ELSE ITEM.ITEM_NAME
+                        END) AS NT
+                    GROUP BY ITEM_NAME
+                ),
+                BL AS
+                (
+                SELECT 
+                ROW_NUMBER() OVER (ORDER BY MAIN_CHIP,DEPUTY_CHIP,CHIP_NAME) + 10000 AS ROW,
+                BOM.*
+                FROM
+                (
+                SELECT 
+                MAX(CASE WHEN RowNum = 1 THEN NT.WAFER_NAME END) AS MAIN_CHIP,
+                MAX(CASE WHEN RowNum = 2 THEN NT.WAFER_NAME END) AS DEPUTY_CHIP,
+                    CHIP_NAME
+                FROM
+                (
+                SELECT LEFT(IT.ITEM_NAME, LEN(IT.ITEM_NAME)-3) AS CHIP_NAME,ROW_NUMBER() OVER(PARTITION BY IT.ITEM_CODE ORDER BY BD.Z_MAIN_CHIP) AS RowNum,ITEM.ITEM_NAME AS WAFER_NAME
+                FROM BOM_PRODUCT BP
+                LEFT JOIN ITEM IT
+                ON BP.ITEM_ID = IT.ITEM_BUSINESS_ID
+                LEFT JOIN BOM_D BD
+                ON BD.BOM_ID =BP.BOM_ID 
+                LEFT JOIN ITEM 
+                ON BD.SOURCE_ID_ROid = ITEM.ITEM_BUSINESS_ID
+                WHERE IT.STATUS != 3 AND IT.ITEM_NAME <> N'AZ1' AND IT.ITEM_CODE LIKE N'BC%AB'
+                ) AS NT
+                GROUP BY NT.CHIP_NAME
+                ) AS BOM 
+                )
+
+                SELECT
+                BL.ROW,
+                BL.MAIN_CHIP,
+                BL.CHIP_NAME,
+                ISNULL(SD1.TOTAL_FINISHED_GOODS, 0) AS TOTAL_FINISHED_GOODS,
+                ISNULL(SD1.TOP_FINISHED_GOODS, 0) AS TOP_FINISHED_GOODS,
+                ISNULL(SD1.BACK_FINISHED_GOODS, 0) AS BACK_FINISHED_GOODS,
+                ISNULL(SD1.TOTAL_SEMI_MANUFACTURED, 0) AS TOTAL_SEMI_MANUFACTURED,
+                ISNULL(SD1.TOP_SEMI_MANUFACTURED, 0) AS TOP_SEMI_MANUFACTURED,
+                ISNULL(SD1.BACK_SEMI_MANUFACTURED, 0) AS BACK_SEMI_MANUFACTURED,
+                ISNULL(WIP3.PACKAGE_WIP_QTY, 0) AS PACKAGE_WIP_QTY,
+                ISNULL(WIP3.PACKAGE_TOP_WIP_QTY, 0) AS PACKAGE_TOP_WIP_QTY,
+                ISNULL(WIP3.PACKAGE_BACK_WIP_QTY, 0) AS PACKAGE_BACK_WIP_QTY,
+                ISNULL(SD1.SG_QTY, 0) AS SG_QTY,
+                ISNULL(SD1.SG_FINISHED_GOODS, 0) AS SG_FINISHED_GOODS,
+                ISNULL(SD1.SG_SEMI_MANUFACTURED, 0) AS SG_SEMI_MANUFACTURED,
+                ISNULL(WIP3.SECONDARY_OUTSOURCING_WIP_QTY, 0) AS SECONDARY_OUTSOURCING_WIP_QTY,
+                ISNULL(WIP1.PURCHASE_WIP_QTY, 0) AS PURCHASE_WIP_QTY,
+                ISNULL(WIP1.CP_WIP_QTY, 0) AS CP_WIP_QTY,
+                ISNULL(SD2.NO_TESTED_WAFER, 0) AS NO_TESTED_WAFER,
+                ISNULL(SD2.TESTED_WAFER, 0) AS TESTED_WAFER,
+                BL.DEPUTY_CHIP,
+                ISNULL(WIP2.OUTSOURCING_WIP_QTY, 0) AS OUTSOURCING_WIP_QTY,
+                ISNULL(SD3.OUTSOURCING_WAFER, 0) AS OUTSOURCING_WAFER
+                FROM BL
+                LEFT JOIN SD SD1 ON SD1.ITEM_NAME = BL.CHIP_NAME
+                LEFT JOIN SD SD2 ON SD2.ITEM_NAME = BL.MAIN_CHIP
+                LEFT JOIN SD SD3 ON SD3.ITEM_NAME = BL.DEPUTY_CHIP
+                LEFT JOIN WIP WIP1 ON WIP1.ITEM_NAME = BL.MAIN_CHIP
+                LEFT JOIN WIP WIP2 ON WIP2.ITEM_NAME = BL.DEPUTY_CHIP
+                LEFT JOIN WIP WIP3 ON WIP3.ITEM_NAME = BL.CHIP_NAME
+                ORDER BY BL.ROW
+            """)
+            result = db.execute(base_query).all()
+            
+            # 将查询结果转换为GlobalReport对象列表
+            reports = []
+            for row in result:
+                report_data = {
+                    "ROW": row.ROW,
+                    "MAIN_CHIP": row.MAIN_CHIP,
+                    "CHIP_NAME": row.CHIP_NAME,
+                    "TOTAL_FINISHED_GOODS": row.TOTAL_FINISHED_GOODS if row.TOTAL_FINISHED_GOODS != 0 else None,
+                    "TOP_FINISHED_GOODS": row.TOP_FINISHED_GOODS if row.TOP_FINISHED_GOODS != 0 else None,
+                    "BACK_FINISHED_GOODS": row.BACK_FINISHED_GOODS if row.BACK_FINISHED_GOODS != 0 else None,
+                    "TOTAL_SEMI_MANUFACTURED": row.TOTAL_SEMI_MANUFACTURED if row.TOTAL_SEMI_MANUFACTURED != 0 else None,
+                    "TOP_SEMI_MANUFACTURED": row.TOP_SEMI_MANUFACTURED if row.TOP_SEMI_MANUFACTURED != 0 else None,
+                    "BACK_SEMI_MANUFACTURED": row.BACK_SEMI_MANUFACTURED if row.BACK_SEMI_MANUFACTURED != 0 else None,
+                    "PACKAGE_WIP_QTY": row.PACKAGE_WIP_QTY if row.PACKAGE_WIP_QTY != 0 else None,
+                    "PACKAGE_TOP_WIP_QTY": row.PACKAGE_TOP_WIP_QTY if row.PACKAGE_TOP_WIP_QTY != 0 else None,
+                    "PACKAGE_BACK_WIP_QTY": row.PACKAGE_BACK_WIP_QTY if row.PACKAGE_BACK_WIP_QTY != 0 else None,
+                    "SG_QTY": row.SG_QTY if row.SG_QTY != 0 else None,
+                    "SG_FINISHED_GOODS": row.SG_FINISHED_GOODS if row.SG_FINISHED_GOODS != 0 else None,
+                    "SG_SEMI_MANUFACTURED": row.SG_SEMI_MANUFACTURED if row.SG_SEMI_MANUFACTURED != 0 else None,
+                    "SECONDARY_OUTSOURCING_WIP_QTY": row.SECONDARY_OUTSOURCING_WIP_QTY if row.SECONDARY_OUTSOURCING_WIP_QTY != 0 else None,
+                    "PURCHASE_WIP_QTY": row.PURCHASE_WIP_QTY if row.PURCHASE_WIP_QTY != 0 else None,
+                    "CP_WIP_QTY": row.CP_WIP_QTY if row.CP_WIP_QTY != 0 else None,
+                    "NO_TESTED_WAFER": row.NO_TESTED_WAFER if row.NO_TESTED_WAFER != 0 else None,
+                    "TESTED_WAFER": row.TESTED_WAFER if row.TESTED_WAFER != 0 else None,
+                    "DEPUTY_CHIP": row.DEPUTY_CHIP,
+                    "OUTSOURCING_WIP_QTY": row.OUTSOURCING_WIP_QTY if row.OUTSOURCING_WIP_QTY != 0 else None,
+                    "OUTSOURCING_WAFER": row.OUTSOURCING_WAFER if row.OUTSOURCING_WAFER != 0 else None
+                }
+                reports.append(GlobalReport(**report_data))
+            
+            return reports
+        except Exception as e:
+            logger.error(f"获取综合报表失败: {str(e)}")
+            raise CustomException("获取综合报表失败")
+
+    def export_global_report(self,db:Session)->bytes:
+        """导出综合报表Excel"""
+        try:
+            reports = self.get_global_report(db)
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "外协报表"
+
+            headers = [
+                "行号",
+                "主芯片",
+                "芯片名称",
+                "产成品数量",
+                "产成品正印数量",
+                "产成品背印数量",
+                "半成品数量",
+                "半成品正印数量",
+                "半成品背印数量",
+                "封装在制数量",
+                "封装正印在制数量",
+                "封装背印在制数量",
+                "苏工院库存数量",
+                "苏工院产成品数量",
+                "苏工院半成品数量",
+                "二次委外在制数量",
+                "采购在制数量",
+                "中测数量",
+                "未测晶圆",
+                "已测晶圆",
+                "副芯片",
+                "外购在途数量",
+                "外购圆片数量"
+            ]
+            
+            # 设置列宽
+            column_widths = {
+                'A': 15,
+                'B': 25,
+                'C': 20,
+                'D': 10,
+                'E': 10,
+                'F': 10,
+                'G': 10,
+                'H': 10,
+                'I': 10,
+                'J': 10,
+                'K': 10,
+                'L': 10,
+                'M': 10,
+                'N': 10,
+                'O': 10,
+                'P': 10,
+                'Q': 10,
+                'R': 10,
+                'S': 10,
+                'T': 10,
+                'U': 10,
+                'V': 10,
+                'W': 10
+            }
+
+            # 设置样式
+            header_font = Font(name='微软雅黑', size=11, bold=True, color='FFFFFF')
+            header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+            header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            cell_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+            
+            # 写入表头
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col, value=header)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = header_alignment
+                cell.border = border
+                ws.column_dimensions[get_column_letter(col)].width = column_widths[get_column_letter(col)]
+            
+            # 写入数据
+            for row, report in enumerate(reports, 2):
+                data = [
+                    report.ROW,
+                    report.MAIN_CHIP,
+                    report.CHIP_NAME,
+                    report.TOTAL_FINISHED_GOODS,
+                    report.TOP_FINISHED_GOODS,
+                    report.BACK_FINISHED_GOODS,
+                    report.TOTAL_SEMI_MANUFACTURED,
+                    report.TOP_SEMI_MANUFACTURED,
+                    report.BACK_SEMI_MANUFACTURED,
+                    report.PACKAGE_WIP_QTY,
+                    report.PACKAGE_TOP_WIP_QTY,
+                    report.PACKAGE_BACK_WIP_QTY,
+                    report.SG_QTY,
+                    report.SG_FINISHED_GOODS,
+                    report.SG_SEMI_MANUFACTURED,
+                    report.SECONDARY_OUTSOURCING_WIP_QTY,
+                    report.PURCHASE_WIP_QTY,
+                    report.CP_WIP_QTY,
+                    report.NO_TESTED_WAFER,
+                    report.TESTED_WAFER,
+                    report.DEPUTY_CHIP,
+                    report.OUTSOURCING_WIP_QTY,
+                    report.OUTSOURCING_WAFER
+                ]
+                for col, value in enumerate(data, 1):
+                    cell = ws.cell(row=row, column=col, value=value)
+                    cell.alignment = cell_alignment
+                    cell.border = border
+
+            # 冻结第一行
+            ws.freeze_panes = 'A2'
+
+            # 保存到内存
+            excel_file = io.BytesIO()
+            wb.save(excel_file)
+            excel_file.seek(0)
+            
+            return excel_file.getvalue()
+            
+        except Exception as e:
+            logger.error(f"导出外协报表Excel失败: {str(e)}")
+            raise CustomException("导出外协报表Excel失败")
+
