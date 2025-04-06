@@ -1420,17 +1420,20 @@ class CRUDE10:
             # 参数验证和清理
             if params.feature_group_name:
                 feature_group_names = [self._clean_input(name) for name in params.feature_group_name]
-                placeholders = [f":feature_group_name_{i}" for i in range(len(feature_group_names))]
-                having_conditions.append(f"AND FG.FEATURE_GROUP_NAME IN ({','.join(placeholders)})")
+                feature_group_name_conditions = []
                 for i, name in enumerate(feature_group_names):
-                    query_params[f"feature_group_name_{i}"] = name
+                    feature_group_name_conditions.append(f"FG.FEATURE_GROUP_NAME LIKE :feature_group_name_{i}")
+                    query_params[f"feature_group_name_{i}"] = f"%{name}%"
+                having_conditions.append(f"AND ({' OR '.join(feature_group_name_conditions)})")
 
             if params.item_code:
                 item_codes = [self._clean_input(code) for code in params.item_code]
-                placeholders = [f":item_code_{i}" for i in range(len(item_codes))]
-                having_conditions.append(f"AND ITEM.ITEM_CODE IN ({','.join(placeholders)})")
+                item_code_conditions = []
                 for i, code in enumerate(item_codes):
-                    query_params[f"item_code_{i}"] = code
+                    item_code_conditions.append(f"UPPER(ITEM.ITEM_CODE) LIKE UPPER(:item_code_{i})")
+                    query_params[f"item_code_{i}"] = f"%{code}%"
+                having_conditions.append(f"AND ({' OR '.join(item_code_conditions)})")
+
 
             if params.item_name:
                 item_names = [self._clean_input(name) for name in params.item_name]
@@ -1450,10 +1453,11 @@ class CRUDE10:
 
             if params.warehouse_name:
                 warehouse_names = [self._clean_input(name) for name in params.warehouse_name]
-                placeholders = [f":warehouse_name_{i}" for i in range(len(warehouse_names))]
-                having_conditions.append(f"AND W.WAREHOUSE_NAME IN ({','.join(placeholders)})")
+                warehouse_name_conditions = []
                 for i, name in enumerate(warehouse_names):
-                    query_params[f"warehouse_name_{i}"] = name
+                    warehouse_name_conditions.append(f"W.WAREHOUSE_NAME LIKE :warehouse_name_{i}")
+                    query_params[f"warehouse_name_{i}"] = f"%{name}%"
+                having_conditions.append(f"AND ({' OR '.join(warehouse_name_conditions)})")
 
             if params.testing_program:
                 testing_programs = [self._clean_input(name) for name in params.testing_program]
@@ -1732,6 +1736,7 @@ class CRUDE10:
                     SGK.SG_QTY,
                     SGK.SG_FINISHED_GOODS,
                     SGK.SG_SEMI_MANUFACTURED,
+                    STK.TOTAL_RAW_MATERIALS,
                     NO_TESTED_WAFER,
                     TESTED_WAFER,
                     OUTSOURCING_WAFER
@@ -1745,6 +1750,7 @@ class CRUDE10:
                     CAST(SUM(CASE WHEN ITEM_CODE LIKE N'BC%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS TOTAL_SEMI_MANUFACTURED,
                     CAST(SUM(CASE WHEN ITEM_CODE LIKE N'BC%ZY%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS TOP_SEMI_MANUFACTURED,
                     CAST(SUM(CASE WHEN ITEM_CODE LIKE N'BC%BY%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS BACK_SEMI_MANUFACTURED,
+                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%' THEN SECOND_QTY ELSE 0 END) AS INT) AS TOTAL_RAW_MATERIALS,
                     CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%WF' THEN SECOND_QTY ELSE 0 END) AS FLOAT) AS NO_TESTED_WAFER,
                     CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%CP' THEN SECOND_QTY ELSE 0 END) AS FLOAT) AS TESTED_WAFER,
                     CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%WG' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS OUTSOURCING_WAFER
@@ -1860,7 +1866,9 @@ class CRUDE10:
                 (
                 SELECT 
                 ROW_NUMBER() OVER (ORDER BY MAIN_CHIP,DEPUTY_CHIP,CHIP_NAME) + 10000 AS ROW,
-                BOM.*
+                BOM.*,
+                ROW_NUMBER() OVER (PARTITION BY MAIN_CHIP ORDER BY MAIN_CHIP, DEPUTY_CHIP, CHIP_NAME) AS RN,
+                COUNT(*) OVER (PARTITION BY MAIN_CHIP) AS MAIN_CHIP_COUNT
                 FROM
                 (
                 SELECT 
@@ -1885,6 +1893,8 @@ class CRUDE10:
 
                 SELECT
                 BL.ROW,
+                BL.RN,
+                BL.MAIN_CHIP_COUNT,
                 BL.MAIN_CHIP,
                 BL.CHIP_NAME,
                 ISNULL(SD1.TOTAL_FINISHED_GOODS, 0) AS TOTAL_FINISHED_GOODS,
@@ -1901,12 +1911,13 @@ class CRUDE10:
                 ISNULL(SD1.SG_SEMI_MANUFACTURED, 0) AS SG_SEMI_MANUFACTURED,
                 ISNULL(WIP3.SECONDARY_OUTSOURCING_WIP_QTY, 0) AS SECONDARY_OUTSOURCING_WIP_QTY,
                 ISNULL(WIP1.PURCHASE_WIP_QTY, 0) AS PURCHASE_WIP_QTY,
+                ISNULL(SD2.TOTAL_RAW_MATERIALS,0) AS TOTAL_RAW_MATERIALS,
                 ISNULL(WIP1.CP_WIP_QTY, 0) AS CP_WIP_QTY,
                 ISNULL(SD2.NO_TESTED_WAFER, 0) AS NO_TESTED_WAFER,
                 ISNULL(SD2.TESTED_WAFER, 0) AS TESTED_WAFER,
                 BL.DEPUTY_CHIP,
                 ISNULL(WIP2.OUTSOURCING_WIP_QTY, 0) AS OUTSOURCING_WIP_QTY,
-                ISNULL(SD3.OUTSOURCING_WAFER, 0) AS OUTSOURCING_WAFER
+                ISNULL(SD3.TOTAL_RAW_MATERIALS, 0) AS TOTAL_B_RAW_MATERIALS
                 FROM BL
                 LEFT JOIN SD SD1 ON SD1.ITEM_NAME = BL.CHIP_NAME
                 LEFT JOIN SD SD2 ON SD2.ITEM_NAME = BL.MAIN_CHIP
@@ -1923,6 +1934,8 @@ class CRUDE10:
             for row in result:
                 report_data = {
                     "ROW": row.ROW,
+                    "RN": row.RN,
+                    "MAIN_CHIP_COUNT": row.MAIN_CHIP_COUNT,
                     "MAIN_CHIP": row.MAIN_CHIP,
                     "CHIP_NAME": row.CHIP_NAME,
                     "TOTAL_FINISHED_GOODS": row.TOTAL_FINISHED_GOODS if row.TOTAL_FINISHED_GOODS != 0 else None,
@@ -1939,12 +1952,13 @@ class CRUDE10:
                     "SG_SEMI_MANUFACTURED": row.SG_SEMI_MANUFACTURED if row.SG_SEMI_MANUFACTURED != 0 else None,
                     "SECONDARY_OUTSOURCING_WIP_QTY": row.SECONDARY_OUTSOURCING_WIP_QTY if row.SECONDARY_OUTSOURCING_WIP_QTY != 0 else None,
                     "PURCHASE_WIP_QTY": row.PURCHASE_WIP_QTY if row.PURCHASE_WIP_QTY != 0 else None,
+                    "TOTAL_RAW_MATERIALS": row.TOTAL_RAW_MATERIALS if row.TOTAL_RAW_MATERIALS != 0 else None,
                     "CP_WIP_QTY": row.CP_WIP_QTY if row.CP_WIP_QTY != 0 else None,
                     "NO_TESTED_WAFER": row.NO_TESTED_WAFER if row.NO_TESTED_WAFER != 0 else None,
                     "TESTED_WAFER": row.TESTED_WAFER if row.TESTED_WAFER != 0 else None,
                     "DEPUTY_CHIP": row.DEPUTY_CHIP,
                     "OUTSOURCING_WIP_QTY": row.OUTSOURCING_WIP_QTY if row.OUTSOURCING_WIP_QTY != 0 else None,
-                    "OUTSOURCING_WAFER": row.OUTSOURCING_WAFER if row.OUTSOURCING_WAFER != 0 else None
+                    "TOTAL_B_RAW_MATERIALS": row.TOTAL_B_RAW_MATERIALS if row.TOTAL_B_RAW_MATERIALS != 0 else None
                 }
                 reports.append(GlobalReport(**report_data))
             
@@ -1979,12 +1993,13 @@ class CRUDE10:
                 "苏工院半成品数量",
                 "二次委外在制数量",
                 "采购在制数量",
+                "圆片总数",
                 "中测数量",
                 "未测晶圆",
                 "已测晶圆",
                 "副芯片",
-                "外购在途数量",
-                "外购圆片数量"
+                "B芯在途数量",
+                "B芯圆片数量"
             ]
             
             # 设置列宽
@@ -2011,7 +2026,8 @@ class CRUDE10:
                 'T': 10,
                 'U': 10,
                 'V': 10,
-                'W': 10
+                'W': 10,
+                'X': 10
             }
 
             # 设置样式
@@ -2055,12 +2071,13 @@ class CRUDE10:
                     report.SG_SEMI_MANUFACTURED,
                     report.SECONDARY_OUTSOURCING_WIP_QTY,
                     report.PURCHASE_WIP_QTY,
+                    report.TOTAL_RAW_MATERIALS,
                     report.CP_WIP_QTY,
                     report.NO_TESTED_WAFER,
                     report.TESTED_WAFER,
                     report.DEPUTY_CHIP,
                     report.OUTSOURCING_WIP_QTY,
-                    report.OUTSOURCING_WAFER
+                    report.TOTAL_B_RAW_MATERIALS
                 ]
                 for col, value in enumerate(data, 1):
                     cell = ws.cell(row=row, column=col, value=value)

@@ -448,7 +448,39 @@ class E10Service:
     async def get_global_report(self) -> List[GlobalReport]:
         """获取综合报表"""
         try:
-            return self.crud_e10.get_global_report(self.db)
+            # 尝试从缓存获取
+            cache_key = "global_report:list"
+            if self.cache:
+                try:
+                    cached_data = self.cache.get(cache_key)
+                    if cached_data:
+                        self.metrics.track_cache_metrics(hit=True)
+                        logger.debug(f"命中缓存: {cache_key}")
+                        # 将缓存的字典列表转换为GlobalReport对象列表
+                        return [GlobalReport(**item) for item in cached_data]
+                except Exception as cache_error:
+                    logger.warning(f"缓存获取失败: {str(cache_error)}")
+
+            self.metrics.track_cache_metrics(hit=False)
+            
+            # 获取所有数据
+            report = self.crud_e10.get_global_report(self.db)
+            
+            # 如果启用缓存，缓存结果
+            if self.cache and report:
+                try:
+                    # 将数据转换为可序列化的格式
+                    cache_data = [item.model_dump() for item in report]
+                    success = self.cache.set(cache_key, cache_data, expire=600)
+                    if success:
+                        logger.debug(f"成功设置缓存: {cache_key}")
+                    else:
+                        logger.warning(f"设置缓存失败: {cache_key}")
+                except Exception as cache_error:
+                    logger.warning(f"缓存设置失败: {str(cache_error)}")
+            
+            return report
+        
         except Exception as e:
             logger.error(f"获取综合报表失败: {str(e)}")
             raise CustomException("获取综合报表失败")

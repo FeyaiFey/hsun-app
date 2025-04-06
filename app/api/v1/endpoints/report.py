@@ -24,7 +24,7 @@ router = APIRouter()
 # 创建缓存实例
 cache = MemoryCache()
 
-@router.get("/global", response_model=IResponse[GlobalReport])
+@router.get("/global", response_model=IResponse[List[GlobalReport]])
 @monitor_request
 async def get_global_report(
     db: Session = Depends(get_db),
@@ -32,7 +32,7 @@ async def get_global_report(
 ) -> Any:
     """获取综合报表"""
     try:
-        e10_service = E10Service(db)
+        e10_service = E10Service(db, cache)
         result = await e10_service.get_global_report()
         return CustomResponse.success(data=result)
     except CustomException as e:
