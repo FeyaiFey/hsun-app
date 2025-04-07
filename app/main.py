@@ -5,6 +5,10 @@ from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from jose import JWTError
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+from app.core.config import settings
 
 from app.api.v1.endpoints import auth, department, purchase, user, role, assy, params, stock, report
 from app.core.monitor import MetricsManager
@@ -44,6 +48,18 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=['*'],
     allow_headers=['*'],
+)
+
+# 安全中间件
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
+    session_cookie="session",
+    max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    same_site="lax",
+    https_only=False
 )
 
 # 挂载静态文件路径

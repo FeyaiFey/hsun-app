@@ -8,7 +8,7 @@ from urllib.parse import quote
 
 from app.db.session import get_db
 from app.schemas.response import IResponse
-from app.core.deps import get_current_active_user
+from app.core.deps import get_current_user
 from app.core.monitor import monitor_request
 from app.core.logger import logger
 from app.core.cache import MemoryCache
@@ -41,7 +41,7 @@ async def get_stock_by_params(
     testing_program: Optional[str] = Query(None, description="测试程序,多个用逗号分隔"),
     burning_program: Optional[str] = Query(None, description="烧录程序,多个用逗号分隔"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     """根据参数获取库存列表"""
     try:
@@ -100,7 +100,7 @@ async def export_stock_by_params(
     testing_program: Optional[str] = Query(None, description="测试程序,多个用逗号分隔"),
     burning_program: Optional[str] = Query(None, description="烧录程序,多个用逗号分隔"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -166,7 +166,7 @@ async def get_wafer_id_qty_detail_by_params(
     item_code: Optional[str] = Query(None, description="品号"),
     lot_code: Optional[str] = Query(None, description="批号"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     """根据参数获取晶圆ID数量明细"""
     try:
@@ -202,7 +202,7 @@ async def get_stock_summary_by_params(
     warehouse_name: Optional[str] = Query(None, description="仓库"),
     feature_group_name: Optional[str] = Query(None, description="品号群组"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     """根据参数获取库存汇总"""
     try:

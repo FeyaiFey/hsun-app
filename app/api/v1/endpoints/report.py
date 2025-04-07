@@ -8,7 +8,7 @@ from urllib.parse import quote
 
 from app.db.session import get_db
 from app.schemas.response import IResponse
-from app.core.deps import get_current_active_user
+from app.core.deps import get_current_user
 from app.core.monitor import monitor_request
 from app.core.logger import logger
 from app.core.cache import MemoryCache
@@ -28,7 +28,7 @@ cache = MemoryCache()
 @monitor_request
 async def get_global_report(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     """获取综合报表"""
     try:
@@ -54,7 +54,7 @@ async def get_global_report(
 @monitor_request
 async def export_global_report(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     """导出外协报表"""
     try:

@@ -13,7 +13,6 @@ from app.schemas.user import (
     BatchDeleteRequest
 )
 from app.models.user import User
-from app.core.deps import get_current_active_user
 from app.core.monitor import monitor_request
 from app.core.logger import logger
 from app.core.cache import MemoryCache
@@ -34,7 +33,7 @@ cache = MemoryCache()
 @monitor_request
 async def update_user_info(
     user_data: UserUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Any:
     """更新用户基本信息"""
@@ -71,7 +70,7 @@ async def update_user_info(
 @monitor_request
 async def update_password(
     password_data: UpdatePasswordRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Any:
     """更新用户密码"""

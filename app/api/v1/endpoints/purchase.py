@@ -5,7 +5,7 @@ from datetime import date
 
 from app.db.session import get_db
 from app.schemas.response import IResponse
-from app.core.deps import get_current_active_user
+from app.core.deps import get_current_user
 from app.core.monitor import monitor_request
 from app.core.logger import logger
 from app.core.cache import MemoryCache
@@ -32,7 +32,7 @@ cache = MemoryCache()
 async def get_purchase_order_by_params(
     params: PurchaseOrderQuery = Depends(),
     db: Session = Depends(get_db),
-    # current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     """根据参数获取采购订单
     
@@ -71,7 +71,7 @@ async def get_purchase_order_by_params(
 async def get_purchase_wip_by_params(
     params: PurchaseWipQuery = Depends(),
     db: Session = Depends(get_db),
-    # current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -96,7 +96,7 @@ async def get_purchase_wip_by_params(
 @monitor_request
 async def get_purchase_supplier(
     db: Session = Depends(get_db),
-    # current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -121,7 +121,7 @@ async def get_purchase_supplier(
 @monitor_request
 async def get_purchase_wip_supplier(
     db: Session = Depends(get_db),
-    # current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)

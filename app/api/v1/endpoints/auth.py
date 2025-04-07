@@ -147,7 +147,7 @@ async def get_routes(
 @router.post("/logout", response_model=IResponse[bool])
 @monitor_request
 async def logout(
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     """用户登出"""
     try:
@@ -169,7 +169,7 @@ async def logout(
 @router.get("/me", response_model=IResponse[UserInfoResponse])
 @monitor_request
 async def get_me(
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     """获取当前用户信息"""
     try:
@@ -186,7 +186,7 @@ async def get_me(
 @monitor_request
 async def get_user_info(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     """获取用户信息"""
     try:
@@ -212,7 +212,7 @@ async def get_user_info(
 @monitor_request
 async def get_user_menus(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     """获取用户菜单列表"""
     try:
@@ -252,7 +252,7 @@ async def get_user_menus(
 @monitor_request
 async def get_user_permissions(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     """获取用户权限列表"""
     try:

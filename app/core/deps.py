@@ -31,34 +31,49 @@ async def get_current_user(
         HTTPException: 认证失败时抛出
     """
     try:
+        # 验证token
         payload = verify_token(token)
-        user_id: str = payload.get("sub")
-        if user_id is None:
+        user_id = payload.get("sub")
+
+        # 检查user_id是否存在
+        if not user_id:
             logger.warning("令牌中缺少用户ID")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="无效的认证凭据",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        
+        # 尝试转换user_id为整数
+        try:
+            user_id_int = int(user_id)
+        except ValueError:
+            logger.warning(f"无效的用户ID格式: {user_id}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="无效的认证凭据",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            
+        # 查询用户
+        user = user_crud.get(db, id=user_id_int)
+        if not user:
+            logger.warning(f"用户不存在: {user_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="用户不存在"
+            )
+            
+        return user
+        
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"验证令牌失败: {str(e)}")
+        logger.error(f"获取当前用户失败: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="无效的认证凭据",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="系统错误"
         )
-    
-    user = user_crud.get(db, id=int(user_id))
-    if user is None:
-        logger.warning(f"用户不存在: {user_id}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户不存在",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return user
 
 async def get_current_active_user(
     current_user = Depends(get_current_user),

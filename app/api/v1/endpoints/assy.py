@@ -8,7 +8,7 @@ from urllib.parse import quote
 
 from app.db.session import get_db
 from app.schemas.response import IResponse
-from app.core.deps import get_current_active_user
+from app.core.deps import get_current_user
 from app.core.monitor import monitor_request
 from app.core.logger import logger
 from app.core.cache import MemoryCache
@@ -43,7 +43,7 @@ async def get_assy_order_by_params(
     order_date_start: Optional[str] = Query(None, description="工单日期开始"),
     order_date_end: Optional[str] = Query(None, description="工单日期结束"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -89,7 +89,7 @@ async def get_assy_order_by_params(
 async def get_assy_bom_by_params(
     params: AssyBomQuery = Depends(),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -115,7 +115,7 @@ async def get_assy_bom_by_params(
 async def export_assy_order(
     params: AssyOrderQuery = Depends(),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -156,7 +156,7 @@ async def export_assy_order(
 async def get_assy_wip_by_params(
     params: AssyWipQuery = Depends(),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -182,7 +182,7 @@ async def get_assy_wip_by_params(
 async def get_assy_wip_items(
     item_code: Optional[str] = Query(None, description="品号"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -213,7 +213,7 @@ async def get_assy_wip_items(
 async def get_assy_order_package_type(
     package_type: Optional[str] = Query(None, description="封装类型"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -243,7 +243,7 @@ async def get_assy_order_package_type(
 async def get_assy_order_supplier(
     supplier: Optional[str] = Query(None, description="供应商"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)

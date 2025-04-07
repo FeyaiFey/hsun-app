@@ -4,6 +4,8 @@ from typing import Any, List
 from datetime import timedelta
 
 from app.crud.department import department
+from app.models.user import User
+from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.schemas.response import IResponse
 from app.schemas.department import (
@@ -31,7 +33,6 @@ cache = MemoryCache()
 @router.get("/list", response_model=IResponse[DepartmentListResponse])
 @monitor_request
 async def get_department_list(
-    # current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Any:
     """获取部门列表
@@ -71,7 +72,7 @@ async def get_department_table_list(
     pageSize: int = 10,
     order_by: str = None,
     use_cache: bool = True,
-    # current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Any:
     """获取部门表格列表数据
@@ -127,6 +128,7 @@ async def get_department_table_list(
 @monitor_request
 async def save_department(
     department_data: dict,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Any:
     """保存部门信息
@@ -174,6 +176,7 @@ async def save_department(
 @monitor_request
 async def delete_department(
     id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Any:
     """删除部门
@@ -210,6 +213,7 @@ async def delete_department(
 @monitor_request
 async def batch_delete_departments(
     data: BatchDeleteRequest,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Any:
     """批量删除部门

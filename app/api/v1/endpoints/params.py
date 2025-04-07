@@ -5,7 +5,7 @@ from datetime import date
 
 from app.db.session import get_db
 from app.schemas.response import IResponse
-from app.core.deps import get_current_active_user
+from app.core.deps import get_current_user
 from app.core.monitor import monitor_request
 from app.core.logger import logger
 from app.core.cache import MemoryCache
@@ -38,7 +38,7 @@ cache = MemoryCache()
 async def get_feature_group_name(
     feature_group_name: Optional[str] = Query(None, description="品号群组"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -68,7 +68,7 @@ async def get_feature_group_name(
 async def get_item_code(
     item_code: Optional[str] = Query(None, description="品号"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -98,7 +98,7 @@ async def get_item_code(
 async def get_item_name(
     item_name: Optional[str] = Query(None, description="品名"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -128,7 +128,7 @@ async def get_item_name(
 async def get_lot_code(
     lot_code: Optional[str] = Query(None, description="批号"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -158,7 +158,7 @@ async def get_lot_code(
 async def get_warehouse_name(
     warehouse_name: Optional[str] = Query(None, description="仓库"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -188,7 +188,7 @@ async def get_warehouse_name(
 async def get_testing_program(
     testing_program: Optional[str] = Query(None, description="测试程序"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -218,7 +218,7 @@ async def get_testing_program(
 async def get_burning_program(
     burning_program: Optional[str] = Query(None, description="烧录程序"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
