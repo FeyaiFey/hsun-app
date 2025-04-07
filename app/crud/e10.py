@@ -1835,7 +1835,7 @@ class CRUDE10:
                             CASE 
                                     WHEN PO.[CLOSE] <> N'0' THEN 0
                                     WHEN PO_D.BUSINESS_QTY <> 0 AND (PO_D.RECEIPTED_PRICE_QTY / PO_D.BUSINESS_QTY) > 0.992 THEN 0
-                                    ELSE CAST((PO_D.BUSINESS_QTY*0.996 - PO_D.RECEIPTED_PRICE_QTY) AS INT)
+                                    ELSE CAST((PO_D.BUSINESS_QTY - PO_D.RECEIPTED_PRICE_QTY) AS INT)
                             END) AS WIP_QTY
                         FROM PURCHASE_ORDER PO
                         LEFT JOIN PURCHASE_ORDER_D PO_D 
