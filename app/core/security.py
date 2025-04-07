@@ -5,6 +5,9 @@ from app.core.config import settings
 from fastapi import HTTPException, status
 from typing import Optional, Union, Any, Dict
 from app.core.logger import logger
+from app.core.exceptions import CustomException
+from app.core.response import CustomResponse
+from app.core.error_codes import ErrorCode, get_error_message
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -20,7 +23,7 @@ def verify_token(token: str) -> Dict[str, Any]:
         dict: token中的信息
         
     Raises:
-        HTTPException: token无效时抛出
+        CustomException: token无效时抛出
     """
     try:
         payload = jwt.decode(
@@ -29,24 +32,22 @@ def verify_token(token: str) -> Dict[str, Any]:
             algorithms=[settings.ALGORITHM]
         )
         if not payload:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="无效的令牌"
+            raise CustomException(
+                code=status.HTTP_401_UNAUTHORIZED,
+                message=get_error_message(ErrorCode.TOKEN_INVALID)
             )
         return payload
     except jwt.ExpiredSignatureError:
         logger.warning("令牌已过期")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="令牌已过期",
-            headers={"WWW-Authenticate": "Bearer"},
+        raise CustomException(
+            code=status.HTTP_401_UNAUTHORIZED,
+            message=get_error_message(ErrorCode.TOKEN_EXPIRED)
         )
     except jwt.JWTError as e:
         logger.error(f"令牌验证失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="无效的认证凭据",
-            headers={"WWW-Authenticate": "Bearer"},
+        raise CustomException(
+            code=status.HTTP_401_UNAUTHORIZED,
+            message=get_error_message(ErrorCode.TOKEN_INVALID)
         )
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -58,12 +59,19 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         
     Returns:
         bool: 密码是否匹配
+        
+    Raises:
+        CustomException: 密码验证失败时抛出
     """
     try:
         return pwd_context.verify(plain_password, hashed_password)
     except Exception as e:
         logger.error(f"密码验证失败: {str(e)}")
-        return False
+        raise CustomException(
+            code=status.HTTP_401_UNAUTHORIZED,
+            message=get_error_message(ErrorCode.PASSWORD_ERROR),
+            name="AuthenticationError"
+        )
 
 def get_password_hash(password: str) -> str:
     """获取密码哈希
@@ -73,14 +81,18 @@ def get_password_hash(password: str) -> str:
         
     Returns:
         str: 密码哈希
+        
+    Raises:
+        CustomException: 密码哈希失败时抛出
     """
     try:
         return pwd_context.hash(password)
     except Exception as e:
         logger.error(f"密码哈希失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="密码处理失败"
+        raise CustomException(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
         )
 
 def create_access_token(
@@ -95,13 +107,16 @@ def create_access_token(
         
     Returns:
         str: JWT令牌
+        
+    Raises:
+        CustomException: 创建令牌失败时抛出
     """
     try:
         to_encode = data.copy()
         if expires_delta:
-            expire = datetime.now() + expires_delta
+            expire = datetime.utcnow() + expires_delta
         else:
-            expire = datetime.now() + timedelta(
+            expire = datetime.utcnow() + timedelta(
                 minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
             )
         to_encode.update({"exp": expire})
@@ -113,9 +128,10 @@ def create_access_token(
         return encoded_jwt
     except Exception as e:
         logger.error(f"创建访问令牌失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="创建访问令牌失败"
+        raise CustomException(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
         )
 
 def create_refresh_token(
@@ -130,13 +146,16 @@ def create_refresh_token(
         
     Returns:
         str: JWT令牌
+        
+    Raises:
+        CustomException: 创建令牌失败时抛出
     """
     try:
         to_encode = data.copy()
         if expires_delta:
-            expire = datetime.now() + expires_delta
+            expire = datetime.utcnow() + expires_delta
         else:
-            expire = datetime.now() + timedelta(
+            expire = datetime.utcnow() + timedelta(
                 days=settings.REFRESH_TOKEN_EXPIRE_DAYS
             )
         to_encode.update({"exp": expire, "type": "refresh"})
@@ -148,7 +167,8 @@ def create_refresh_token(
         return encoded_jwt
     except Exception as e:
         logger.error(f"创建刷新令牌失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="创建刷新令牌失败"
+        raise CustomException(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
         )

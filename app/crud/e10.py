@@ -1845,6 +1845,8 @@ class CRUDE10:
                         LEFT JOIN ITEM
                                 ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
                         WHERE PO_SD.RECEIPT_CLOSE = 0
+                              AND PO.DOC_NO NOT LIKE N'3501%'
+                              AND PO.DOC_NO <> 'HX-20240430001'
                                 AND  
                                 ((CASE 
                                         WHEN PO.[CLOSE] <> N'0' THEN 0
