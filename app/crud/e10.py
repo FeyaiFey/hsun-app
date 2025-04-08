@@ -1853,6 +1853,7 @@ class CRUDE10:
                                         WHEN PO_D.BUSINESS_QTY <> 0 AND (PO_D.RECEIPTED_PRICE_QTY / PO_D.BUSINESS_QTY) > 0.992 THEN 0
                                         ELSE CAST(((PO_D.BUSINESS_QTY * 0.996) - PO_D.RECEIPTED_PRICE_QTY) AS INT)
                                 END) > 996
+                                OR PO.DOC_NO LIKE N'PO%'
                                 OR PO.PURCHASE_DATE > DATEADD(MONTH, -3, GETDATE()))
                         GROUP BY 
                         ITEM.ITEM_CODE,
