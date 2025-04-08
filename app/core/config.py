@@ -14,6 +14,7 @@ class Settings(BaseSettings):
 
     # 安全配置
     SECRET_KEY: str = secrets.token_urlsafe(32)
+    TOKEN_VERSION: str = secrets.token_urlsafe(8)  # 添加令牌版本号
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 1 天
     REFRESH_TOKEN_EXPIRE_DAYS: int = 1  # 1 天
     ALGORITHM: str = "HS256"

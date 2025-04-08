@@ -36,6 +36,15 @@ def verify_token(token: str) -> Dict[str, Any]:
                 code=status.HTTP_401_UNAUTHORIZED,
                 message=get_error_message(ErrorCode.TOKEN_INVALID)
             )
+        
+        # 验证令牌版本
+        if payload.get("version") != settings.TOKEN_VERSION:
+            logger.warning("令牌版本不匹配")
+            raise CustomException(
+                code=status.HTTP_401_UNAUTHORIZED,
+                message=get_error_message(ErrorCode.TOKEN_INVALID)
+            )
+            
         return payload
     except jwt.ExpiredSignatureError:
         logger.warning("令牌已过期")
@@ -119,7 +128,10 @@ def create_access_token(
             expire = datetime.utcnow() + timedelta(
                 minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
             )
-        to_encode.update({"exp": expire})
+        to_encode.update({
+            "exp": expire,
+            "version": settings.TOKEN_VERSION  # 添加版本号
+        })
         encoded_jwt = jwt.encode(
             to_encode,
             settings.SECRET_KEY,
@@ -130,8 +142,7 @@ def create_access_token(
         logger.error(f"创建访问令牌失败: {str(e)}")
         raise CustomException(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message=get_error_message(ErrorCode.SYSTEM_ERROR),
-            name="SystemError"
+            message=get_error_message(ErrorCode.SYSTEM_ERROR)
         )
 
 def create_refresh_token(
