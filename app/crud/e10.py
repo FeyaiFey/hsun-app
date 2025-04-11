@@ -1750,7 +1750,7 @@ class CRUDE10:
                     CAST(SUM(CASE WHEN ITEM_CODE LIKE N'BC%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS TOTAL_SEMI_MANUFACTURED,
                     CAST(SUM(CASE WHEN ITEM_CODE LIKE N'BC%ZY%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS TOP_SEMI_MANUFACTURED,
                     CAST(SUM(CASE WHEN ITEM_CODE LIKE N'BC%BY%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS BACK_SEMI_MANUFACTURED,
-                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%' THEN SECOND_QTY ELSE 0 END) AS INT) AS TOTAL_RAW_MATERIALS,
+                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%' THEN SECOND_QTY ELSE 0 END) AS FLOAT) AS TOTAL_RAW_MATERIALS,
                     CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%WF' THEN SECOND_QTY ELSE 0 END) AS FLOAT) AS NO_TESTED_WAFER,
                     CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%CP' THEN SECOND_QTY ELSE 0 END) AS FLOAT) AS TESTED_WAFER,
                     CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%WG' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS OUTSOURCING_WAFER
@@ -1759,6 +1759,7 @@ class CRUDE10:
                         SELECT 
                         ITEM.ITEM_CODE,
                         CASE 
+                            WHEN ITEM.ITEM_NAME = N'HS6601MX-16H-SOP8-H' THEN N'HS6601MX-SOP8-H'
                             WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
                             WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
                             WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
@@ -1775,6 +1776,7 @@ class CRUDE10:
                         GROUP BY
                             ITEM.ITEM_CODE,
                             CASE 
+                                WHEN ITEM.ITEM_NAME = N'HS6601MX-16H-SOP8-H' THEN N'HS6601MX-SOP8-H'
                                 WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
                                 WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
                                 WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
@@ -1786,6 +1788,7 @@ class CRUDE10:
                 LEFT JOIN 
                     (SELECT 
                         CASE 
+                            WHEN ITEM.ITEM_NAME = N'HS6601MX-16H-SOP8-H' THEN N'HS6601MX-SOP8-H'
                             WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
                             WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
                             WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
@@ -1802,6 +1805,7 @@ class CRUDE10:
                         WHERE A.INVENTORY_QTY > 0 AND (W.WAREHOUSE_NAME = N'苏工院（半成品）' OR W.WAREHOUSE_NAME = N'苏工院（产成品）')
                         GROUP BY 
                         CASE 
+                            WHEN ITEM.ITEM_NAME = N'HS6601MX-16H-SOP8-H' THEN N'HS6601MX-SOP8-H'
                             WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
                             WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
                             WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')

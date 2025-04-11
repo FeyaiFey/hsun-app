@@ -89,3 +89,13 @@ async def export_global_report(
             message="导出外协报表失败",
             name="AssyError"
         )
+    
+
+@router.get("/sop")
+@monitor_request
+async def get_sop_report(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """获取SOP报表"""
+    pass
