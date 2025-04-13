@@ -19,7 +19,7 @@ from app.models.user import User
 from app.schemas.assy import (
     AssyOrderQuery, AssyOrderResponse, AssyWipQuery, AssyWipResponse, AssyOrderItemsQuery, AssyOrderItemsResponse,
     AssyOrderPackageTypeQuery, AssyOrderPackageTypeResponse, AssyOrderSupplierQuery, AssyOrderSupplierResponse,
-    AssyBomQuery, AssyBomResponse
+    AssyBomQuery, AssyBomResponse, AssyAnalyzeTotalResponse
 )
 from app.services.e10_service import E10Service
 
@@ -268,3 +268,30 @@ async def get_assy_order_supplier(
             message=get_error_message(ErrorCode.SYSTEM_ERROR),
             name="SystemError"
         )
+
+
+@router.get("/analyze/total", response_model=IResponse[AssyAnalyzeTotalResponse])
+@monitor_request
+async def get_assy_analyze_total(
+    db: Session = Depends(get_db),
+    # current_user: User = Depends(get_current_user)
+) -> Any:
+    try:
+        e10_service = E10Service(db, cache)
+        result = await e10_service.get_assy_analyze_total()
+        return CustomResponse.success(data=result)
+    except CustomException as e:
+        logger.error(f"获取封装分析总表失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="AssyError"
+        )
+    except Exception as e:
+        logger.error(f"获取封装分析总表失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
+        )
+    

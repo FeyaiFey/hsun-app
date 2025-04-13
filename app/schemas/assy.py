@@ -160,3 +160,10 @@ class AssyOrderSupplier(BaseModel):
 class AssyOrderSupplierResponse(BaseModel):
     """封装订单供应商响应"""
     list: List[AssyOrderSupplier] = Field(..., description="封装订单供应商列表")
+
+class AssyAnalyzeTotalResponse(BaseModel):
+    """封装分析总表响应"""
+    receipt: int = Field(..., description="收货数量")
+    wip: int = Field(..., description="在制数量")
+    leadTime: int = Field(..., description="平均交期")
+    yields: int = Field(..., description="平均良率")

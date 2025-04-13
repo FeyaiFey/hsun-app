@@ -1,7 +1,7 @@
 from typing import List, Optional, Union, Dict, Any
 from sqlmodel import Session, select, text
 from app.schemas.purchase import (PurchaseOrder,PurchaseOrderQuery,PurchaseWip,PurchaseWipQuery)
-from app.schemas.assy import (AssyOrder,AssyOrderQuery,AssyWip,AssyWipQuery,AssyOrderItemsQuery,AssyOrderPackageTypeQuery,AssyOrderSupplierQuery,AssyBomQuery,AssyBom)
+from app.schemas.assy import (AssyOrder,AssyOrderQuery,AssyWip,AssyWipQuery,AssyOrderItemsQuery,AssyOrderPackageTypeQuery,AssyOrderSupplierQuery,AssyBomQuery,AssyBom,AssyAnalyzeTotalResponse)
 from app.schemas.stock import (StockQuery,
                              Stock,
                              WaferIdQtyDetailQuery,
@@ -2104,4 +2104,111 @@ class CRUDE10:
         except Exception as e:
             logger.error(f"导出外协报表Excel失败: {str(e)}")
             raise CustomException("导出外协报表Excel失败")
-
+        
+    def get_assy_analyze_total(self,db:Session)->Dict[str, Any]:
+        """获取封装分析总表"""
+        RECEIPT_QUERY = text(f"""
+            SELECT CAST(SUM(PRD.INVENTORY_QTY) AS INT) AS receipt
+            FROM PURCHASE_RECEIPT_D PRD
+            LEFT JOIN ITEM ON ITEM.ITEM_BUSINESS_ID = PRD.ITEM_ID
+            WHERE ITEM.ITEM_CODE LIKE N'BC-%' 
+            AND 
+            PRD.CreateDate BETWEEN DATEFROMPARTS(YEAR(DATEADD(MONTH, -1, GETDATE())),MONTH(DATEADD(MONTH, -1, GETDATE())),1) AND EOMONTH(DATEADD(MONTH, -1, GETDATE()))
+        """)
+        WIP_QUERY = text(f"""
+            SELECT SUM(WIP_QTY) AS wip
+            FROM 
+            (
+            SELECT
+            CAST(PO_D.BUSINESS_QTY AS INT) AS BUSINESS_QTY,
+            CAST(PO_D.RECEIPTED_PRICE_QTY AS INT) AS RECEIPTED_PRICE_QTY,
+            CASE 
+                    WHEN PO.[CLOSE] = N'2' THEN 0
+                    WHEN PO_D.BUSINESS_QTY <> 0 AND (PO_D.RECEIPTED_PRICE_QTY / PO_D.BUSINESS_QTY) > 0.992 THEN 0
+                    ELSE CAST(((PO_D.BUSINESS_QTY * 0.996) - PO_D.RECEIPTED_PRICE_QTY) AS INT)
+            END AS WIP_QTY,
+            CAST(PO.PURCHASE_DATE AS DATE) AS PURCHASE_DATE,
+            CAST(PR.CreateDate AS DATE) AS FIRST_ARRIVAL_DATE,
+            DATEDIFF(DAY, PO.PURCHASE_DATE, PR.CreateDate) AS leadtime
+            FROM PURCHASE_ORDER PO
+            LEFT JOIN PURCHASE_ORDER_D PO_D 
+            ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
+            LEFT JOIN PURCHASE_ORDER_SD PO_SD 
+            ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+            LEFT JOIN PURCHASE_ORDER_SSD PO_SSD 
+            ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+            LEFT JOIN Z_OUT_MO_D 
+            ON PO_SSD.REFERENCE_SOURCE_ID_ROid = Z_OUT_MO_D.Z_OUT_MO_D_ID
+            LEFT JOIN ITEM 
+            ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+            OUTER APPLY (
+            SELECT TOP 1 *
+            FROM PURCHASE_RECEIPT_D PRD
+            WHERE PRD.ORDER_SOURCE_ID_ROid = PO_SD.PURCHASE_ORDER_SD_ID
+            ORDER BY PRD.CreateDate
+            ) PR
+            WHERE ITEM.ITEM_CODE LIKE N'BC%AB' 
+            AND PO.PURCHASE_DATE >= N'2025-01-01' 
+            AND PO.SUPPLIER_FULL_NAME <> N'温州镁芯微电子有限公司'  
+            AND PO.SUPPLIER_FULL_NAME <> N'苏州荐恒电子科技有限公司'  
+            AND PO.SUPPLIER_FULL_NAME <> N'深圳市华新源科技有限公司'
+            ) AS WIP
+        """)
+        YIELD_LEADTIME_QUERY = text(f"""
+            SELECT ROUND(CAST(AVG(YIELD) AS FLOAT)*100,2) AS yields,ROUND(CAST(AVG(leadtime) AS FLOAT),0) AS leadtime
+            FROM 
+            (
+            SELECT
+            CAST(PO_D.BUSINESS_QTY AS INT) AS BUSINESS_QTY,
+            CAST(PO_D.RECEIPTED_PRICE_QTY AS INT) AS RECEIPTED_PRICE_QTY,
+            CAST(PO_D.RECEIPTED_PRICE_QTY/PO_D.BUSINESS_QTY AS FLOAT) AS YIELD,
+            CASE 
+                    WHEN PO.[CLOSE] = N'2' THEN 0
+                    WHEN PO_D.BUSINESS_QTY <> 0 AND (PO_D.RECEIPTED_PRICE_QTY / PO_D.BUSINESS_QTY) > 0.992 THEN 0
+                    ELSE CAST(((PO_D.BUSINESS_QTY * 0.996) - PO_D.RECEIPTED_PRICE_QTY) AS INT)
+            END AS WIP_QTY,
+            CAST(PO.PURCHASE_DATE AS DATE) AS PURCHASE_DATE,
+            CAST(PR.CreateDate AS DATE) AS FIRST_ARRIVAL_DATE,
+            DATEDIFF(DAY, PO.PURCHASE_DATE, PR.CreateDate) AS leadtime
+            FROM PURCHASE_ORDER PO
+            LEFT JOIN PURCHASE_ORDER_D PO_D 
+            ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
+            LEFT JOIN PURCHASE_ORDER_SD PO_SD 
+            ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+            LEFT JOIN PURCHASE_ORDER_SSD PO_SSD 
+            ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+            LEFT JOIN Z_OUT_MO_D 
+            ON PO_SSD.REFERENCE_SOURCE_ID_ROid = Z_OUT_MO_D.Z_OUT_MO_D_ID
+            LEFT JOIN ITEM 
+            ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+            OUTER APPLY (
+            SELECT TOP 1 *
+            FROM PURCHASE_RECEIPT_D PRD
+            WHERE PRD.ORDER_SOURCE_ID_ROid = PO_SD.PURCHASE_ORDER_SD_ID
+            ORDER BY PRD.CreateDate
+            ) PR
+            WHERE ITEM.ITEM_CODE LIKE N'BC%AB' 
+            AND PO.PURCHASE_DATE BETWEEN DATEFROMPARTS(YEAR(DATEADD(MONTH, -4, GETDATE())),MONTH(DATEADD(MONTH, -4, GETDATE())),1) AND EOMONTH(DATEADD(MONTH, -2, GETDATE()))
+            AND PO.SUPPLIER_FULL_NAME <> N'温州镁芯微电子有限公司'  
+            AND PO.SUPPLIER_FULL_NAME <> N'苏州荐恒电子科技有限公司'  
+            AND PO.SUPPLIER_FULL_NAME <> N'深圳市华新源科技有限公司'
+            ) AS WIP
+            WHERE WIP_QTY = 0 AND YIELD < 1 AND RECEIPTED_PRICE_QTY > 0
+        """)
+        try:
+            receipt_result = db.execute(RECEIPT_QUERY).fetchone()
+            wip_result = db.execute(WIP_QUERY).fetchone()
+            yield_leadtime_result = db.execute(YIELD_LEADTIME_QUERY).fetchone()
+            
+            # 将结果转换为可序列化的字典
+            result = {
+                "receipt": receipt_result.receipt if receipt_result else 0,
+                "wip": wip_result.wip if wip_result else 0,
+                "yields": yield_leadtime_result.yields if yield_leadtime_result else 0.0,
+                "leadTime": yield_leadtime_result.leadtime if yield_leadtime_result else 0
+            }
+            
+            return result
+        except Exception as e:
+            logger.error(f"获取封装分析总表失败: {str(e)}")
+            raise CustomException("获取封装分析总表失败")
