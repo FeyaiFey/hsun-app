@@ -166,7 +166,8 @@ class AssyAnalyzeTotalResponse(BaseModel):
     receipt: int = Field(..., description="收货数量")
     wip: int = Field(..., description="在制数量")
     leadTime: int = Field(..., description="平均交期")
-    yields: int = Field(..., description="平均良率")
+    yields: float = Field(..., description="平均良率")
+    exceed: float = Field(..., description="交期超标率")
     this_month_receipt: int = Field(..., description="本月收货量")
 
 class AssyAnalyzeLoadingResponse(BaseModel):

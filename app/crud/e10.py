@@ -1783,7 +1783,7 @@ class CRUDE10:
                             ON ITEM.ITEM_BUSINESS_ID = A.ITEM_ID
                         LEFT JOIN WAREHOUSE W
                             ON A.WAREHOUSE_ID = W.WAREHOUSE_ID
-                        WHERE A.INVENTORY_QTY > 0
+                        WHERE A.INVENTORY_QTY > 0 AND (W.WAREHOUSE_NAME != '实验仓-TH（产成品）') AND (W.WAREHOUSE_NAME NOT LIKE 'HOLD仓%') AND (W.WAREHOUSE_NAME NOT LIKE '华新源%')
                         GROUP BY
                             ITEM.ITEM_CODE,
                             CASE 
@@ -1841,6 +1841,7 @@ class CRUDE10:
                         SELECT
                             ITEM.ITEM_CODE,
                             CASE 
+                                    WHEN ITEM.ITEM_NAME='GC1808-TSSOP14-D-ZY' THEN 'GC1808D-TSSOP14-D-ZY'
                                     WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
                                     WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
                                     WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
@@ -1873,6 +1874,7 @@ class CRUDE10:
                         GROUP BY 
                         ITEM.ITEM_CODE,
                         CASE 
+                            WHEN ITEM.ITEM_NAME='GC1808-TSSOP14-D-ZY' THEN 'GC1808D-TSSOP14-D-ZY'
                             WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
                             WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
                             WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
@@ -1895,7 +1897,13 @@ class CRUDE10:
                     CHIP_NAME
                 FROM
                 (
-                SELECT LEFT(IT.ITEM_NAME, LEN(IT.ITEM_NAME)-3) AS CHIP_NAME,ROW_NUMBER() OVER(PARTITION BY IT.ITEM_CODE ORDER BY BD.Z_MAIN_CHIP) AS RowNum,ITEM.ITEM_NAME AS WAFER_NAME
+                SELECT 
+                CASE
+                  WHEN IT.ITEM_NAME='GC1808-TSSOP14-D-ZY' THEN 'GC1808D-TSSOP14-D'
+                  WHEN (RIGHT(IT.ITEM_NAME,3)='-ZY' OR RIGHT(IT.ITEM_NAME,3)='-BY' OR RIGHT(IT.ITEM_NAME,3)='-ZB') THEN LEFT(IT.ITEM_NAME, LEN(IT.ITEM_NAME)-3)
+                  ELSE IT.ITEM_NAME
+                END AS CHIP_NAME,
+                ROW_NUMBER() OVER(PARTITION BY IT.ITEM_CODE ORDER BY BD.Z_MAIN_CHIP) AS RowNum,ITEM.ITEM_NAME AS WAFER_NAME
                 FROM BOM_PRODUCT BP
                 LEFT JOIN ITEM IT
                 ON BP.ITEM_ID = IT.ITEM_BUSINESS_ID
@@ -2016,13 +2024,14 @@ class CRUDE10:
                 "封装在制数量",
                 "封装正印在制数量",
                 "封装背印在制数量",
+                "芯片总和(产半封/万颗)",
                 "苏工院库存数量",
                 "苏工院产成品数量",
                 "苏工院半成品数量",
                 "二次委外在制数量",
-                "采购在制数量",
-                "圆片总数",
-                "中测数量",
+                "在线晶圆",
+                "库存晶圆",
+                "中测晶圆",
                 "未测晶圆",
                 "已测晶圆",
                 "副芯片",
@@ -2033,9 +2042,9 @@ class CRUDE10:
             # 设置列宽
             column_widths = {
                 'A': 15,
-                'B': 25,
-                'C': 20,
-                'D': 20,
+                'B': 15,
+                'C': 25,
+                'D': 35,
                 'E': 10,
                 'F': 10,
                 'G': 10,
@@ -2055,8 +2064,9 @@ class CRUDE10:
                 'U': 10,
                 'V': 10,
                 'W': 10,
-                'X': 10,
-                'Y': 10
+                'X': 35,
+                'Y': 10,
+                'Z': 10
             }
 
             # 设置样式
@@ -2082,6 +2092,11 @@ class CRUDE10:
             
             # 写入数据
             for row, report in enumerate(reports, 2):
+                # 处理可能为None的值
+                total_finished = report.TOTAL_FINISHED_GOODS or 0
+                total_semi = report.TOTAL_SEMI_MANUFACTURED or 0
+                package_wip = report.PACKAGE_WIP_QTY or 0
+                
                 data = [
                     report.ROW,
                     report.MAIN_CHIP,
@@ -2096,6 +2111,7 @@ class CRUDE10:
                     report.PACKAGE_WIP_QTY,
                     report.PACKAGE_TOP_WIP_QTY,
                     report.PACKAGE_BACK_WIP_QTY,
+                    round((total_finished + total_semi + package_wip)/10000, 2),
                     report.SG_QTY,
                     report.SG_FINISHED_GOODS,
                     report.SG_SEMI_MANUFACTURED,
@@ -2177,10 +2193,18 @@ class CRUDE10:
             AND PO.SUPPLIER_FULL_NAME <> N'深圳市华新源科技有限公司'
             ) AS WIP
         """)
-        YIELD_LEADTIME_QUERY = text(f"""
-            SELECT ROUND(CAST(AVG(YIELD) AS FLOAT)*100,2) AS yields,ROUND(CAST(AVG(leadtime) AS FLOAT),0) AS leadtime
-            FROM 
-            (
+        YIELD_LEADTIME_EXCEED_QUERY = text(f"""
+            SELECT 
+            ROUND(CAST(AVG(YIELD) AS FLOAT)*100,2) AS yields,
+            ROUND(CAST(AVG(leadtime) AS FLOAT),0) AS leadtime,
+            ROUND(CAST(SUM(
+                CASE
+                WHEN leadtime > 30 THEN 1
+                ELSE 0
+                END
+              )AS FLOAT) /COUNT(*)*100,2)  AS exceed
+            FROM
+                      (
             SELECT
             CAST(PO_D.BUSINESS_QTY AS INT) AS BUSINESS_QTY,
             CAST(PO_D.RECEIPTED_PRICE_QTY AS INT) AS RECEIPTED_PRICE_QTY,
@@ -2228,15 +2252,16 @@ class CRUDE10:
         try:
             receipt_result = db.execute(RECEIPT_QUERY).fetchone()
             wip_result = db.execute(WIP_QUERY).fetchone()
-            yield_leadtime_result = db.execute(YIELD_LEADTIME_QUERY).fetchone()
+            yield_leadtime_exceed_result = db.execute(YIELD_LEADTIME_EXCEED_QUERY).fetchone()
             this_month_receipt = db.execute(THIS_MONTH_RECEIPT_QUERY).fetchone()
             
             # 将结果转换为可序列化的字典
             result = {
                 "receipt": receipt_result.receipt if receipt_result else 0,
                 "wip": wip_result.wip if wip_result else 0,
-                "yields": yield_leadtime_result.yields if yield_leadtime_result else 0.0,
-                "leadTime": yield_leadtime_result.leadtime if yield_leadtime_result else 0,
+                "yields": yield_leadtime_exceed_result.yields if yield_leadtime_exceed_result else 0.0,
+                "leadTime": yield_leadtime_exceed_result.leadtime if yield_leadtime_exceed_result else 0,
+                "exceed": yield_leadtime_exceed_result.exceed if yield_leadtime_exceed_result else 0.0,
                 "this_month_receipt": this_month_receipt.receipt/500000 if this_month_receipt else 0
             }
             
