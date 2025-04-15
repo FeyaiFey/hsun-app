@@ -8,6 +8,7 @@ class GlobalReport(BaseModel):
     RN: Optional[int] = Field(None, description="主芯片序号")
     MAIN_CHIP_COUNT: Optional[int] = Field(None, description="主芯片数量")
     MAIN_CHIP: Optional[str] = Field(None, description="主芯片")
+    WAFER_CODE: Optional[str] = Field(None, description="晶圆编码")
     CHIP_NAME: Optional[str] = Field(None, description="芯片名称")
     TOTAL_FINISHED_GOODS: Optional[int] = Field(None, description="产成品数量")
     TOP_FINISHED_GOODS: Optional[int] = Field(None, description="产成品正印数量")

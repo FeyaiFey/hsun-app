@@ -1,7 +1,18 @@
 from typing import List, Optional, Union, Dict, Any
 from sqlmodel import Session, select, text
 from app.schemas.purchase import (PurchaseOrder,PurchaseOrderQuery,PurchaseWip,PurchaseWipQuery)
-from app.schemas.assy import (AssyOrder,AssyOrderQuery,AssyWip,AssyWipQuery,AssyOrderItemsQuery,AssyOrderPackageTypeQuery,AssyOrderSupplierQuery,AssyBomQuery,AssyBom,AssyAnalyzeTotalResponse)
+from app.schemas.assy import (AssyOrder,
+                              AssyOrderQuery,
+                              AssyWip,
+                              AssyWipQuery,
+                              AssyOrderItemsQuery,
+                              AssyOrderPackageTypeQuery,
+                              AssyOrderSupplierQuery,
+                              AssyBomQuery,
+                              AssyBom,
+                              AssyAnalyzeTotalResponse,
+                              AssyAnalyzeLoadingResponse,
+                              AssyYearTrendResponse)
 from app.schemas.stock import (StockQuery,
                              Stock,
                              WaferIdQtyDetailQuery,
@@ -648,7 +659,7 @@ class CRUDE10:
                         ROW_NUMBER() OVER (ORDER BY PO.PURCHASE_DATE, PO.DOC_NO) + 115617 AS ID,
                         PO.DOC_NO,
                         ITEM.ITEM_CODE,
-                        Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_NAME,
+                        ITEM.UDF025 AS Z_PACKAGE_TYPE_NAME,
                         ITEM_LOT.LOT_CODE,
                         CAST(PO_D.BUSINESS_QTY AS INT) AS BUSINESS_QTY,
                         CAST(PO_D.RECEIPTED_PRICE_QTY AS INT) AS RECEIPTED_PRICE_QTY,
@@ -693,8 +704,6 @@ class CRUDE10:
                         ON Z_LOADING_METHOD.Z_LOADING_METHOD_ID = Z_PACKAGE.Z_LOADING_METHOD_ID
                     LEFT JOIN Z_WIRE 
                         ON Z_WIRE.Z_WIRE_ID = Z_PACKAGE.Z_WIRE_ID
-                    LEFT JOIN Z_PACKAGE_TYPE 
-                        ON Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_ID = Z_PACKAGE.Z_PACKAGE_TYPE_ID
                     LEFT JOIN FEATURE_GROUP 
                         ON FEATURE_GROUP.FEATURE_GROUP_ID = ITEM.FEATURE_GROUP_ID
                     OUTER APPLY (
@@ -965,6 +974,8 @@ class CRUDE10:
         """导出封装订单数据到Excel"""
         try:
             # 获取数据
+            params.pageIndex = 1
+            params.pageSize = 10000000
             result = self.get_assy_order_by_params(db, params)
             assy_orders = result["list"]
             
@@ -1207,7 +1218,7 @@ class CRUDE10:
                 LEFT JOIN Z_ASSEMBLY_CODE ZAC ON ZOMD.Z_PACKAGE_ASSEMBLY_CODE_ID = ZAC.Z_ASSEMBLY_CODE_ID
                 LEFT JOIN Z_PACKAGE ON ZAC.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
                 LEFT JOIN Z_PROCESSING_PURPOSE ZPP ON ZAC.Z_PROCESSING_PURPOSE_ID = ZPP.Z_PROCESSING_PURPOSE_ID 
-                WHERE 1=1
+                WHERE 1=1 AND ITEM.ITEM_CODE LIKE N'BC%AB'
                 {' '.join(conditions)}
             """
             total = db.execute(text(count_query).bindparams(**{k:v for k,v in query_params.items() if k not in ['offset', 'pageSize']})).scalar()
@@ -1903,6 +1914,7 @@ class CRUDE10:
                 BL.RN,
                 BL.MAIN_CHIP_COUNT,
                 BL.MAIN_CHIP,
+                NNT.ITEM_CODE AS WAFER_CODE,
                 BL.CHIP_NAME,
                 ISNULL(SD1.TOTAL_FINISHED_GOODS, 0) AS TOTAL_FINISHED_GOODS,
                 ISNULL(SD1.TOP_FINISHED_GOODS, 0) AS TOP_FINISHED_GOODS,
@@ -1932,6 +1944,13 @@ class CRUDE10:
                 LEFT JOIN WIP WIP1 ON WIP1.ITEM_NAME = BL.MAIN_CHIP
                 LEFT JOIN WIP WIP2 ON WIP2.ITEM_NAME = BL.DEPUTY_CHIP
                 LEFT JOIN WIP WIP3 ON WIP3.ITEM_NAME = BL.CHIP_NAME
+                INNER JOIN 
+                (
+                  SELECT ITEM_NAME,ITEM_CODE
+                  FROM ITEM
+                  WHERE ITEM_CODE LIKE N'%WG' OR ITEM_CODE LIKE N'%WF'
+                )NNT 
+                ON NNT.ITEM_NAME = BL.MAIN_CHIP
                 ORDER BY BL.ROW
             """)
             result = db.execute(base_query).all()
@@ -1944,6 +1963,7 @@ class CRUDE10:
                     "RN": row.RN,
                     "MAIN_CHIP_COUNT": row.MAIN_CHIP_COUNT,
                     "MAIN_CHIP": row.MAIN_CHIP,
+                    "WAFER_CODE": row.WAFER_CODE,
                     "CHIP_NAME": row.CHIP_NAME,
                     "TOTAL_FINISHED_GOODS": row.TOTAL_FINISHED_GOODS if row.TOTAL_FINISHED_GOODS != 0 else None,
                     "TOP_FINISHED_GOODS": row.TOP_FINISHED_GOODS if row.TOP_FINISHED_GOODS != 0 else None,
@@ -1985,6 +2005,7 @@ class CRUDE10:
             headers = [
                 "行号",
                 "主芯片",
+                "晶圆编码",
                 "芯片名称",
                 "产成品数量",
                 "产成品正印数量",
@@ -2014,7 +2035,7 @@ class CRUDE10:
                 'A': 15,
                 'B': 25,
                 'C': 20,
-                'D': 10,
+                'D': 20,
                 'E': 10,
                 'F': 10,
                 'G': 10,
@@ -2034,7 +2055,8 @@ class CRUDE10:
                 'U': 10,
                 'V': 10,
                 'W': 10,
-                'X': 10
+                'X': 10,
+                'Y': 10
             }
 
             # 设置样式
@@ -2063,6 +2085,7 @@ class CRUDE10:
                 data = [
                     report.ROW,
                     report.MAIN_CHIP,
+                    report.WAFER_CODE,
                     report.CHIP_NAME,
                     report.TOTAL_FINISHED_GOODS,
                     report.TOP_FINISHED_GOODS,
@@ -2105,7 +2128,7 @@ class CRUDE10:
             logger.error(f"导出外协报表Excel失败: {str(e)}")
             raise CustomException("导出外协报表Excel失败")
         
-    def get_assy_analyze_total(self,db:Session)->Dict[str, Any]:
+    def get_assy_analyze_total(self,db:Session)->List[AssyAnalyzeTotalResponse]:
         """获取封装分析总表"""
         RECEIPT_QUERY = text(f"""
             SELECT CAST(SUM(PRD.INVENTORY_QTY) AS INT) AS receipt
@@ -2195,20 +2218,154 @@ class CRUDE10:
             ) AS WIP
             WHERE WIP_QTY = 0 AND YIELD < 1 AND RECEIPTED_PRICE_QTY > 0
         """)
+        THIS_MONTH_RECEIPT_QUERY = text(f"""
+            SELECT CAST(SUM(PRD.INVENTORY_QTY) AS INT) AS receipt
+            FROM PURCHASE_RECEIPT_D PRD
+            LEFT JOIN ITEM ON ITEM.ITEM_BUSINESS_ID = PRD.ITEM_ID
+            WHERE ITEM.ITEM_CODE LIKE N'BC-%' 
+            AND PRD.CreateDate >= DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1)
+        """)
         try:
             receipt_result = db.execute(RECEIPT_QUERY).fetchone()
             wip_result = db.execute(WIP_QUERY).fetchone()
             yield_leadtime_result = db.execute(YIELD_LEADTIME_QUERY).fetchone()
+            this_month_receipt = db.execute(THIS_MONTH_RECEIPT_QUERY).fetchone()
             
             # 将结果转换为可序列化的字典
             result = {
                 "receipt": receipt_result.receipt if receipt_result else 0,
                 "wip": wip_result.wip if wip_result else 0,
                 "yields": yield_leadtime_result.yields if yield_leadtime_result else 0.0,
-                "leadTime": yield_leadtime_result.leadtime if yield_leadtime_result else 0
+                "leadTime": yield_leadtime_result.leadtime if yield_leadtime_result else 0,
+                "this_month_receipt": this_month_receipt.receipt/500000 if this_month_receipt else 0
             }
             
             return result
         except Exception as e:
             logger.error(f"获取封装分析总表失败: {str(e)}")
             raise CustomException("获取封装分析总表失败")
+
+    def get_assy_analyze_loading(self,db:Session,range_type:str)->List[AssyAnalyzeLoadingResponse]:
+        """获取封装分析装载"""
+        ASSY_ANALYZE_LOADING_QUERY = text("""
+            SELECT 
+            [Date],
+            [SOP8(12R)] AS SOP8_12R,
+            [SOP8] AS SOP8,
+            [DFN8L(2X2X0.5-P0.5)] AS DFN8,
+            [SOP16(12R)] AS SOP16_12R,
+            [SOP16] AS SOP16,
+            [SOP14(12R)] AS SOP14_12R,
+            [SOP14] AS SOP14,
+            [TSSOP20L] AS TSSOP20,
+            [SOT26(14R)] AS SOT26_14R,
+            [SOT25(20R)] AS SOT25_20R,
+            [SOT25(14R)] AS SOT25_14R,
+            [SSOP24] AS SSOP24,
+            [ESSOP10] AS ESSOP10,
+            [QFN20L(3X3X0.5-P0.4)] AS QFN20,
+            [LQFP32L(7X7)] AS LQFP32
+            FROM huaxinAdmin_hisemi_loading_analyze
+            WHERE 1=1
+        """)
+        try:
+            # 构造查询条件
+            """
+            '0': 近1个月
+            '1': 近3个月
+            '2': 近6个月
+            '3': 近1年
+            '4': 近2年
+            """
+            condition = ''
+
+            if range_type == "0":
+                condition = " AND Date >= DATEADD(MONTH, -1, GETDATE())"
+            elif range_type == "1":
+                condition = " AND Date >= DATEADD(MONTH, -3, GETDATE())"
+            elif range_type == "2":
+                condition = " AND Date >= DATEADD(MONTH, -6, GETDATE())"
+            elif range_type == "3":
+                condition = " AND Date >= DATEADD(MONTH, -12, GETDATE())"
+            elif range_type == "4":
+                condition = " AND Date >= DATEADD(MONTH, -24, GETDATE())"
+            ASSY_ANALYZE_LOADING_QUERY = text(str(ASSY_ANALYZE_LOADING_QUERY) + condition)
+            result = db.execute(ASSY_ANALYZE_LOADING_QUERY).fetchall()
+            # 构造AssyAnalyzeLoadingResponse对象列表
+            return [
+                AssyAnalyzeLoadingResponse(
+                    Date = row.Date,
+                    SOP8_12R = row.SOP8_12R,
+                    SOP8 = row.SOP8,
+                    DFN8 = row.DFN8,
+                    SOP16_12R = row.SOP16_12R,
+                    SOP16 = row.SOP16,
+                    SOP14_12R = row.SOP14_12R,
+                    SOP14 = row.SOP14,
+                    TSSOP20 = row.TSSOP20,
+                    SOT26 = row.SOT26_14R,
+                    SOT25_20R = row.SOT25_20R,
+                    SOT25_14R = row.SOT25_14R,
+                    SSOP24 = row.SSOP24,
+                    ESSOP10 = row.ESSOP10,
+                    QFN20 = row.QFN20,
+                    LQFP32 = row.LQFP32
+                ) for row in result
+            ]
+        except Exception as e:
+            logger.error(f"获取封装分析装载失败: {str(e)}")
+            raise CustomException("获取封装分析装载失败")
+        
+    def get_assy_year_trend(self,db:Session)->List[AssyYearTrendResponse]:
+        """获取封装年趋势"""
+        ASSY_YEAR_TREND_QUERY = text("""
+            SELECT ROUND(SUM(BUSINESS_QTY)/1000000,2) AS qty,Z_PACKAGE_TYPE_NAME AS packageType,[YEAR] AS year
+            FROM (
+                SELECT
+                    hpl.BUSINESS_QTY,
+                    CASE
+                        WHEN LEFT(hpl.Z_PACKAGE_TYPE_NAME,4)='SOP8' THEN 'SOP8'
+                        WHEN LEFT(hpl.Z_PACKAGE_TYPE_NAME,4)='DFN8' THEN 'DFN8'
+                        WHEN LEFT(hpl.Z_PACKAGE_TYPE_NAME,5)='SOP14' THEN 'SOP14'
+                        WHEN LEFT(hpl.Z_PACKAGE_TYPE_NAME,5)='SOP16' THEN 'SOP16'
+                        WHEN LEFT(hpl.Z_PACKAGE_TYPE_NAME,7)='TSSOP20' THEN 'TSSOP20'
+                    ELSE hpl.Z_PACKAGE_TYPE_NAME
+                    END AS Z_PACKAGE_TYPE_NAME,
+                    YEAR(hpl.PURCHASE_DATE) AS [YEAR]
+                FROM HSUN_PACKAGE_LIST hpl 
+                UNION ALL
+                SELECT
+                    PO_D.BUSINESS_QTY AS BUSINESS_QTY,
+                    CASE
+                        WHEN LEFT(ITEM.UDF025,4)='SOP8' THEN 'SOP8'
+                        WHEN LEFT(ITEM.UDF025,4)='DFN8' THEN 'DFN8'
+                        WHEN LEFT(ITEM.UDF025,5)='SOP14' THEN 'SOP14'
+                        WHEN LEFT(ITEM.UDF025,5)='SOP16' THEN 'SOP16'
+                        WHEN LEFT(ITEM.UDF025,7)='TSSOP20' THEN 'TSSOP20'
+                    ELSE ITEM.UDF025
+                    END AS Z_PACKAGE_TYPE_NAME,
+                    YEAR(CAST(PO.PURCHASE_DATE AS DATE)) AS [YEAR]
+                FROM PURCHASE_ORDER PO
+                LEFT JOIN PURCHASE_ORDER_D PO_D 
+                    ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
+                LEFT JOIN ITEM 
+                    ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                WHERE PO.PURCHASE_TYPE = 2 
+                    AND PO.PURCHASE_DATE > '2024-10-21' 
+                    AND ITEM.ITEM_CODE LIKE N'BC%AB' 
+                    AND PO.SUPPLIER_FULL_NAME <> N'温州镁芯微电子有限公司'  
+                    AND PO.SUPPLIER_FULL_NAME <> N'苏州荐恒电子科技有限公司'  
+                    AND PO.SUPPLIER_FULL_NAME <> N'深圳市华新源科技有限公司'
+            ) AS CombinedResults
+            WHERE YEAR <= YEAR(GETDATE())-1
+            AND (Z_PACKAGE_TYPE_NAME = N'SOP8' OR Z_PACKAGE_TYPE_NAME = N'SOP14' OR Z_PACKAGE_TYPE_NAME = N'SOP16' OR Z_PACKAGE_TYPE_NAME = N'DFN8' OR Z_PACKAGE_TYPE_NAME = N'TSSOP20')
+            GROUP BY Z_PACKAGE_TYPE_NAME,[YEAR]
+            ORDER BY [YEAR]
+        """)
+
+        try:
+            result = db.execute(ASSY_YEAR_TREND_QUERY).fetchall()
+            return [AssyYearTrendResponse(qty=row.qty, packageType=row.packageType, year=row.year) for row in result]
+        except Exception as e:
+            logger.error(f"获取封装年趋势失败: {str(e)}")
+            raise CustomException("获取封装年趋势失败")

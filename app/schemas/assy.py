@@ -167,3 +167,29 @@ class AssyAnalyzeTotalResponse(BaseModel):
     wip: int = Field(..., description="在制数量")
     leadTime: int = Field(..., description="平均交期")
     yields: int = Field(..., description="平均良率")
+    this_month_receipt: int = Field(..., description="本月收货量")
+
+class AssyAnalyzeLoadingResponse(BaseModel):
+    """池州华宇装片量数据响应"""
+    Date: Optional[date] = Field(None, description="日期")
+    SOP8_12R: Optional[int] = Field(None, description="SOP8(12R)")
+    SOP8: Optional[int] = Field(None, description="SOP8")
+    DFN8: Optional[int] = Field(None, description="DFN8L(2X2X0.5-P0.5)")
+    SOP16_12R: Optional[int] = Field(None, description="SOP16(12R)")
+    SOP16: Optional[int] = Field(None, description="SOP16")
+    SOP14_12R: Optional[int] = Field(None, description="SOP14(12R)")
+    SOP14: Optional[int] = Field(None, description="SOP14")
+    TSSOP20: Optional[int] = Field(None, description="TSSOP20L")
+    SOT26: Optional[int] = Field(None, description="SOT26")
+    SOT25_20R: Optional[int] = Field(None, description="SOT25(20R)")
+    SOT25_14R: Optional[int] = Field(None, description="SOT25(14R)")
+    SSOP24: Optional[int] = Field(None, description="SSOP24")
+    ESSOP10: Optional[int] = Field(None, description="ESSOP10")
+    QFN20: Optional[int] = Field(None, description="QFN20L(3X3X0.5-P0.4)")
+    LQFP32: Optional[int] = Field(None, description="LQFP32L(7X7)")
+    
+class AssyYearTrendResponse(BaseModel):
+    """封装年趋势响应"""
+    qty: float = Field(..., description="数量")
+    packageType: str = Field(..., description="封装类型")
+    year: int = Field(..., description="年份")

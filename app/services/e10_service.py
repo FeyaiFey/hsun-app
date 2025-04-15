@@ -8,7 +8,7 @@ from app.core.monitor import MetricsManager
 from app.schemas.purchase import (PurchaseOrder, PurchaseOrderQuery, PurchaseWip, PurchaseWipQuery, PurchaseWipSupplierResponse, PurchaseSupplierResponse)
 from app.schemas.assy import (AssyOrder, AssyOrderQuery, AssyWip, AssyWipQuery, AssyOrderItemsQuery, AssyOrderItems,
                              AssyOrderPackageTypeQuery, AssyOrderPackageType, AssyOrderSupplierQuery, AssyOrderSupplier,
-                             AssyBomQuery, AssyBom, AssyAnalyzeTotalResponse
+                             AssyBomQuery, AssyBom, AssyAnalyzeTotalResponse, AssyAnalyzeLoadingResponse, AssyYearTrendResponse
                              )
 from app.schemas.stock import (StockQuery, Stock, WaferIdQtyDetailQuery, WaferIdQtyDetail, StockSummaryQuery, StockSummary)
 from app.schemas.report import GlobalReport
@@ -472,5 +472,23 @@ class E10Service:
         except Exception as e:
             logger.error(f"获取封装分析总表失败: {str(e)}")
             raise CustomException("获取封装分析总表失败")
+        
+    async def get_assy_analyze_loading(self,range_type:str) -> List[AssyAnalyzeLoadingResponse]:
+        """获取封装分析装载"""
+        try:
+            db_result = self.crud_e10.get_assy_analyze_loading(self.db,range_type)
+            return db_result
+        except Exception as e:
+            logger.error(f"获取封装分析装载失败: {str(e)}")
+            raise CustomException("获取封装分析装载失败")
+    
+    async def get_assy_year_trend(self) -> List[AssyYearTrendResponse]:
+        """获取封装年趋势"""
+        try:
+            return self.crud_e10.get_assy_year_trend(self.db)
+        except Exception as e:
+            logger.error(f"获取封装年趋势失败: {str(e)}")
+            raise CustomException("获取封装年趋势失败")
+        
         
 e10_service = E10Service(None, None)  # 在应用启动时注入实际的 db 和 cache
