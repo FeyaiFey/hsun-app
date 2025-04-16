@@ -8,8 +8,8 @@ from app.core.monitor import MetricsManager
 from app.schemas.purchase import (PurchaseOrder, PurchaseOrderQuery, PurchaseWip, PurchaseWipQuery, PurchaseWipSupplierResponse, PurchaseSupplierResponse)
 from app.schemas.assy import (AssyOrder, AssyOrderQuery, AssyWip, AssyWipQuery, AssyOrderItemsQuery, AssyOrderItems,
                              AssyOrderPackageTypeQuery, AssyOrderPackageType, AssyOrderSupplierQuery, AssyOrderSupplier,
-                             AssyBomQuery, AssyBom, AssyAnalyzeTotalResponse, AssyAnalyzeLoadingResponse, AssyYearTrendResponse
-                             )
+                             AssyBomQuery, AssyBom, AssyAnalyzeTotalResponse, AssyAnalyzeLoadingResponse, AssyYearTrendResponse,
+                             AssySupplyAnalyzeResponse)
 from app.schemas.stock import (StockQuery, Stock, WaferIdQtyDetailQuery, WaferIdQtyDetail, StockSummaryQuery, StockSummary)
 from app.schemas.report import GlobalReport
 from app.schemas.e10 import (FeatureGroupName, FeatureGroupNameQuery, ItemCode, ItemCodeQuery, ItemName, ItemNameQuery,
@@ -490,5 +490,12 @@ class E10Service:
             logger.error(f"获取封装年趋势失败: {str(e)}")
             raise CustomException("获取封装年趋势失败")
         
+    async def get_assy_supply_analyze(self) -> List[AssySupplyAnalyzeResponse]:
+        """获取封装供应分析"""
+        try:
+            return self.crud_e10.get_assy_supply_analyze(self.db)
+        except Exception as e:
+            logger.error(f"获取封装供应分析失败: {str(e)}")
+            raise CustomException("获取封装供应分析失败")
         
 e10_service = E10Service(None, None)  # 在应用启动时注入实际的 db 和 cache

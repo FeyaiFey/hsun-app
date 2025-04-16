@@ -19,7 +19,8 @@ from app.models.user import User
 from app.schemas.assy import (
     AssyOrderQuery, AssyOrderResponse, AssyWipQuery, AssyWipResponse, AssyOrderItemsQuery, AssyOrderItemsResponse,
     AssyOrderPackageTypeQuery, AssyOrderPackageTypeResponse, AssyOrderSupplierQuery, AssyOrderSupplierResponse,
-    AssyBomQuery, AssyBomResponse, AssyAnalyzeTotalResponse, AssyAnalyzeLoadingResponse, AssyYearTrendResponse
+    AssyBomQuery, AssyBomResponse, AssyAnalyzeTotalResponse, AssyAnalyzeLoadingResponse, AssyYearTrendResponse,
+    AssySupplyAnalyzeResponse
 )
 from app.services.e10_service import E10Service
 
@@ -325,7 +326,7 @@ async def get_assy_analyze_loading(
 @monitor_request
 async def get_assy_year_trend(
     db: Session = Depends(get_db),
-    # current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
@@ -340,6 +341,31 @@ async def get_assy_year_trend(
         )
     except Exception as e:
         logger.error(f"获取封装年趋势失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
+        )
+
+@router.get("/analyze/supply", response_model=IResponse[AssySupplyAnalyzeResponse])
+@monitor_request
+async def get_assy_supply_analyze(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    try:
+        e10_service = E10Service(db, cache)
+        result = await e10_service.get_assy_supply_analyze()
+        return CustomResponse.success(data=result)
+    except CustomException as e:
+        logger.error(f"获取封装供应分析失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="AssyError"
+        )
+    except Exception as e:
+        logger.error(f"获取封装供应分析失败: {str(e)}")
         return CustomResponse.error(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message=get_error_message(ErrorCode.SYSTEM_ERROR),

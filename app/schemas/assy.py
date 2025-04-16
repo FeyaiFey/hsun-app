@@ -194,3 +194,10 @@ class AssyYearTrendResponse(BaseModel):
     qty: float = Field(..., description="数量")
     packageType: str = Field(..., description="封装类型")
     year: int = Field(..., description="年份")
+
+class AssySupplyAnalyzeResponse(BaseModel):
+    """封装供应分析响应"""
+    Supplier: str = Field(..., description="供应商")
+    DataRowCount: int = Field(..., description="订单量")
+    TotalOrderQty: int = Field(..., description="订单数量合计")
+    PackageTypeCount: int = Field(..., description="封装形式种类数量")

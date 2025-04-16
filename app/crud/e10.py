@@ -12,7 +12,8 @@ from app.schemas.assy import (AssyOrder,
                               AssyBom,
                               AssyAnalyzeTotalResponse,
                               AssyAnalyzeLoadingResponse,
-                              AssyYearTrendResponse)
+                              AssyYearTrendResponse,
+                              AssySupplyAnalyzeResponse)
 from app.schemas.stock import (StockQuery,
                              Stock,
                              WaferIdQtyDetailQuery,
@@ -2394,3 +2395,49 @@ class CRUDE10:
         except Exception as e:
             logger.error(f"获取封装年趋势失败: {str(e)}")
             raise CustomException("获取封装年趋势失败")
+
+    def get_assy_supply_analyze(self,db:Session)->List[AssySupplyAnalyzeResponse]:
+        """获取封装供应分析"""
+        ASSY_SUPPLY_ANALYZE_QUERY = text("""
+            WITH SMR AS(
+            SELECT
+                ITEM.ITEM_CODE,
+                ITEM.UDF025 AS packageType,
+                CAST(PO_D.BUSINESS_QTY AS INT) AS orderQty,
+                CAST(PO.PURCHASE_DATE AS DATE) AS purchaseDate,
+                YEAR(PO.PURCHASE_DATE) AS year,
+                MONTH(PO.PURCHASE_DATE) AS month,
+                PO.SUPPLIER_FULL_NAME AS supply
+            FROM PURCHASE_ORDER PO
+            LEFT JOIN PURCHASE_ORDER_D PO_D 
+                ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
+            LEFT JOIN PURCHASE_ORDER_SD PO_SD 
+                ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+            LEFT JOIN PURCHASE_ORDER_SSD PO_SSD 
+                ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+            LEFT JOIN Z_OUT_MO_D 
+                ON PO_SSD.REFERENCE_SOURCE_ID_ROid = Z_OUT_MO_D.Z_OUT_MO_D_ID
+            LEFT JOIN ITEM 
+                ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+            WHERE PO.PURCHASE_TYPE = 2 
+                AND PO.PURCHASE_DATE > '2024-12-31' AND PO.PURCHASE_DATE > DATEADD(YEAR, -1, GETDATE())
+                AND ITEM.ITEM_CODE LIKE N'BC%AB' 
+                AND PO.SUPPLIER_FULL_NAME <> N'温州镁芯微电子有限公司'  
+                AND PO.SUPPLIER_FULL_NAME <> N'苏州荐恒电子科技有限公司'  
+                AND PO.SUPPLIER_FULL_NAME <> N'深圳市华新源科技有限公司'
+            )
+
+            SELECT
+                supply AS Supplier,
+                COUNT(*) AS DataRowCount,
+                SUM(orderQty) AS TotalOrderQty,
+                COUNT(DISTINCT ITEM_CODE) AS PackageTypeCount
+            FROM SMR
+            GROUP BY supply
+        """)
+        try:
+            result = db.execute(ASSY_SUPPLY_ANALYZE_QUERY).fetchall()
+            return [AssySupplyAnalyzeResponse(Supplier=row.Supplier, DataRowCount=row.DataRowCount, TotalOrderQty=row.TotalOrderQty, PackageTypeCount=row.PackageTypeCount) for row in result]
+        except Exception as e:
+            logger.error(f"获取封装供应分析失败: {str(e)}")
+            raise CustomException("获取封装供应分析失败")
