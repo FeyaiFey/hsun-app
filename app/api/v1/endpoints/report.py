@@ -98,4 +98,21 @@ async def get_sop_report(
     current_user: User = Depends(get_current_user)
 ) -> Any:
     """获取SOP报表"""
-    pass
+    try:
+        e10_service = E10Service(db, cache)
+        result = await e10_service.get_sop_analyze()
+        return CustomResponse.success(data=result)
+    except CustomException as e:
+        logger.error(f"获取SOP报表失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="SopReportError"
+        )
+    except Exception as e:
+        logger.error(f"获取SOP报表失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.DB_ERROR),
+            name="SopReportError"
+        )

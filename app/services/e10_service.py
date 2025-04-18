@@ -11,7 +11,7 @@ from app.schemas.assy import (AssyOrder, AssyOrderQuery, AssyWip, AssyWipQuery, 
                              AssyBomQuery, AssyBom, AssyAnalyzeTotalResponse, AssyAnalyzeLoadingResponse, AssyYearTrendResponse,
                              AssySupplyAnalyzeResponse)
 from app.schemas.stock import (StockQuery, Stock, WaferIdQtyDetailQuery, WaferIdQtyDetail, StockSummaryQuery, StockSummary)
-from app.schemas.report import GlobalReport
+from app.schemas.report import GlobalReport,SopAnalyzeResponse
 from app.schemas.e10 import (FeatureGroupName, FeatureGroupNameQuery, ItemCode, ItemCodeQuery, ItemName, ItemNameQuery,
                              WarehouseName, WarehouseNameQuery, TestingProgram, TestingProgramQuery, BurningProgram, BurningProgramQuery,
                              LotCode, LotCodeQuery
@@ -498,4 +498,12 @@ class E10Service:
             logger.error(f"获取封装供应分析失败: {str(e)}")
             raise CustomException("获取封装供应分析失败")
         
+    async def get_sop_analyze(self) -> List[SopAnalyzeResponse]:
+        """获取SOP分析"""
+        try:
+            return self.crud_e10.get_sop_analyze(self.db)
+        except Exception as e:
+            logger.error(f"获取SOP分析失败: {str(e)}")
+            raise CustomException("获取SOP分析失败")
+
 e10_service = E10Service(None, None)  # 在应用启动时注入实际的 db 和 cache

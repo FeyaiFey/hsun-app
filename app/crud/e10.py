@@ -27,7 +27,7 @@ from app.schemas.e10 import (FeatureGroupNameQuery,
                              TestingProgramQuery,
                              BurningProgramQuery,
                              LotCodeQuery)
-from app.schemas.report import GlobalReport
+from app.schemas.report import GlobalReport,SopAnalyzeResponse
 from app.core.exceptions import CustomException
 from app.core.logger import logger
 from openpyxl import Workbook
@@ -1084,46 +1084,49 @@ class CRUDE10:
             # 构建基础查询
             base_query = """
                 SELECT 
-                WIP.[订单号],
+                PO.DOC_NO AS '订单号',
                 PO.SUPPLIER_FULL_NAME,
                 ITEM.ITEM_CODE,
-                ZPP.Z_PROCESSING_PURPOSE_NAME,
+                CASE
+                  WHEN ZPP.Z_PROCESSING_PURPOSE_NAME IS NULL THEN '封装'
+                  ELSE ZPP.Z_PROCESSING_PURPOSE_NAME
+                 END AS Z_PROCESSING_PURPOSE_NAME,
                 CASE 
                     WHEN WIP.[当前工序] = N'已完成' THEN NULL
                     ELSE DATEDIFF(DAY, WIP.modified_at, GETDATE()) 
                 END
                 AS STRANDED,
-                WIP.[当前工序],
+                ISNULL(WIP.[当前工序], '需确认') AS 当前工序,
                 WIP.[预计交期],
                 WIP.finished_at,
-                WIP.[在线合计],
-                WIP.[仓库库存],
-                WIP.[扣留信息],
-                WIP.[次日预计],
-                WIP.[三日预计],
-                WIP.[七日预计],
-                WIP.[研磨],
-                WIP.[切割],
-                WIP.[待装片],
-                WIP.[装片],
-                WIP.[银胶固化],
-                WIP.[等离子清洗1],
-                WIP.[键合],
-                WIP.[三目检],
-                WIP.[等离子清洗2],
-                WIP.[塑封],
-                WIP.[后固化],
-                WIP.[回流焊],
-                WIP.[电镀],
-                WIP.[打印],
-                WIP.[后切割],
-                WIP.[切筋成型],
-                WIP.[测编打印],
-                WIP.[外观检],
-                WIP.[包装],
-                WIP.[待入库]
-                FROM huaxinAdmin_wip_assy WIP
-                INNER JOIN PURCHASE_ORDER PO ON PO.DOC_NO = WIP.[订单号]
+                CAST((PO_D.BUSINESS_QTY * 0.9989- PO_D.RECEIPTED_PRICE_QTY) AS INT) AS 在线合计,
+                ISNULL(WIP.[仓库库存], 0) AS 仓库库存,
+                ISNULL(WIP.[扣留信息], '') AS 扣留信息,
+                ISNULL(WIP.[次日预计], 0) AS 次日预计,
+                ISNULL(WIP.[三日预计], 0) AS 三日预计,
+                ISNULL(WIP.[七日预计], 0) AS 七日预计,
+                ISNULL(WIP.[研磨], 0) AS 研磨,
+                ISNULL(WIP.[切割], 0) AS 切割,
+                ISNULL(WIP.[待装片], 0) AS 待装片,
+                ISNULL(WIP.[装片], 0) AS 装片,
+                ISNULL(WIP.[银胶固化], 0) AS 银胶固化,
+                ISNULL(WIP.[等离子清洗1], 0) AS 等离子清洗1,
+                ISNULL(WIP.[键合], 0) AS 键合,
+                ISNULL(WIP.[三目检], 0) AS 三目检,
+                ISNULL(WIP.[等离子清洗2], 0) AS 等离子清洗2,
+                ISNULL(WIP.[塑封], 0) AS 塑封,
+                ISNULL(WIP.[后固化], 0) AS 后固化,
+                ISNULL(WIP.[回流焊], 0) AS 回流焊,
+                ISNULL(WIP.[电镀], 0) AS 电镀,
+                ISNULL(WIP.[打印], 0) AS 打印,
+                ISNULL(WIP.[后切割], 0) AS 后切割,
+                ISNULL(WIP.[切筋成型], 0) AS 切筋成型,
+                ISNULL(WIP.[测编打印], 0) AS 测编打印,
+                ISNULL(WIP.[外观检], 0) AS 外观检,
+                ISNULL(WIP.[包装], 0) AS 包装,
+                ISNULL(WIP.[待入库], 0) AS 待入库
+                FROM PURCHASE_ORDER PO
+                LEFT JOIN huaxinAdmin_wip_assy WIP ON PO.DOC_NO = WIP.[订单号]
                 LEFT JOIN PURCHASE_ORDER_D PO_D ON PO.PURCHASE_ORDER_ID = PO_D.PURCHASE_ORDER_ID
                 LEFT JOIN PURCHASE_ORDER_SD PO_SD ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
                 LEFT JOIN PURCHASE_ORDER_SSD PO_SSD ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
@@ -1133,7 +1136,13 @@ class CRUDE10:
                 LEFT JOIN Z_ASSEMBLY_CODE ZAC ON ZOMD.Z_PACKAGE_ASSEMBLY_CODE_ID = ZAC.Z_ASSEMBLY_CODE_ID
                 LEFT JOIN Z_PACKAGE ON ZAC.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
                 LEFT JOIN Z_PROCESSING_PURPOSE ZPP ON ZAC.Z_PROCESSING_PURPOSE_ID = ZPP.Z_PROCESSING_PURPOSE_ID
-                WHERE 1=1 AND ITEM.ITEM_CODE LIKE N'BC%AB'
+                WHERE 1=1 AND 
+                  PO.[CLOSE]=0 AND 
+                  PO.SUPPLIER_FULL_NAME<>'苏州荐恒电子科技有限公司' AND 
+                  (PO.DOC_NO NOT LIKE '3501-%' AND 
+                  PO.DOC_NO != 'HX-20240430001') AND 
+                  ITEM.ITEM_CODE LIKE N'BC%AB' AND
+                  (PO_D.BUSINESS_QTY * 0.9989- PO_D.RECEIPTED_PRICE_QTY)>0
             """
             result = db.execute(text(base_query)).all()
             
@@ -1143,7 +1152,7 @@ class CRUDE10:
             
             # 参数验证和清理
             if params.doc_no and isinstance(params.doc_no, str):
-                conditions.append("AND WIP.[订单号] LIKE :doc_no")
+                conditions.append("AND PO.DOC_NO LIKE :doc_no")
                 query_params["doc_no"] = f"%{self._clean_input(params.doc_no)}%"
             
             if params.item_code and isinstance(params.item_code, str):
@@ -1157,12 +1166,12 @@ class CRUDE10:
             if params.current_process and isinstance(params.current_process, str):
                 conditions.append("AND WIP.[当前工序] LIKE :current_process")
                 query_params["current_process"] = f"%{self._clean_input(params.current_process)}%"
-                
-            if params.is_finished is not None:
-                if params.is_finished == 1:
-                    conditions.append("AND WIP.[当前工序] = N'已完成'")
+            
+            if params.is_tr is not None:
+                if params.is_tr == 1:
+                    conditions.append("AND (CASE WHEN ZPP.Z_PROCESSING_PURPOSE_NAME IS NULL THEN '封装' ELSE ZPP.Z_PROCESSING_PURPOSE_NAME END) LIKE N'%编带'")
                 else:
-                    conditions.append("AND WIP.[当前工序] != N'已完成'")
+                    conditions.append("AND (CASE WHEN ZPP.Z_PROCESSING_PURPOSE_NAME IS NULL THEN '封装' ELSE ZPP.Z_PROCESSING_PURPOSE_NAME END) NOT LIKE N'%编带'")
                     
             if params.is_stranded is not None:
                 if params.is_stranded == 0:
@@ -1192,7 +1201,7 @@ class CRUDE10:
             query = base_query + " " + " ".join(conditions)
             
             # 添加排序
-            query += " ORDER BY WIP.[订单号]"
+            query += " ORDER BY PO.DOC_DATE"
             
             # 添加分页
             if params.pageIndex and params.pageSize:
@@ -1208,8 +1217,8 @@ class CRUDE10:
             # 获取总记录数
             count_query = f"""
                 SELECT COUNT(1)
-                FROM huaxinAdmin_wip_assy WIP
-                LEFT JOIN PURCHASE_ORDER PO ON PO.DOC_NO = WIP.[订单号]
+                FROM PURCHASE_ORDER PO
+                LEFT JOIN huaxinAdmin_wip_assy WIP ON PO.DOC_NO = WIP.[订单号]
                 LEFT JOIN PURCHASE_ORDER_D PO_D ON PO.PURCHASE_ORDER_ID = PO_D.PURCHASE_ORDER_ID
                 LEFT JOIN PURCHASE_ORDER_SD PO_SD ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
                 LEFT JOIN PURCHASE_ORDER_SSD PO_SSD ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID 
@@ -1219,7 +1228,13 @@ class CRUDE10:
                 LEFT JOIN Z_ASSEMBLY_CODE ZAC ON ZOMD.Z_PACKAGE_ASSEMBLY_CODE_ID = ZAC.Z_ASSEMBLY_CODE_ID
                 LEFT JOIN Z_PACKAGE ON ZAC.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
                 LEFT JOIN Z_PROCESSING_PURPOSE ZPP ON ZAC.Z_PROCESSING_PURPOSE_ID = ZPP.Z_PROCESSING_PURPOSE_ID 
-                WHERE 1=1 AND ITEM.ITEM_CODE LIKE N'BC%AB'
+                WHERE 1=1 AND 
+                  PO.[CLOSE]=0 AND 
+                  PO.SUPPLIER_FULL_NAME<>'苏州荐恒电子科技有限公司' AND 
+                  (PO.DOC_NO NOT LIKE '3501-%' AND 
+                  PO.DOC_NO != 'HX-20240430001') AND 
+                  ITEM.ITEM_CODE LIKE N'BC%AB' AND
+                  (PO_D.BUSINESS_QTY * 0.9989- PO_D.RECEIPTED_PRICE_QTY)>0
                 {' '.join(conditions)}
             """
             total = db.execute(text(count_query).bindparams(**{k:v for k,v in query_params.items() if k not in ['offset', 'pageSize']})).scalar()
@@ -1615,7 +1630,7 @@ class CRUDE10:
                 query_params["feature_group_name"] = f"%{self._clean_input(params.feature_group_name)}%"
 
             if params.warehouse_name:
-                conditions.append("AND W.WAREHOUSE_NAME LIKE :warehouse_name")
+                conditions.append("AND UPPER(W.WAREHOUSE_NAME) LIKE UPPER(:warehouse_name)")
                 query_params["warehouse_name"] = f"%{self._clean_input(params.warehouse_name)}%"
 
             # 拼接查询条件
@@ -2441,3 +2456,182 @@ class CRUDE10:
         except Exception as e:
             logger.error(f"获取封装供应分析失败: {str(e)}")
             raise CustomException("获取封装供应分析失败")
+
+    def get_sop_analyze(self,db:Session)->List[SopAnalyzeResponse]:
+        """获取SOP分析"""
+        SOP_ANALYZE_QUERY = text("""
+                WITH 
+                SALES AS 
+                (
+                SELECT 
+                ABTR,
+                ITEM_NAME,
+                SUM(PRICE_QTY) AS PRICE_QTY
+                FROM (
+                SELECT
+                    CASE
+                    WHEN ITEM.ITEM_CODE LIKE '%TR' THEN '编带'
+                    ELSE '管装'
+                    END AS ABTR,
+                    dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG') AS ITEM_NAME,
+                    SID.PRICE_QTY
+                FROM SALES_ISSUE SI
+                LEFT JOIN SALES_ISSUE_D SID
+                ON SID.SALES_ISSUE_ID = SI.SALES_ISSUE_ID
+                LEFT JOIN ITEM
+                ON SID.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                WHERE SI.DOC_DATE BETWEEN DATEFROMPARTS(YEAR(DATEADD(MONTH, -1, GETDATE())),MONTH(DATEADD(MONTH, -1, GETDATE())),1) AND EOMONTH(DATEADD(MONTH, -1, GETDATE()))
+                UNION ALL
+                SELECT
+                    CASE
+                    WHEN ITEM.ITEM_CODE LIKE '%TR' THEN '编带'
+                    ELSE '管装'
+                    END AS ABTR,
+                    dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG') AS ITEM_NAME,
+                    SRRD.PRICE_QTY*-1
+                FROM SALES_RETURN_RECEIPT SRR
+                LEFT JOIN SALES_RETURN_RECEIPT_D SRRD
+                ON SRRD.SALES_RETURN_RECEIPT_ID = SRR.SALES_RETURN_RECEIPT_ID
+                LEFT JOIN ITEM
+                ON SRRD.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                WHERE SRR.DOC_DATE BETWEEN DATEFROMPARTS(YEAR(DATEADD(MONTH, -1, GETDATE())),MONTH(DATEADD(MONTH, -1, GETDATE())),1) AND EOMONTH(DATEADD(MONTH, -1, GETDATE()))
+                ) AS NT
+                GROUP BY ABTR,ITEM_NAME
+                ),
+                SAFE_STOCK AS 
+                (
+                SELECT 
+                CASE
+                WHEN ITEM.ITEM_CODE LIKE '%TR' THEN '编带'
+                ELSE '管装'
+                END AS ABTR,
+                CASE
+                WHEN RIGHT(ITEM.ITEM_NAME,3) = '-BY' OR RIGHT(ITEM.ITEM_NAME,3) = '-ZY' THEN ITEM.ITEM_NAME
+                ELSE (
+                    CASE 
+                    WHEN ITEM.ITEM_NAME = 'HS6601MX-16H-SOP8-H' THEN 'HS6601MX-SOP8-H-BY'
+                    WHEN ITEM.ITEM_CODE LIKE '%-ZY-%' THEN ITEM.ITEM_NAME + '-ZY'
+                    WHEN ITEM.ITEM_CODE LIKE '%-BY-%' THEN ITEM.ITEM_NAME + '-BY'
+                    END
+                )
+                END AS ITEM_NAME,
+                CAST(SUM(IW.SAFE_STOCK) AS INT) AS SAFE_STOCK
+                FROM ITEM_WAREHOUSE IW
+                LEFT JOIN ITEM ON IW.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                WHERE SAFE_STOCK > 0
+                GROUP BY 
+                CASE
+                    WHEN ITEM.ITEM_CODE LIKE '%TR' THEN '编带'
+                    ELSE '管装'
+                END,
+                CASE
+                    WHEN RIGHT(ITEM.ITEM_NAME,3) = '-BY' OR RIGHT(ITEM.ITEM_NAME,3) = '-ZY' THEN ITEM.ITEM_NAME
+                    ELSE (
+                    CASE 
+                        WHEN ITEM.ITEM_NAME = 'HS6601MX-16H-SOP8-H' THEN 'HS6601MX-SOP8-H-BY'
+                        WHEN ITEM.ITEM_CODE LIKE '%-ZY-%' THEN ITEM.ITEM_NAME + '-ZY'
+                        WHEN ITEM.ITEM_CODE LIKE '%-BY-%' THEN ITEM.ITEM_NAME + '-BY'
+                    END
+                    )
+                END
+                ),
+                STOCK AS 
+                (
+                SELECT 
+                CASE
+                    WHEN ITEM.ITEM_CODE LIKE '%TR' THEN '编带'
+                    ELSE '管装'
+                END AS ABTR,
+                CASE
+                    WHEN ITEM.ITEM_CODE LIKE 'CP-%' THEN '产成品'
+                    WHEN ITEM.ITEM_CODE LIKE 'DG-%' THEN '代工品'
+                    ELSE '半成品'
+                END AS CPBC,
+                dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'BC-,CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG') AS ITEM_NAME,
+                SUM(CAST(A.INVENTORY_QTY AS INT)) AS INVENTORY_QTY
+                FROM Z_WF_IC_WAREHOUSE_BIN A
+                LEFT JOIN ITEM
+                    ON ITEM.ITEM_BUSINESS_ID = A.ITEM_ID
+                LEFT JOIN WAREHOUSE W
+                    ON A.WAREHOUSE_ID = W.WAREHOUSE_ID
+                WHERE 
+                A.INVENTORY_QTY > 0  AND 
+                (W.WAREHOUSE_NAME != '实验仓-TH（产成品）') AND 
+                (W.WAREHOUSE_NAME NOT LIKE 'HOLD仓%') AND 
+                (W.WAREHOUSE_NAME NOT LIKE '华新源%') AND 
+                ITEM.ITEM_CODE NOT LIKE 'CL-%'
+                GROUP BY
+                CASE
+                    WHEN ITEM.ITEM_CODE LIKE '%TR' THEN '编带'
+                    ELSE '管装'
+                END,
+                CASE
+                    WHEN ITEM.ITEM_CODE LIKE 'CP-%' THEN '产成品'
+                    WHEN ITEM.ITEM_CODE LIKE 'DG-%' THEN '代工品'
+                    ELSE '半成品'
+                END,
+                dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'BC-,CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG')
+                ),
+                WIP AS 
+                (
+                SELECT 
+                ITEM.ITEM_NAME,
+                CASE
+                WHEN ZPP.Z_PROCESSING_PURPOSE_NAME LIKE '%编带' THEN '编带'
+                ELSE '管装'
+                END AS ABTR,
+                SUM(CAST((PO_D.BUSINESS_QTY * 0.9989 - PO_D.RECEIPTED_PRICE_QTY - wip.[仓库库存]) AS INT)) AS WIP_QTY_WITHOUT_STOCK,
+                SUM(wip.[仓库库存]) AS ASSY_STOCK
+                FROM PURCHASE_ORDER PO
+                LEFT JOIN huaxinAdmin_wip_assy wip ON wip.[订单号]=PO.DOC_NO
+                LEFT JOIN PURCHASE_ORDER_D PO_D ON PO.PURCHASE_ORDER_ID = PO_D.PURCHASE_ORDER_ID
+                LEFT JOIN PURCHASE_ORDER_SD PO_SD ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                LEFT JOIN PURCHASE_ORDER_SSD PO_SSD ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+                LEFT JOIN Z_OUT_MO_D ZOMD ON PO_SSD.REFERENCE_SOURCE_ID_ROid = ZOMD.Z_OUT_MO_D_ID
+                LEFT JOIN ITEM ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                LEFT JOIN ITEM_LOT ON ZOMD.ITEM_LOT_ID = ITEM_LOT.ITEM_LOT_ID
+                LEFT JOIN Z_ASSEMBLY_CODE ZAC ON ZOMD.Z_PACKAGE_ASSEMBLY_CODE_ID = ZAC.Z_ASSEMBLY_CODE_ID
+                LEFT JOIN Z_PACKAGE ON ZAC.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
+                LEFT JOIN Z_PROCESSING_PURPOSE ZPP ON ZAC.Z_PROCESSING_PURPOSE_ID = ZPP.Z_PROCESSING_PURPOSE_ID
+                WHERE 1=1 AND 
+                PO.[CLOSE]=0 AND 
+                PO.SUPPLIER_FULL_NAME<>'苏州荐恒电子科技有限公司' AND 
+                (PO.DOC_NO NOT LIKE '3501-%' AND 
+                PO.DOC_NO != 'HX-20240430001') AND 
+                ITEM.ITEM_CODE LIKE N'BC%AB' AND
+                (PO_D.BUSINESS_QTY * 0.9989- PO_D.RECEIPTED_PRICE_QTY)>5000
+                GROUP BY
+                ITEM.ITEM_NAME,
+                CASE
+                WHEN ZPP.Z_PROCESSING_PURPOSE_NAME LIKE '%编带' THEN '编带'
+                ELSE '管装'
+                END
+                )
+
+
+                SELECT 
+                ROW_NUMBER() OVER (ORDER BY SS.ITEM_NAME, SS.ABTR) + 100 AS ID,
+                SS.ITEM_NAME,
+                SS.ABTR,
+                SS.SAFE_STOCK,
+                ISNULL(CAST(SALES.PRICE_QTY AS INT),0) AS LAST_MONTH_SALE,
+                ISNULL(S1.INVENTORY_QTY,0) AS CP_QTY,
+                ISNULL(S2.INVENTORY_QTY,0) AS BC_QTY,
+                ISNULL(WIP.WIP_QTY_WITHOUT_STOCK,0) AS WIP_QTY_WITHOUT_STOCK,
+                ISNULL(WIP.ASSY_STOCK,0) AS ASSY_STOCK,
+                (ISNULL(S1.INVENTORY_QTY,0) + ISNULL(S2.INVENTORY_QTY,0) + ISNULL(WIP.WIP_QTY_WITHOUT_STOCK,0) + ISNULL(WIP.ASSY_STOCK,0)) AS TOTAL_STOCK,
+                (ISNULL(S1.INVENTORY_QTY,0) + ISNULL(S2.INVENTORY_QTY,0) + ISNULL(WIP.WIP_QTY_WITHOUT_STOCK,0) + ISNULL(WIP.ASSY_STOCK,0) - SS.SAFE_STOCK)  AS INVENTORT_GAP
+                FROM SAFE_STOCK SS
+                LEFT JOIN SALES ON (SS.ITEM_NAME = SALES.ITEM_NAME AND SS.ABTR = SALES.ABTR)
+                LEFT JOIN STOCK S1 ON (S1.ITEM_NAME = SS.ITEM_NAME AND S1.ABTR = SS.ABTR AND S1.CPBC = '产成品')
+                LEFT JOIN STOCK S2 ON (S2.ITEM_NAME = SS.ITEM_NAME AND S2.ABTR = SS.ABTR AND S2.CPBC = '半成品')
+                LEFT JOIN WIP ON (WIP.ITEM_NAME = SS.ITEM_NAME AND WIP.ABTR = SS.ABTR)
+                ORDER BY SS.ITEM_NAME,SS.ABTR
+        """)
+
+        try:
+            result = db.execute(SOP_ANALYZE_QUERY).fetchall()
+            return [SopAnalyzeResponse(ID=row.ID, ITEM_NAME=row.ITEM_NAME, ABTR=row.ABTR, SAFE_STOCK=row.SAFE_STOCK, LAST_MONTH_SALE=row.LAST_MONTH_SALE, CP_QTY=row.CP_QTY, BC_QTY=row.BC_QTY, WIP_QTY_WITHOUT_STOCK=row.WIP_QTY_WITHOUT_STOCK, ASSY_STOCK=row.ASSY_STOCK, TOTAL_STOCK=row.TOTAL_STOCK, INVENTORT_GAP=row.INVENTORT_GAP) for row in result]
+        except Exception as e:
+            logger.error(f"获取SOP分析失败: {str(e)}")
+            raise CustomException("获取SOP分析失败")

@@ -31,3 +31,17 @@ class GlobalReport(BaseModel):
     DEPUTY_CHIP: Optional[str] = Field(None, description="副芯片")
     OUTSOURCING_WIP_QTY: Optional[int] = Field(None, description="外购在途数量")
     TOTAL_B_RAW_MATERIALS: Optional[float] = Field(None, description="B芯圆片数量")
+
+class SopAnalyzeResponse(BaseModel):
+    """SOP分析"""
+    ID: Optional[int] = Field(None, description="ID")
+    ITEM_NAME: Optional[str] = Field(None, description="品名")
+    ABTR: Optional[str] = Field(None, description="管装/编带")
+    SAFE_STOCK: Optional[int] = Field(None, description="安全库存")
+    LAST_MONTH_SALE: Optional[int] = Field(None, description="上月销量")
+    CP_QTY: Optional[int] = Field(None, description="产成品数量")
+    BC_QTY: Optional[int] = Field(None, description="半成品数量")
+    WIP_QTY_WITHOUT_STOCK: Optional[int] = Field(None, description="在制数量")
+    ASSY_STOCK: Optional[int] = Field(None, description="委外仓库存")
+    TOTAL_STOCK: Optional[int] = Field(None, description="库存合计")
+    INVENTORT_GAP: Optional[int] = Field(None, description="库存缺口")
