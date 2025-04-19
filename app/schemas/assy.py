@@ -141,8 +141,8 @@ class AssyOrderPackageTypeQuery(BaseModel):
 
 class AssyOrderPackageType(BaseModel):
     """封装订单类型"""
-    label: str = Field(..., description="封装类型")
-    value: str = Field(..., description="封装类型值")
+    label: Optional[str] = Field(None, description="封装类型")
+    value: Optional[str] = Field(None, description="封装类型值")
 
 class AssyOrderPackageTypeResponse(BaseModel):
     """封装订单类型响应"""
@@ -154,8 +154,8 @@ class AssyOrderSupplierQuery(BaseModel):
 
 class AssyOrderSupplier(BaseModel):
     """封装订单供应商"""
-    label: str = Field(..., description="供应商")
-    value: str = Field(..., description="供应商值")
+    label: Optional[str] = Field(None, description="供应商")
+    value: Optional[str] = Field(None, description="供应商值")
 
 class AssyOrderSupplierResponse(BaseModel):
     """封装订单供应商响应"""
@@ -163,12 +163,12 @@ class AssyOrderSupplierResponse(BaseModel):
 
 class AssyAnalyzeTotalResponse(BaseModel):
     """封装分析总表响应"""
-    receipt: int = Field(..., description="收货数量")
-    wip: int = Field(..., description="在制数量")
-    leadTime: int = Field(..., description="平均交期")
-    yields: float = Field(..., description="平均良率")
-    exceed: float = Field(..., description="交期超标率")
-    this_month_receipt: int = Field(..., description="本月收货量")
+    receipt: Optional[int] = Field(None, description="收货数量")
+    wip: Optional[int] = Field(None, description="在制数量")
+    leadTime: Optional[int] = Field(None, description="平均交期")
+    yields: Optional[float] = Field(None, description="平均良率")
+    exceed: Optional[float] = Field(None, description="交期超标率")
+    this_month_receipt: Optional[int] = Field(None, description="本月收货量")
 
 class AssyAnalyzeLoadingResponse(BaseModel):
     """池州华宇装片量数据响应"""
@@ -191,13 +191,13 @@ class AssyAnalyzeLoadingResponse(BaseModel):
     
 class AssyYearTrendResponse(BaseModel):
     """封装年趋势响应"""
-    qty: float = Field(..., description="数量")
-    packageType: str = Field(..., description="封装类型")
-    year: int = Field(..., description="年份")
+    qty: Optional[float] = Field(None, description="数量")
+    packageType: Optional[str] = Field(None, description="封装类型")
+    year: Optional[int] = Field(None, description="年份")
 
 class AssySupplyAnalyzeResponse(BaseModel):
     """封装供应分析响应"""
-    Supplier: str = Field(..., description="供应商")
-    DataRowCount: int = Field(..., description="订单量")
-    TotalOrderQty: int = Field(..., description="订单数量合计")
-    PackageTypeCount: int = Field(..., description="封装形式种类数量")
+    Supplier: Optional[str] = Field(None, description="供应商")
+    DataRowCount: Optional[int] = Field(None, description="订单量")
+    TotalOrderQty: Optional[int] = Field(None, description="订单数量合计")
+    PackageTypeCount: Optional[int] = Field(None, description="封装形式种类数量")
