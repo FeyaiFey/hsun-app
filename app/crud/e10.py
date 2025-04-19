@@ -2575,13 +2575,13 @@ class CRUDE10:
                 WIP AS 
                 (
                 SELECT 
-                ITEM.ITEM_NAME,
+                dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'BC-,CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB') AS ITEM_NAME,
                 CASE
                 WHEN ZPP.Z_PROCESSING_PURPOSE_NAME LIKE '%编带' THEN '编带'
                 ELSE '管装'
                 END AS ABTR,
-                SUM(CAST((PO_D.BUSINESS_QTY * 0.9989 - PO_D.RECEIPTED_PRICE_QTY - wip.[仓库库存]) AS INT)) AS WIP_QTY_WITHOUT_STOCK,
-                SUM(wip.[仓库库存]) AS ASSY_STOCK
+                SUM(CAST((PO_D.BUSINESS_QTY * 0.9989 - PO_D.RECEIPTED_PRICE_QTY - ISNULL(wip.[仓库库存],0)) AS INT)) AS WIP_QTY_WITHOUT_STOCK,
+                SUM(ISNULL(wip.[仓库库存],0)) AS ASSY_STOCK
                 FROM PURCHASE_ORDER PO
                 LEFT JOIN huaxinAdmin_wip_assy wip ON wip.[订单号]=PO.DOC_NO
                 LEFT JOIN PURCHASE_ORDER_D PO_D ON PO.PURCHASE_ORDER_ID = PO_D.PURCHASE_ORDER_ID
@@ -2601,7 +2601,7 @@ class CRUDE10:
                 ITEM.ITEM_CODE LIKE N'BC%AB' AND
                 (PO_D.BUSINESS_QTY * 0.9989- PO_D.RECEIPTED_PRICE_QTY)>5000
                 GROUP BY
-                ITEM.ITEM_NAME,
+                dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'BC-,CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB'),
                 CASE
                 WHEN ZPP.Z_PROCESSING_PURPOSE_NAME LIKE '%编带' THEN '编带'
                 ELSE '管装'
