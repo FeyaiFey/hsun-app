@@ -2821,7 +2821,7 @@ class CRUDE10:
             # 对每个订单进行插入操作
             for order in data.orders:
                 # 将业务数量乘以10000
-                actual_qty = order.businessQty * 10000
+                actual_qty = order.businessQty
                 
                 # 芯片用量保持原样
                 chip_a_qty = order.mainChipUsage if order.mainChipUsage is not None else None
@@ -2874,4 +2874,96 @@ class CRUDE10:
             db.rollback()
             logger.error(f"批量提交封装单失败: {str(e)}")
             raise CustomException(f"批量提交封装单失败: {str(e)}")
+
+    def export_assy_orders(self,db:Session,data:AssySubmitOrdersRequest)->bytes:
+        """导出封装单"""
+        try:
+            # 准备数据
+            orders_data = []
+            for order in data.orders:
+                logger.info(f"处理订单数据: {order.model_dump()}")
+                orders_data.append({
+                    "品名": order.itemName,
+                    "品号": order.itemCode,
+                    "管装/编带": order.abtr,
+                    "需求数量": order.businessQty,
+                    "需求类型": order.requirementType,
+                    "紧急程度": order.emergency,
+                    "销售员": order.sales,
+                    "备注": order.remark,
+                    "A芯片": order.mainChip if order.mainChip else "",
+                    "A芯片用量": order.mainChipUsage if order.mainChipUsage is not None else 0,
+                    "B芯片": order.deputyChip if order.deputyChip else "",
+                    "B芯片用量": order.deputyChipUsage if order.deputyChipUsage is not None else 0
+                })
+            
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "封装单"
+            
+            # 设置表头
+            headers = list(orders_data[0].keys()) if orders_data else [
+                "品名", "品号", "管装/编带", "需求数量", "需求类型", 
+                "紧急程度", "销售员", "备注", "A芯片", "A芯片用量", 
+                "B芯片", "B芯片用量"
+            ]
+            
+            # 设置列宽
+            column_widths = {
+                "A": 30,  # 品名
+                "B": 40,  # 品号
+                "C": 15,  # 管装/编带
+                "D": 15,  # 需求数量
+                "E": 15,  # 需求类型
+                "F": 15,  # 紧急程度
+                "G": 15,  # 销售员
+                "H": 40,  # 备注
+                "I": 30,  # A芯片
+                "J": 15,  # A芯片用量
+                "K": 30,  # B芯片
+                "L": 15,  # B芯片用量
+            }
+            
+            # 设置样式
+            header_font = Font(name='微软雅黑', size=11, bold=True, color='FFFFFF')
+            header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+            header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            cell_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+            
+            # 写入表头
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col, value=header)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = header_alignment
+                cell.border = border
+                ws.column_dimensions[get_column_letter(col)].width = column_widths.get(get_column_letter(col), 15)
+            
+            # 写入数据
+            for row_idx, row_data in enumerate(orders_data, 2):
+                for col_idx, (header, value) in enumerate(zip(headers, row_data.values()), 1):
+                    cell = ws.cell(row=row_idx, column=col_idx, value=value)
+                    cell.alignment = cell_alignment
+                    cell.border = border
+            
+            # 冻结第一行
+            ws.freeze_panes = 'A2'
+            
+            # 保存到内存
+            excel_file = io.BytesIO()
+            wb.save(excel_file)
+            excel_file.seek(0)
+            
+            return excel_file.getvalue()
+            
+        except Exception as e:
+            logger.error(f"导出封装单Excel失败: {str(e)}")
+            raise CustomException(f"导出封装单Excel失败: {str(e)}")
+
 

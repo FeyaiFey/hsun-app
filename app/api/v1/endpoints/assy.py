@@ -380,7 +380,6 @@ async def get_assy_order_batch(
     current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
-        logger.info(f"接收到的参数: {data.model_dump()}")
         e10_service = E10Service(db, cache)
         result = await e10_service.batch_submit_assy_orders(data, current_user.username)
         return CustomResponse.success(data=result)
@@ -397,5 +396,47 @@ async def get_assy_order_batch(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message=get_error_message(ErrorCode.SYSTEM_ERROR),
             name="SystemError"
+        )
+
+@router.post("/orders/export")
+@monitor_request
+async def export_assy_orders(
+    data: AssySubmitOrdersRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """导出封装单"""
+    try:
+        e10_service = E10Service(db, cache)
+        excel_data = await e10_service.export_assy_orders(data)
+        
+        # 生成文件名
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"封装单_{current_time}.xlsx"
+        
+        # 对文件名进行URL编码
+        encoded_filename = quote(filename)
+        
+        # 返回文件流
+        return StreamingResponse(
+            io.BytesIO(excel_data),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
+            }
+        )
+    except CustomException as e:
+        logger.error(f"导出封装单失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="AssyError"
+        )
+    except Exception as e:
+        logger.error(f"导出封装单失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="导出封装单失败",
+            name="AssyError"
         )
 

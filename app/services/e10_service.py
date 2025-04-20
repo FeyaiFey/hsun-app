@@ -537,5 +537,13 @@ class E10Service:
         except Exception as e:
             logger.error(f"批量提交封装单失败: {str(e)}")
             raise CustomException("批量提交封装单失败")
+            
+    async def export_assy_orders(self,data:AssySubmitOrdersRequest) -> bytes:
+        """导出封装单"""
+        try:
+            return self.crud_e10.export_assy_orders(self.db,data)
+        except Exception as e:
+            logger.error(f"导出封装单失败: {str(e)}")
+            raise CustomException("导出封装单失败")
 
 e10_service = E10Service(None, None)  # 在应用启动时注入实际的 db 和 cache
