@@ -20,7 +20,7 @@ from app.schemas.assy import (
     AssyOrderQuery, AssyOrderResponse, AssyWipQuery, AssyWipResponse, AssyOrderItemsQuery, AssyOrderItemsResponse,
     AssyOrderPackageTypeQuery, AssyOrderPackageTypeResponse, AssyOrderSupplierQuery, AssyOrderSupplierResponse,
     AssyBomQuery, AssyBomResponse, AssyAnalyzeTotalResponse, AssyAnalyzeLoadingResponse, AssyYearTrendResponse,
-    AssySupplyAnalyzeResponse
+    AssySupplyAnalyzeResponse, AssySubmitOrdersRequest, AssySubmitOrdersResponse
 )
 from app.services.e10_service import E10Service
 
@@ -371,3 +371,31 @@ async def get_assy_supply_analyze(
             message=get_error_message(ErrorCode.SYSTEM_ERROR),
             name="SystemError"
         )
+
+@router.post("/orders/batch", response_model=IResponse[AssySubmitOrdersResponse])
+@monitor_request
+async def get_assy_order_batch(
+    data: AssySubmitOrdersRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    try:
+        logger.info(f"接收到的参数: {data.model_dump()}")
+        e10_service = E10Service(db, cache)
+        result = await e10_service.batch_submit_assy_orders(data, current_user.username)
+        return CustomResponse.success(data=result)
+    except CustomException as e:
+        logger.error(f"批量提交封装单失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="AssyError"
+        )
+    except Exception as e:
+        logger.error(f"批量提交封装单失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
+        )
+

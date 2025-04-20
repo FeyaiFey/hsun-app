@@ -13,6 +13,7 @@ from app.core.exceptions import CustomException
 from app.core.response import CustomResponse
 from app.core.error_codes import ErrorCode, get_error_message
 from app.models.user import User
+from app.schemas.assy import (ItemWaferInfoResponse, SalesResponse)
 from app.schemas.e10 import (FeatureGroupNameQuery, 
                              FeatureGroupNameResponse, 
                              ItemCodeQuery, 
@@ -242,3 +243,55 @@ async def get_burning_program(
             message=get_error_message(ErrorCode.SYSTEM_ERROR),
             name="SystemError"
         )
+
+@router.get("/requirement/wafer-info", response_model=IResponse[ItemWaferInfoResponse])
+@monitor_request
+async def get_item_wafer_info(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    item_name: Optional[str] = Query(None, description="芯片名称")
+) -> Any:
+    try:
+        e10_service = E10Service(db, cache)
+        result = await e10_service.get_item_wafer_info(item_name)
+        return CustomResponse.success(data=result)
+    except CustomException as e:
+        logger.error(f"获取晶圆信息失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="AssyError"
+        )
+    except Exception as e:
+        logger.error(f"获取晶圆信息失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
+        )
+
+@router.get("/requirement/sales", response_model=IResponse[SalesResponse])
+@monitor_request
+async def get_sales(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    try:
+        e10_service = E10Service(db, cache)
+        result = await e10_service.get_sales()
+        return CustomResponse.success(data=result)
+    except CustomException as e:
+        logger.error(f"获取销售员名称失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="SalesError"
+        )
+    except Exception as e:
+        logger.error(f"获取销售员名称失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
+        )
+

@@ -13,7 +13,11 @@ from app.schemas.assy import (AssyOrder,
                               AssyAnalyzeTotalResponse,
                               AssyAnalyzeLoadingResponse,
                               AssyYearTrendResponse,
-                              AssySupplyAnalyzeResponse)
+                              AssySupplyAnalyzeResponse,
+                              ItemWaferInfoResponse,
+                              SalesResponse,
+                              AssySubmitOrdersRequest,
+                              AssySubmitOrdersResponse)
 from app.schemas.stock import (StockQuery,
                              Stock,
                              WaferIdQtyDetailQuery,
@@ -347,32 +351,32 @@ class CRUDE10:
         try:
             # 构建基础查询
             base_query = """
-                SELECT
-                    po.SUPPLIER_FULL_NAME,
-                    po.DOC_NO,
-                    CAST(po.PURCHASE_DATE AS DATE) AS PURCHASE_DATE,
-                    p.REMARK,
-                    i.ITEM_CODE,
-                    i.ITEM_NAME,
-                    i.SHORTCUT,
-                    CAST(p.BUSINESS_QTY AS INT) AS 'BUSINESS_QTY',
-                    CAST(p.SECOND_QTY AS INT) AS 'SECOND_QTY',
-                    CAST(s.RECEIPTED_BUSINESS_QTY AS INT) AS 'RECEIPTED_BUSINESS_QTY',
+            SELECT
+                po.SUPPLIER_FULL_NAME,
+                po.DOC_NO,
+                CAST(po.PURCHASE_DATE AS DATE) AS PURCHASE_DATE,
+                p.REMARK,
+                i.ITEM_CODE,
+                i.ITEM_NAME,
+                i.SHORTCUT,
+                CAST(p.BUSINESS_QTY AS INT) AS 'BUSINESS_QTY',
+                CAST(p.SECOND_QTY AS INT) AS 'SECOND_QTY',
+                CAST(s.RECEIPTED_BUSINESS_QTY AS INT) AS 'RECEIPTED_BUSINESS_QTY',
                     CASE 
                         WHEN s.RECEIPT_CLOSE = 0 OR s.RECEIPT_CLOSE IS NULL THEN CAST(p.BUSINESS_QTY - ISNULL(s.RECEIPTED_BUSINESS_QTY, 0) AS INT)
                         ELSE 0
                     END AS WIP_QTY,
-                    CAST(p.PRICE AS FLOAT(4)) AS PRICE,
-                    CAST(p.AMOUNT AS FLOAT(4)) AS AMOUNT,
-                    s.RECEIPT_CLOSE
-                FROM PURCHASE_ORDER po
-                LEFT JOIN PURCHASE_ORDER_D p
-                ON po.PURCHASE_ORDER_ID = p.PURCHASE_ORDER_ID 
-                LEFT JOIN ITEM i
-                ON p.ITEM_ID = i.ITEM_BUSINESS_ID
-                LEFT JOIN PURCHASE_ORDER_SD s
-                ON s.PURCHASE_ORDER_D_ID = p.PURCHASE_ORDER_D_ID
-                WHERE (p.PURCHASE_TYPE=1) AND (i.ITEM_CODE LIKE N'CL%WF')
+                CAST(p.PRICE AS FLOAT(4)) AS PRICE,
+                CAST(p.AMOUNT AS FLOAT(4)) AS AMOUNT,
+                s.RECEIPT_CLOSE
+            FROM PURCHASE_ORDER po
+            LEFT JOIN PURCHASE_ORDER_D p
+            ON po.PURCHASE_ORDER_ID = p.PURCHASE_ORDER_ID 
+            LEFT JOIN ITEM i
+            ON p.ITEM_ID = i.ITEM_BUSINESS_ID
+            LEFT JOIN PURCHASE_ORDER_SD s
+            ON s.PURCHASE_ORDER_D_ID = p.PURCHASE_ORDER_D_ID
+            WHERE (p.PURCHASE_TYPE=1) AND (i.ITEM_CODE LIKE N'CL%WF')
             """
             
             # 构建查询条件
@@ -1287,7 +1291,7 @@ class CRUDE10:
         except Exception as e:
             logger.error(f"查询封装在制失败: {str(e)}")
             raise CustomException("查询封装在制失败")
-        
+    
     def get_assy_order_items(self,db:Session,params:AssyOrderItemsQuery)->Dict[str,Any]:
         """获取封装在制品号"""
         try:
@@ -1534,7 +1538,7 @@ class CRUDE10:
         """根据参数获取晶圆ID数量明细"""
         try:
             base_query = """
-                SELECT 
+            SELECT
                 ITEM.ITEM_CODE,ITEM.ITEM_NAME,
                 IL.LOT_CODE,
                 T.Z_TESTING_PROGRAM_NAME,
@@ -2635,3 +2639,239 @@ class CRUDE10:
         except Exception as e:
             logger.error(f"获取SOP分析失败: {str(e)}")
             raise CustomException("获取SOP分析失败")
+
+    def export_sop_report(self,db:Session)->bytes:
+        """导出SOP报表"""
+        try:
+            results = self.get_sop_analyze(db)
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "SOP报表"
+            headers = [
+                "ID",
+                "品名",
+                "管装/编带",
+                "安全库存值",
+                "上月销售量",
+                "产成品库存",
+                "半成品库存",
+                "封装数量",
+                "封装厂库存",
+                "总库存",
+                "库存缺口"
+            ]
+
+            # 设置列宽
+            column_widths = {
+                "A": 10,
+                "B": 40,
+                "C": 20,
+                "D": 20,
+                "E": 20,
+                "F": 20,
+                "G": 20,
+                "H": 20,
+                "I": 20,
+                "J": 20,
+                "K": 20
+            }
+
+            # 设置样式
+            header_font = Font(name='微软雅黑', size=11, bold=True, color='FFFFFF')
+            header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+            header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            cell_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+            
+            # 写入表头
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col, value=header)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = header_alignment
+                cell.border = border
+                ws.column_dimensions[get_column_letter(col)].width = column_widths[get_column_letter(col)]
+            
+            # 写入数据
+            for row, result in enumerate(results, 2):
+                data = [
+                    result.ID,
+                    result.ITEM_NAME,
+                    result.ABTR,
+                    result.SAFE_STOCK,
+                    result.LAST_MONTH_SALE,
+                    result.CP_QTY,
+                    result.BC_QTY,
+                    result.WIP_QTY_WITHOUT_STOCK,
+                    result.ASSY_STOCK,
+                    result.TOTAL_STOCK,
+                    result.INVENTORT_GAP
+                ]
+                for col, value in enumerate(data, 1):
+                    cell = ws.cell(row=row, column=col, value=value)
+                    cell.alignment = cell_alignment
+                    cell.border = border
+
+            # 冻结第一行
+            ws.freeze_panes = 'A2'
+
+            # 保存到内存
+            excel_file = io.BytesIO()
+            wb.save(excel_file)
+            excel_file.seek(0)
+            
+            return excel_file.getvalue()
+            
+        except Exception as e:
+            logger.error(f"导出SOP报表Excel失败: {str(e)}")
+            raise CustomException("导出SOP报表Excel失败")
+
+    def get_item_wafer_info(self,db:Session,item_name:str)->List[ItemWaferInfoResponse]:
+        """获取晶圆信息"""
+        try:
+            # 构建基础 SQL 语句
+            sql_query = """
+            WITH 
+            BOM AS
+            (
+                SELECT 
+                MAX(CASE WHEN RowNum = 1 THEN NT.WAFER_NAME END) AS MAIN_CHIP,
+                MAX(CASE WHEN RowNum = 2 THEN NT.WAFER_NAME END) AS DEPUTY_CHIP,
+                        CHIP_NAME
+                FROM
+                (
+                SELECT 
+                CASE
+                    WHEN IT.ITEM_NAME='GC1808-TSSOP14-D-ZY' THEN 'GC1808D-TSSOP14-D-ZY'
+                    ELSE IT.ITEM_NAME
+                END AS CHIP_NAME,
+                ROW_NUMBER() OVER(PARTITION BY IT.ITEM_CODE ORDER BY BD.Z_MAIN_CHIP) AS RowNum,ITEM.ITEM_NAME AS WAFER_NAME
+                FROM BOM_PRODUCT BP
+                LEFT JOIN ITEM IT
+                ON BP.ITEM_ID = IT.ITEM_BUSINESS_ID
+                LEFT JOIN BOM_D BD
+                ON BD.BOM_ID =BP.BOM_ID 
+                LEFT JOIN ITEM 
+                ON BD.SOURCE_ID_ROid = ITEM.ITEM_BUSINESS_ID
+                WHERE IT.STATUS != 3 AND IT.ITEM_NAME <> N'AZ1' AND IT.ITEM_CODE LIKE N'BC%AB'
+                ) AS NT
+                GROUP BY NT.CHIP_NAME
+            ),
+            GD AS
+            (
+                SELECT ITEM_NAME,Z_GROSS_DIE
+                FROM ITEM
+                WHERE ITEM_CODE LIKE N'CL%WF' AND Z_GROSS_DIE>0
+            )
+
+            SELECT BOM.CHIP_NAME,BOM.MAIN_CHIP,GD1.Z_GROSS_DIE AS MAIN_CHIP_GROSS_DIE,BOM.DEPUTY_CHIP,GD2.Z_GROSS_DIE AS DEPUTY_CHIP_GROSS_DIE
+            FROM BOM
+            LEFT JOIN GD GD1 ON GD1.ITEM_NAME = BOM.MAIN_CHIP
+            LEFT JOIN GD GD2 ON GD2.ITEM_NAME = BOM.DEPUTY_CHIP
+            """
+            
+            # 添加条件
+            if item_name:
+                sql_query += f" WHERE BOM.CHIP_NAME LIKE '%{item_name}%'"
+            
+            # 执行查询
+            result = db.execute(text(sql_query)).fetchall()
+            
+            # 转换结果为响应对象
+            responses = []
+            for row in result:
+                responses.append(ItemWaferInfoResponse(
+                    CHIP_NAME=row.CHIP_NAME, 
+                    MAIN_CHIP=row.MAIN_CHIP, 
+                    MAIN_CHIP_GROSS_DIE=row.MAIN_CHIP_GROSS_DIE, 
+                    DEPUTY_CHIP=row.DEPUTY_CHIP, 
+                    DEPUTY_CHIP_GROSS_DIE=row.DEPUTY_CHIP_GROSS_DIE
+                ))
+            
+            return responses
+        except Exception as e:
+            logger.error(f"获取晶圆信息失败: {str(e)}")
+            raise CustomException("获取晶圆信息失败")
+
+    def get_sales(self,db:Session)->List[SalesResponse]:
+        """获取销售员名称"""
+        SALES_QUERY = text("""
+            SELECT USER_NAME
+            FROM [USER]
+            WHERE REMARK = '销售' OR REMARK = '销售部长' OR REMARK = '销售组长' OR REMARK = '销售助理' 
+        """)
+        try:
+            result = db.execute(SALES_QUERY).fetchall()
+            return [SalesResponse(label=row.USER_NAME, value=row.USER_NAME) for row in result]
+        except Exception as e:
+            logger.error(f"获取销售员名称失败: {str(e)}")
+            raise CustomException("获取销售员名称失败")
+
+    def batch_submit_assy_orders(self,db:Session,data:AssySubmitOrdersRequest,current_user:str)->AssySubmitOrdersResponse:
+        """批量提交封装单"""
+        try:
+            # 记录日志
+            logger.info(f"开始处理批量封装单提交，共 {len(data.orders)} 条数据")
+            
+            # 对每个订单进行插入操作
+            for order in data.orders:
+                # 将业务数量乘以10000
+                actual_qty = order.businessQty * 10000
+                
+                # 芯片用量保持原样
+                chip_a_qty = order.mainChipUsage if order.mainChipUsage is not None else None
+                chip_b_qty = order.deputyChipUsage if order.deputyChipUsage is not None else None
+                
+                # 构建参数化查询
+                insert_sql = text("""
+                INSERT INTO huaxinAdmin_Requirement_DOC (
+                    ASSY_REQUIREMENTS_ID, ITEM_NAME, ITEM_CODE, ABTR, BUSINESS_QTY, 
+                    REQUIREMENT_TYPE, EMERGENCY, SALES, REMARK, CHIP_A, CHIP_A_QTY, 
+                    CHIP_B, CHIP_B_QTY, CreateBy, CreateDate, UpdateDate, STATUS
+                ) VALUES (
+                    NEWID(), :item_name, :item_code, :abtr, :business_qty,
+                    :requirement_type, :emergency, :sales, :remark, :chip_a, :chip_a_qty,
+                    :chip_b, :chip_b_qty, :create_by, SYSDATETIME(), SYSDATETIME(), N'1'
+                )
+                """)
+                
+                # 执行插入
+                db.execute(
+                    insert_sql,
+                    {
+                        "item_name": order.itemName,
+                        "item_code": order.itemCode,
+                        "abtr": order.abtr,
+                        "business_qty": actual_qty,
+                        "requirement_type": order.requirementType,
+                        "emergency": order.emergency,
+                        "sales": order.sales,
+                        "remark": order.remark,
+                        "chip_a": order.mainChip,
+                        "chip_a_qty": chip_a_qty,
+                        "chip_b": order.deputyChip,
+                        "chip_b_qty": chip_b_qty,
+                        "create_by": current_user
+                    }
+                )
+            
+            # 提交事务
+            db.commit()
+            
+            # 返回成功响应
+            return AssySubmitOrdersResponse(
+                message=f"成功提交{len(data.orders)}个封装单",
+                success=True
+            )
+            
+        except Exception as e:
+            # 发生异常时回滚事务
+            db.rollback()
+            logger.error(f"批量提交封装单失败: {str(e)}")
+            raise CustomException(f"批量提交封装单失败: {str(e)}")
+

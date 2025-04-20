@@ -201,3 +201,41 @@ class AssySupplyAnalyzeResponse(BaseModel):
     DataRowCount: Optional[int] = Field(None, description="订单量")
     TotalOrderQty: Optional[int] = Field(None, description="订单数量合计")
     PackageTypeCount: Optional[int] = Field(None, description="封装形式种类数量")
+
+class ItemWaferInfoResponse(BaseModel):
+    """晶圆信息响应"""
+    CHIP_NAME: Optional[str] = Field(None, description="晶圆品名")
+    MAIN_CHIP: Optional[str] = Field(None, description="A芯片")
+    MAIN_CHIP_GROSS_DIE: Optional[int] = Field(None, description="A芯GROSSdie")
+    DEPUTY_CHIP: Optional[str] = Field(None, description="B芯片")
+    DEPUTY_CHIP_GROSS_DIE: Optional[int] = Field(None, description="B芯GROSSdie")
+
+class SalesResponse(BaseModel):
+    """销售响应"""
+    label: Optional[str] = Field(None, description="销售员名称")
+    value: Optional[str] = Field(None, description="销售员名称值")
+
+class AssySubmitOrderItem(BaseModel):
+    """封装单提交参数类型"""
+    itemName: str
+    itemCode: str
+    abtr: str
+    businessQty: int # 以"只"为单位的数量
+    requirementType: str # 需求类型
+    emergency: str # 紧急程度
+    sales: str # 销售员
+    remark: str
+    mainChip: Optional[str] = Field(None, description="A芯片")
+    deputyChip: Optional[str] = Field(None, description="B芯片")
+    mainChipUsage: Optional[float] = Field(None, description="A芯片用量")
+    deputyChipUsage: Optional[float] = Field(None, description="B芯片用量")
+
+class AssySubmitOrdersRequest(BaseModel):
+    """批量提交封装单请求参数"""
+    orders: List[AssySubmitOrderItem]
+
+class AssySubmitOrdersResponse(BaseModel):
+    """批量提交封装单响应"""
+    message: str
+    success: bool
+

@@ -67,6 +67,8 @@ async def export_global_report(
         # 对文件名进行URL编码
         encoded_filename = quote(filename)
         
+        # 不再需要ASCII文件名
+        
         # 返回文件流
         return StreamingResponse(
             io.BytesIO(excel_data),
@@ -114,5 +116,47 @@ async def get_sop_report(
         return CustomResponse.error(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message=get_error_message(ErrorCode.DB_ERROR),
+            name="SopReportError"
+        )
+
+@router.get("/sop/export")
+@monitor_request
+async def export_sop_report(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """导出SOP报表"""
+    try:
+        e10_service = E10Service(db)
+        excel_data = await e10_service.export_sop_report()
+        # 生成文件名
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"SOP报表_{current_time}.xlsx"
+        
+        # 对文件名进行URL编码
+        encoded_filename = quote(filename)
+        
+        # 不再需要ASCII文件名
+        
+        # 返回文件流
+        return StreamingResponse(
+            io.BytesIO(excel_data),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
+            }
+        )
+    except CustomException as e:
+        logger.error(f"导出SOP报表失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="SopReportError"
+        )
+    except Exception as e:
+        logger.error(f"导出SOP报表失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="导出SOP报表失败",
             name="SopReportError"
         )

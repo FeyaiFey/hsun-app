@@ -9,7 +9,7 @@ from app.schemas.purchase import (PurchaseOrder, PurchaseOrderQuery, PurchaseWip
 from app.schemas.assy import (AssyOrder, AssyOrderQuery, AssyWip, AssyWipQuery, AssyOrderItemsQuery, AssyOrderItems,
                              AssyOrderPackageTypeQuery, AssyOrderPackageType, AssyOrderSupplierQuery, AssyOrderSupplier,
                              AssyBomQuery, AssyBom, AssyAnalyzeTotalResponse, AssyAnalyzeLoadingResponse, AssyYearTrendResponse,
-                             AssySupplyAnalyzeResponse)
+                             AssySupplyAnalyzeResponse, ItemWaferInfoResponse, SalesResponse, AssySubmitOrdersRequest, AssySubmitOrdersResponse)
 from app.schemas.stock import (StockQuery, Stock, WaferIdQtyDetailQuery, WaferIdQtyDetail, StockSummaryQuery, StockSummary)
 from app.schemas.report import GlobalReport,SopAnalyzeResponse
 from app.schemas.e10 import (FeatureGroupName, FeatureGroupNameQuery, ItemCode, ItemCodeQuery, ItemName, ItemNameQuery,
@@ -20,7 +20,7 @@ from app.crud.e10 import CRUDE10
 
 class E10Service:
     """E10服务类"""
-    
+
     def __init__(self, db: Optional[Session] = None, cache: Optional[MemoryCache] = None):
         self._db = db
         self._cache = cache
@@ -505,5 +505,37 @@ class E10Service:
         except Exception as e:
             logger.error(f"获取SOP分析失败: {str(e)}")
             raise CustomException("获取SOP分析失败")
+        
+    async def export_sop_report(self) -> bytes:
+        """导出SOP报表"""
+        try:
+            return self.crud_e10.export_sop_report(self.db)
+        except Exception as e:
+            logger.error(f"导出SOP报表失败: {str(e)}")
+            raise CustomException("导出SOP报表失败")
+    
+    async def get_item_wafer_info(self,item_name:str) -> List[ItemWaferInfoResponse]:
+        """获取晶圆信息"""
+        try:
+            return self.crud_e10.get_item_wafer_info(self.db,item_name)
+        except Exception as e:
+            logger.error(f"获取晶圆信息失败: {str(e)}")
+            raise CustomException("获取晶圆信息失败")
+    
+    async def get_sales(self) -> List[SalesResponse]:
+        """获取销售员名称"""
+        try:
+            return self.crud_e10.get_sales(self.db)
+        except Exception as e:
+            logger.error(f"获取销售员名称失败: {str(e)}")
+            raise CustomException("获取销售员名称失败")
+    
+    async def batch_submit_assy_orders(self,data:AssySubmitOrdersRequest,current_user:str) -> AssySubmitOrdersResponse:
+        """批量提交封装单"""
+        try:
+            return self.crud_e10.batch_submit_assy_orders(self.db,data,current_user)
+        except Exception as e:
+            logger.error(f"批量提交封装单失败: {str(e)}")
+            raise CustomException("批量提交封装单失败")
 
 e10_service = E10Service(None, None)  # 在应用启动时注入实际的 db 和 cache
