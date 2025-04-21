@@ -1858,48 +1858,38 @@ class CRUDE10:
                     SUM(CASE WHEN ITEM_CODE LIKE N'CP%' THEN WIP_QTY ELSE 0 END ) AS SECONDARY_OUTSOURCING_WIP_QTY
                     FROM
                     (	
+                    SELECT NT.ITEM_CODE,NT.ITEM_NAME,SUM(NT.WIP_QTY) AS WIP_QTY
+                    FROM
+                    (
                         SELECT
-                            ITEM.ITEM_CODE,
-                            CASE 
-                                    WHEN ITEM.ITEM_NAME='GC1808-TSSOP14-D-ZY' THEN 'GC1808D-TSSOP14-D-ZY'
-                                    WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
-                                    WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
-                                    WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
-                                    ELSE ITEM.ITEM_NAME
-                                END AS ITEM_NAME,
-                            SUM(
-                            CASE 
-                                    WHEN PO.[CLOSE] <> N'0' THEN 0
-                                    WHEN PO_D.BUSINESS_QTY <> 0 AND (PO_D.RECEIPTED_PRICE_QTY / PO_D.BUSINESS_QTY) > 0.992 THEN 0
-                                    ELSE CAST((PO_D.BUSINESS_QTY - PO_D.RECEIPTED_PRICE_QTY) AS INT)
-                            END) AS WIP_QTY
-                        FROM PURCHASE_ORDER PO
-                        LEFT JOIN PURCHASE_ORDER_D PO_D 
-                                ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
-                        LEFT JOIN PURCHASE_ORDER_SD PO_SD 
-                                ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
-                        LEFT JOIN ITEM
-                                ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
-                        WHERE PO_SD.RECEIPT_CLOSE = 0
-                              AND PO.DOC_NO NOT LIKE N'3501%'
-                              AND PO.DOC_NO <> 'HX-20240430001'
-                                AND  
-                                ((CASE 
-                                        WHEN PO.[CLOSE] <> N'0' THEN 0
-                                        WHEN PO_D.BUSINESS_QTY <> 0 AND (PO_D.RECEIPTED_PRICE_QTY / PO_D.BUSINESS_QTY) > 0.992 THEN 0
-                                        ELSE CAST(((PO_D.BUSINESS_QTY * 0.996) - PO_D.RECEIPTED_PRICE_QTY) AS INT)
-                                END) > 996
-                                OR PO.DOC_NO LIKE N'PO%'
-                                OR PO.PURCHASE_DATE > DATEADD(MONTH, -3, GETDATE()))
-                        GROUP BY 
                         ITEM.ITEM_CODE,
                         CASE 
-                            WHEN ITEM.ITEM_NAME='GC1808-TSSOP14-D-ZY' THEN 'GC1808D-TSSOP14-D-ZY'
-                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
-                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
-                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
-                            ELSE ITEM.ITEM_NAME
-                        END) AS NT
+                        WHEN ITEM.ITEM_NAME='GC1808-TSSOP14-D-ZY' THEN 'GC1808D-TSSOP14-D-ZY'
+                        WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
+                        WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
+                        WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
+                        ELSE ITEM.ITEM_NAME
+                        END AS ITEM_NAME,
+                        CASE 
+                        WHEN PO.[CLOSE] <> N'0' THEN 0
+                        WHEN PO_D.BUSINESS_QTY <> 0 AND (PO_D.RECEIPTED_PRICE_QTY / PO_D.BUSINESS_QTY) > 0.9989 THEN 0
+                        ELSE CAST((PO_D.BUSINESS_QTY - PO_D.RECEIPTED_PRICE_QTY) AS INT)
+                        END AS WIP_QTY
+                        FROM PURCHASE_ORDER PO
+                        LEFT JOIN PURCHASE_ORDER_D PO_D ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
+                        LEFT JOIN PURCHASE_ORDER_SD PO_SD ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                        LEFT JOIN ITEM ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                        WHERE PO_SD.RECEIPT_CLOSE = 0
+                        UNION ALL 
+                        SELECT ITEM.ITEM_CODE,ITEM.ITEM_NAME,(MO_D.REQUIRED_SECOND_QTY-MP.COMPLETED_SECOND_QTY) AS WIP_QTY
+                        FROM MO
+                        LEFT JOIN MO_D ON MO.MO_ID = MO_D.MO_ID
+                        LEFT JOIN MO_PRODUCT MP ON MP.MO_ID = MO.MO_ID
+                        LEFT JOIN ITEM ON ITEM.ITEM_BUSINESS_ID = MO.ITEM_ID
+                        WHERE ITEM.ITEM_CODE LIKE N'CL%CP' AND MO.STATUS NOT IN ('Y','y') AND MO.DOC_NO LIKE '5105%'
+                        ) AS NT
+                        GROUP BY NT.ITEM_CODE,NT.ITEM_NAME
+                    ) AS NNT
                     GROUP BY ITEM_NAME
                 ),
                 BL AS
@@ -2626,9 +2616,9 @@ class CRUDE10:
                 (ISNULL(S1.INVENTORY_QTY,0) + ISNULL(S2.INVENTORY_QTY,0) + ISNULL(WIP.WIP_QTY_WITHOUT_STOCK,0) + ISNULL(WIP.ASSY_STOCK,0)) AS TOTAL_STOCK,
                 (ISNULL(S1.INVENTORY_QTY,0) + ISNULL(S2.INVENTORY_QTY,0) + ISNULL(WIP.WIP_QTY_WITHOUT_STOCK,0) + ISNULL(WIP.ASSY_STOCK,0) - SS.SAFE_STOCK)  AS INVENTORT_GAP
                 FROM SAFE_STOCK SS
-                LEFT JOIN SALES ON (SS.ITEM_NAME = SALES.ITEM_NAME AND SS.ABTR = SALES.ABTR)
-                LEFT JOIN STOCK S1 ON (S1.ITEM_NAME = SS.ITEM_NAME AND S1.ABTR = SS.ABTR AND S1.CPBC = '产成品')
-                LEFT JOIN STOCK S2 ON (S2.ITEM_NAME = SS.ITEM_NAME AND S2.ABTR = SS.ABTR AND S2.CPBC = '半成品')
+                LEFT JOIN SALES ON (REPLACE(SS.ITEM_NAME, '_', '-') = SALES.ITEM_NAME AND SS.ABTR = SALES.ABTR)
+                LEFT JOIN STOCK S1 ON (S1.ITEM_NAME = REPLACE(SS.ITEM_NAME, '_', '-') AND S1.ABTR = SS.ABTR AND S1.CPBC = '产成品')
+                LEFT JOIN STOCK S2 ON (S2.ITEM_NAME = REPLACE(SS.ITEM_NAME, '_', '-') AND S2.ABTR = SS.ABTR AND S2.CPBC = '半成品')
                 LEFT JOIN WIP ON (WIP.ITEM_NAME = SS.ITEM_NAME AND WIP.ABTR = SS.ABTR)
                 ORDER BY SS.ITEM_NAME,SS.ABTR
         """)
