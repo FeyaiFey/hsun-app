@@ -1,12 +1,14 @@
 from typing import List, Optional, Union, Dict, Any
 from sqlmodel import Session, select, text
 from app.models.user import User, UserAvatar
-from app.schemas.user import UserCreate, UserUpdate, UserInfoResponse, UserTableListResponse, UserTableItem 
+from app.schemas.user import UserCreate, UserUpdate, UserInfoResponse, UserTableListResponse, UserTableItem, UserEmailInfo
 from app.core.security import get_password_hash
 from app.models.department import Department
 from app.models.role import Role
 from app.models.user import UserRole
 from sqlalchemy import select as sa_select
+from app.core.logger import logger
+from app.core.exceptions import CustomException
 
 class CRUDUser:
     """用户CRUD操作类"""
@@ -257,4 +259,53 @@ class CRUDUser:
             total=total or 0
         )
 
+    def update_email_password(self, db: Session, user_id: int, new_password: str) -> None:
+        """更新邮箱密码"""
+        try:
+            sql = text("""
+                MERGE INTO huaxinAdmin_email_msg AS target
+                USING (SELECT :user_id AS id, :new_password AS email_special_password) AS source
+                ON (target.id = source.id)
+                WHEN MATCHED THEN
+                    UPDATE SET email_special_password = source.email_special_password
+                WHEN NOT MATCHED THEN
+                    INSERT (id, email_special_password)
+                    VALUES (source.id, source.email_special_password);
+            """)
+            db.execute(sql, {"user_id": user_id, "new_password": new_password})
+            db.commit()
+        except Exception as e:
+            logger.error(f"更新邮箱密码失败: {str(e)}")
+            raise CustomException(f'更新邮箱密码失败: {str(e)}')
+        
+    def get_user_email_info(self, db: Session, user_id: int) -> Optional[UserEmailInfo]:
+        """获取用户邮箱信息"""
+        try:
+            sql = text("""
+                SELECT 
+                hu.id AS ID,
+                hu.email AS EMAIL, 
+                he.email_special_password AS PASSWORD,
+                's220s.chinaemail.cn' AS IMAP_SERVER, 
+                465 AS SMTP_PORT
+                FROM huaxinAdmin_users hu
+                LEFT JOIN huaxinAdmin_email_msg he ON he.id = hu.id
+                WHERE hu.id = :user_id
+            """)
+            result = db.execute(sql, {"user_id": user_id}).fetchone()
+            if result:
+                # 将Row对象转换为字典
+                data = {
+                    "ID": result.ID,
+                    "EMAIL": result.EMAIL,
+                    "PASSWORD": result.PASSWORD,
+                    "IMAP_SERVER": result.IMAP_SERVER,
+                    "SMTP_PORT": result.SMTP_PORT
+                }
+                return UserEmailInfo(**data)
+            return None
+        except Exception as e:
+            logger.error(f"获取用户邮箱信息失败: {str(e)}")
+            raise CustomException(f"获取用户邮箱信息失败: {str(e)}")
+        
 user = CRUDUser(User) 

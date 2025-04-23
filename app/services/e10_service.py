@@ -9,7 +9,8 @@ from app.schemas.purchase import (PurchaseOrder, PurchaseOrderQuery, PurchaseWip
 from app.schemas.assy import (AssyOrder, AssyOrderQuery, AssyWip, AssyWipQuery, AssyOrderItemsQuery, AssyOrderItems,
                              AssyOrderPackageTypeQuery, AssyOrderPackageType, AssyOrderSupplierQuery, AssyOrderSupplier,
                              AssyBomQuery, AssyBom, AssyAnalyzeTotalResponse, AssyAnalyzeLoadingResponse, AssyYearTrendResponse,
-                             AssySupplyAnalyzeResponse, ItemWaferInfoResponse, SalesResponse, AssySubmitOrdersRequest, AssySubmitOrdersResponse)
+                             AssySupplyAnalyzeResponse, ItemWaferInfoResponse, SalesResponse, AssySubmitOrdersRequest, AssySubmitOrdersResponse,
+                             CpTestOrdersQuery, CpTestOrdersResponse)
 from app.schemas.stock import (StockQuery, Stock, WaferIdQtyDetailQuery, WaferIdQtyDetail, StockSummaryQuery, StockSummary)
 from app.schemas.report import GlobalReport,SopAnalyzeResponse
 from app.schemas.e10 import (FeatureGroupName, FeatureGroupNameQuery, ItemCode, ItemCodeQuery, ItemName, ItemNameQuery,
@@ -545,5 +546,21 @@ class E10Service:
         except Exception as e:
             logger.error(f"导出封装单失败: {str(e)}")
             raise CustomException("导出封装单失败")
-
+        
+    async def get_cptest_orders_by_params(self,params:CpTestOrdersQuery) -> Dict[str,Any]:
+        """获取CP测试单"""
+        try:
+            return self.crud_e10.get_cptest_orders_by_params(self.db,params)
+        except Exception as e:
+            logger.error(f"获取CP测试单失败: {str(e)}")
+            raise CustomException("获取CP测试单失败")
+    
+    async def export_cptest_orders_excel(self,params:CpTestOrdersQuery) -> bytes:
+        """导出CP测试单Excel"""
+        try:
+            return self.crud_e10.export_cptest_orders_excel(self.db,params)
+        except Exception as e:
+            logger.error(f"导出CP测试单Excel失败: {str(e)}")
+            raise CustomException("导出CP测试单Excel失败")
+        
 e10_service = E10Service(None, None)  # 在应用启动时注入实际的 db 和 cache

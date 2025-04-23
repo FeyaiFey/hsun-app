@@ -111,3 +111,18 @@ class UserTableListResponse(BaseModel):
     """用户表格列表响应"""
     list: List[UserTableItem] = Field(..., description="用户列表")
     total: int = Field(..., description="总记录数")
+
+# 更新邮箱密码请求
+class UpdateEmailPasswordRequest(BaseModel):
+    """更新邮箱密码请求模型"""
+    new_password: str
+
+# 用户邮箱信息
+class UserEmailInfo(BaseModel):
+    """用户邮箱信息"""
+    ID: int = Field(..., description="用户ID")
+    EMAIL: str = Field(..., description="邮箱")
+    PASSWORD: Optional[str] = Field(None, description="邮箱密码")
+    IMAP_SERVER: str = Field(..., description="IMAP服务器")
+    SMTP_PORT: int = Field(..., description="IMAP端口")
+    

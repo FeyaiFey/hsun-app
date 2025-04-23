@@ -9,7 +9,8 @@ from app.schemas.user import (
     UserCreate,
     UserUpdate,
     UserTableListResponse,
-    UserTableItem
+    UserTableItem,
+    UserEmailInfo
 )
 from app.crud.user import user as crud_user
 from app.crud.role import role as crud_role
@@ -209,6 +210,36 @@ class UserService:
             
         except Exception as e:
             logger.error(f"获取用户列表失败: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
+
+    async def update_email_password(self, user_id: int, new_password: str) -> None:
+        """更新邮箱密码"""
+        try:
+            user = crud_user.get(self.db, user_id)
+            if not user:
+                raise CustomException("用户不存在")
+            
+            # 更新邮箱密码
+            crud_user.update_email_password(self.db, user_id, new_password)
+            
+        except CustomException:
+            raise
+        except Exception as e:
+            logger.error(f"获取用户邮箱信息失败: {str(e)}")
+            raise CustomException(
+                message=get_error_message(ErrorCode.DB_ERROR)
+            )
+    
+    async def get_user_email_info(self, user_id: int) -> UserEmailInfo:
+        """获取用户邮箱信息"""
+        try:
+            return crud_user.get_user_email_info(self.db, user_id)
+        except CustomException:
+            raise
+        except Exception as e:
+            logger.error(f"获取用户邮箱信息失败: {str(e)}")
             raise CustomException(
                 message=get_error_message(ErrorCode.DB_ERROR)
             )

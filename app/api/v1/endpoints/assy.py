@@ -20,7 +20,8 @@ from app.schemas.assy import (
     AssyOrderQuery, AssyOrderResponse, AssyWipQuery, AssyWipResponse, AssyOrderItemsQuery, AssyOrderItemsResponse,
     AssyOrderPackageTypeQuery, AssyOrderPackageTypeResponse, AssyOrderSupplierQuery, AssyOrderSupplierResponse,
     AssyBomQuery, AssyBomResponse, AssyAnalyzeTotalResponse, AssyAnalyzeLoadingResponse, AssyYearTrendResponse,
-    AssySupplyAnalyzeResponse, AssySubmitOrdersRequest, AssySubmitOrdersResponse
+    AssySupplyAnalyzeResponse, AssySubmitOrdersRequest, AssySubmitOrdersResponse, CpTestOrdersQuery, CpTestOrdersResponse,
+    CpTestOrdersQuery
 )
 from app.services.e10_service import E10Service
 
@@ -405,7 +406,7 @@ async def export_assy_orders(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ) -> Any:
-    """导出封装单"""
+    """导出封装需求单"""
     try:
         e10_service = E10Service(db, cache)
         excel_data = await e10_service.export_assy_orders(data)
@@ -440,3 +441,68 @@ async def export_assy_orders(
             name="AssyError"
         )
 
+@router.get("/cptest/table", response_model=IResponse[CpTestOrdersResponse])
+@monitor_request
+async def get_cptest_orders_by_params(
+    params: CpTestOrdersQuery = Depends(),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    try:
+        e10_service = E10Service(db, cache)
+        result = await e10_service.get_cptest_orders_by_params(params)
+        return CustomResponse.success(data=result)
+    except CustomException as e:
+        logger.error(f"获取CP测试单失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="AssyError"
+        )
+    except Exception as e:
+        logger.error(f"获取CP测试单失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
+        )
+
+@router.get("/cptest/export")
+@monitor_request
+async def export_cptest_orders_excel(
+    params: CpTestOrdersQuery = Depends(),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    try:
+        e10_service = E10Service(db, cache)
+        excel_data = await e10_service.export_cptest_orders_excel(params)
+         # 生成文件名
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"CP订单单_{current_time}.xlsx"
+        
+        # 对文件名进行URL编码
+        encoded_filename = quote(filename)
+        
+        # 返回文件
+        return StreamingResponse(
+            io.BytesIO(excel_data),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
+            }
+        )
+    except CustomException as e:
+        logger.error(f"导出CP测试单Excel失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="AssyError"
+        )
+    except Exception as e:
+        logger.error(f"导出CP测试单Excel失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="导出CP测试单Excel失败",
+            name="AssyError"
+        )

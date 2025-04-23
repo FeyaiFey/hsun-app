@@ -239,3 +239,43 @@ class AssySubmitOrdersResponse(BaseModel):
     message: str
     success: bool
 
+class CpTestOrdersQuery(BaseModel):
+    """CP测试单查询参数"""
+    item_code: Optional[str] = Field(None, description="品号")
+    item_name: Optional[str] = Field(None, description="品名")
+    lot_name: Optional[str] = Field(None, description="批号")
+    status: Optional[int] = Field(None, description="状态")
+    doc_date_start: Optional[date] = Field(None, description="单据日期开始")
+    doc_date_end: Optional[date] = Field(None, description="单据日期结束")
+    supplier: Optional[str] = Field(None, description="供应商")
+    progress_name: Optional[str] = Field(None, description="测试流程")
+    testing_program_name: Optional[str] = Field(None, description="测试程序")
+    pageIndex: Optional[int] = Field(default=1, ge=1, description="页码")
+    pageSize: Optional[int] = Field(default=10, ge=1, le=100, description="每页数量")
+
+class CpTestOrders(BaseModel):
+    """CP测试单响应"""
+    ID: Optional[int] = Field(None, description="ID")
+    DOC_NO: Optional[str] = Field(None, description="CP测试单号")
+    ITEM_CODE: Optional[str] = Field(None, description="品号")
+    ITEM_NAME: Optional[str] = Field(None, description="品名")
+    LOT_NAME: Optional[str] = Field(None, description="批号")
+    BUSINESS_QTY: Optional[int] = Field(None, description="业务数量")
+    RECEIPT_QTY: Optional[int] = Field(None, description="收货数量")
+    WIP_QTY: Optional[int] = Field(None, description="在制数量")
+    PROGRESS_NAME: Optional[str] = Field(None, description="测试流程")
+    TESTING_PROGRAM_NAME: Optional[str] = Field(None, description="测试程序")
+    REMARK: Optional[str] = Field(None, description="备注")
+    DOC_DATE: Optional[date] = Field(None, description="单据日期")
+    FIRST_ARRIVAL_DATE: Optional[date] = Field(None, description="首次到料日期")
+    SUPPLIER: Optional[str] = Field(None, description="供应商")
+    STATUS: Optional[str] = Field(None, description="状态")
+
+class CpTestOrdersResponse(BaseModel):
+    """CP测试单响应"""
+    list: List[CpTestOrders] = Field(..., description="CP测试单列表")
+    total: int = Field(..., description="总条数")
+    
+    
+    
+    

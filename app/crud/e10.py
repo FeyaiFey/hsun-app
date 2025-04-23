@@ -17,7 +17,9 @@ from app.schemas.assy import (AssyOrder,
                               ItemWaferInfoResponse,
                               SalesResponse,
                               AssySubmitOrdersRequest,
-                              AssySubmitOrdersResponse)
+                              AssySubmitOrdersResponse,
+                              CpTestOrdersQuery,
+                              CpTestOrders)
 from app.schemas.stock import (StockQuery,
                              Stock,
                              WaferIdQtyDetailQuery,
@@ -2956,4 +2958,374 @@ class CRUDE10:
             logger.error(f"导出封装单Excel失败: {str(e)}")
             raise CustomException(f"导出封装单Excel失败: {str(e)}")
 
+    def get_cptest_orders_by_params(self,db:Session,params:CpTestOrdersQuery)->Dict[str,Any]:
+        """获取CP测试单
+        
+        Args:
+            db: 数据库会话
+            params: 查询参数
+            
+        Returns:
+            Dict[str,Any]: 包含数据和总数的字典
+            
+        Raises:
+            CustomException: 当查询失败时抛出
+        """
+        try:
+            # 构建基础查询
+            base_query = """
+                SELECT *
+                FROM (
+                    SELECT 
+                        ROW_NUMBER() OVER (ORDER BY HC.DOC_DATE,HC.DOC_NO) + 100000 AS ID,
+                        HC.DOC_NO,
+                        LEFT(HC.ITEM_NAME,6) AS ITEM_CODE,
+                        HC.ITEM_NAME,
+                        HC.LOT_NAME,
+                        HC.BUSINESS_QTY,
+                        HC.RECEIPT_QTY,
+                        0 AS WIP_QTY,
+                        HC.PROGRESS_NAME,
+                        HC.TESTING_PROGRAM_NAME,
+                        HC.REMARK,
+                        HC.DOC_DATE,
+                        HC.FIRST_ARRIVAL_DATE,
+                        HC.SUPPLIER,
+                        HC.STATUS
+                    FROM huaxinAdmin_cptest HC
+                    UNION ALL
+                    SELECT
+                            ROW_NUMBER() OVER (ORDER BY PO.PURCHASE_DATE, PO.DOC_NO) + 102133 AS ID,
+                            PO.DOC_NO,
+                            ITEM.ITEM_CODE,
+                            ITEM.ITEM_NAME,
+                            ITEM_LOT.LOT_CODE,
+                            CAST(PO_D.BUSINESS_QTY AS INT) AS BUSINESS_QTY,
+                            CAST(PO_D.RECEIPTED_PRICE_QTY AS INT) AS RECEIPTED_PRICE_QTY,
+                            CAST((PO_D.BUSINESS_QTY - PO_D.RECEIPTED_PRICE_QTY) AS INT) AS WIP_QTY,
+                            ZAC.CUSTOM_FIELD10 AS PROGRESS_NAME,
+                            ZTP.Z_TESTING_PROGRAM_NAME,
+                            Z_PACKAGE.REMARK,
+                            CAST(PO.PURCHASE_DATE AS DATE) AS PURCHASE_DATE,
+                            CAST(PR.CreateDate AS DATE) AS FIRST_ARRIVAL_DATE,
+                            PO.SUPPLIER_FULL_NAME,
+                            PO_SD.RECEIPT_CLOSE
+                    FROM PURCHASE_ORDER PO
+                    LEFT JOIN PURCHASE_ORDER_D PO_D 
+                            ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
+                    LEFT JOIN PURCHASE_ORDER_SD PO_SD 
+                            ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                    LEFT JOIN PURCHASE_ORDER_SSD PO_SSD 
+                            ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+                    LEFT JOIN Z_OUT_MO_D 
+                            ON PO_SSD.REFERENCE_SOURCE_ID_ROid = Z_OUT_MO_D.Z_OUT_MO_D_ID
+                    LEFT JOIN ITEM 
+                            ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                    LEFT JOIN ITEM_LOT 
+                            ON Z_OUT_MO_D.ITEM_LOT_ID = ITEM_LOT.ITEM_LOT_ID
+                    LEFT JOIN Z_ASSEMBLY_CODE 
+                            ON Z_OUT_MO_D.Z_PACKAGE_ASSEMBLY_CODE_ID = Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE_ID
+                    LEFT JOIN Z_ASSEMBLY_CODE ZAC
+                            ON Z_OUT_MO_D.Z_TESTING_ASSEMBLY_CODE_ID = ZAC.Z_ASSEMBLY_CODE_ID
+                    LEFT JOIN Z_TESTING_PROGRAM ZTP
+                            ON ZAC.PROGRAM_ROid = ZTP.Z_TESTING_PROGRAM_ID
+                    LEFT JOIN Z_PACKAGE 
+                            ON Z_ASSEMBLY_CODE.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
+                    OUTER APPLY (
+                            SELECT TOP 1 *
+                            FROM PURCHASE_RECEIPT_D PRD
+                            WHERE PRD.ORDER_SOURCE_ID_ROid = PO_SD.PURCHASE_ORDER_SD_ID
+                            ORDER BY PRD.CreateDate
+                    ) PR
+                    WHERE PO.PURCHASE_TYPE = 2 
+                            AND PO.PURCHASE_DATE > '2024-11-13' 
+                            AND ITEM.ITEM_CODE LIKE N'CL%CP' 
+                            AND PO.SUPPLIER_FULL_NAME <> N'温州镁芯微电子有限公司'  
+                            AND PO.SUPPLIER_FULL_NAME <> N'苏州荐恒电子科技有限公司'  
+                            AND PO.SUPPLIER_FULL_NAME <> N'深圳市华新源科技有限公司'
+                ) AS CombinedResults
+                WHERE 1=1
+            """
 
+            # 构建查询条件
+            conditions = []
+            query_params = {}
+            
+            # 参数验证和清理
+            if params.item_code and isinstance(params.item_code, str):
+                conditions.append("AND UPPER(ITEM_CODE) LIKE UPPER(:item_code)")
+                query_params["item_code"] = f"%{self._clean_input(params.item_code)}%"
+            
+            if params.item_name and isinstance(params.item_name, str):
+                conditions.append("AND UPPER(ITEM_NAME) LIKE UPPER(:item_name)")
+                query_params["item_name"] = f"%{self._clean_input(params.item_name)}%"
+            
+            if params.lot_name and isinstance(params.lot_name, str):
+                conditions.append("AND UPPER(LOT_NAME) LIKE UPPER(:lot_name)")
+                query_params["lot_name"] = f"%{self._clean_input(params.lot_name)}%"
+
+            if params.status is not None:
+                if params.status == 0:
+                    conditions.append("AND STATUS = '0'")
+                else:
+                    conditions.append("AND STATUS != '0'")
+            
+            if params.doc_date_start:
+                conditions.append("AND DOC_DATE >= :doc_date_start")
+                query_params["doc_date_start"] = params.doc_date_start
+
+            if params.doc_date_end:
+                conditions.append("AND DOC_DATE <= :doc_date_end")
+                query_params["doc_date_end"] = params.doc_date_end
+
+            if params.supplier and isinstance(params.supplier, str):
+                conditions.append("AND SUPPLIER LIKE :supplier")
+                query_params["supplier"] = f"%{self._clean_input(params.supplier)}%"
+                
+            if params.progress_name and isinstance(params.progress_name, str):
+                conditions.append("AND UPPER(PROGRESS_NAME) LIKE UPPER(:progress_name)")
+                query_params["progress_name"] = f"%{self._clean_input(params.progress_name)}%"
+
+            if params.testing_program_name and isinstance(params.testing_program_name, str):
+                conditions.append("AND UPPER(TESTING_PROGRAM_NAME) LIKE UPPER(:testing_program_name)")
+                query_params["testing_program_name"] = f"%{self._clean_input(params.testing_program_name)}%"
+
+            # 拼接查询条件
+            query = base_query + " " + " ".join(conditions)
+            
+            # 添加分页
+            if params.pageIndex and params.pageSize:
+                offset = (params.pageIndex - 1) * params.pageSize
+                query += " ORDER BY ID OFFSET :offset ROWS FETCH NEXT :pageSize ROWS ONLY"
+                query_params["offset"] = offset
+                query_params["pageSize"] = params.pageSize
+
+            # 执行查询
+            stmt = text(query).bindparams(**query_params)
+            result = db.execute(stmt).all()
+            
+            # 转换为响应对象
+            data = [
+                CpTestOrders(
+                    ID=row.ID,
+                    DOC_NO=row.DOC_NO,
+                    ITEM_CODE=row.ITEM_CODE,
+                    ITEM_NAME=row.ITEM_NAME,
+                    LOT_NAME=row.LOT_NAME,
+                    BUSINESS_QTY=row.BUSINESS_QTY,
+                    RECEIPT_QTY=row.RECEIPT_QTY,
+                    WIP_QTY=row.WIP_QTY,
+                    PROGRESS_NAME=row.PROGRESS_NAME,
+                    TESTING_PROGRAM_NAME=row.TESTING_PROGRAM_NAME,
+                    REMARK=row.REMARK,
+                    DOC_DATE=row.DOC_DATE,
+                    FIRST_ARRIVAL_DATE=row.FIRST_ARRIVAL_DATE,
+                    SUPPLIER=row.SUPPLIER,
+                    STATUS=row.STATUS
+                ) for row in result
+            ]
+            
+            # 获取总记录数
+            count_query = f"""
+                SELECT COUNT(1) 
+                FROM (
+                    SELECT 
+                        ROW_NUMBER() OVER (ORDER BY HC.DOC_DATE,HC.DOC_NO) + 100000 AS ID,
+                        HC.DOC_NO,
+                        LEFT(HC.ITEM_NAME,6) AS ITEM_CODE,
+                        HC.ITEM_NAME,
+                        HC.LOT_NAME,
+                        HC.BUSINESS_QTY,
+                        HC.RECEIPT_QTY,
+                        0 AS WIP_QTY,
+                        HC.PROGRESS_NAME,
+                        HC.TESTING_PROGRAM_NAME,
+                        HC.REMARK,
+                        HC.DOC_DATE,
+                        HC.FIRST_ARRIVAL_DATE,
+                        HC.SUPPLIER,
+                        HC.STATUS
+                    FROM huaxinAdmin_cptest HC
+                    UNION ALL
+                    SELECT
+                            ROW_NUMBER() OVER (ORDER BY PO.PURCHASE_DATE, PO.DOC_NO) + 102133 AS ID,
+                            PO.DOC_NO,
+                            ITEM.ITEM_CODE,
+                            ITEM.ITEM_NAME,
+                            ITEM_LOT.LOT_CODE,
+                            CAST(PO_D.BUSINESS_QTY AS INT) AS BUSINESS_QTY,
+                            CAST(PO_D.RECEIPTED_PRICE_QTY AS INT) AS RECEIPTED_PRICE_QTY,
+                            CAST((PO_D.BUSINESS_QTY - PO_D.RECEIPTED_PRICE_QTY) AS INT) AS WIP_QTY,
+                            ZAC.CUSTOM_FIELD10 AS PROGRESS_NAME,
+                            ZTP.Z_TESTING_PROGRAM_NAME,
+                            Z_PACKAGE.REMARK,
+                            CAST(PO.PURCHASE_DATE AS DATE) AS PURCHASE_DATE,
+                            CAST(PR.CreateDate AS DATE) AS FIRST_ARRIVAL_DATE,
+                            PO.SUPPLIER_FULL_NAME,
+                            PO_SD.RECEIPT_CLOSE
+                    FROM PURCHASE_ORDER PO
+                    LEFT JOIN PURCHASE_ORDER_D PO_D 
+                            ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
+                    LEFT JOIN PURCHASE_ORDER_SD PO_SD 
+                            ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                    LEFT JOIN PURCHASE_ORDER_SSD PO_SSD 
+                            ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+                    LEFT JOIN Z_OUT_MO_D 
+                            ON PO_SSD.REFERENCE_SOURCE_ID_ROid = Z_OUT_MO_D.Z_OUT_MO_D_ID
+                    LEFT JOIN ITEM 
+                            ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                    LEFT JOIN ITEM_LOT 
+                            ON Z_OUT_MO_D.ITEM_LOT_ID = ITEM_LOT.ITEM_LOT_ID
+                    LEFT JOIN Z_ASSEMBLY_CODE 
+                            ON Z_OUT_MO_D.Z_PACKAGE_ASSEMBLY_CODE_ID = Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE_ID
+                    LEFT JOIN Z_ASSEMBLY_CODE ZAC
+                            ON Z_OUT_MO_D.Z_TESTING_ASSEMBLY_CODE_ID = ZAC.Z_ASSEMBLY_CODE_ID
+                    LEFT JOIN Z_TESTING_PROGRAM ZTP
+                            ON ZAC.PROGRAM_ROid = ZTP.Z_TESTING_PROGRAM_ID
+                    LEFT JOIN Z_PACKAGE 
+                            ON Z_ASSEMBLY_CODE.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
+                    OUTER APPLY (
+                            SELECT TOP 1 *
+                            FROM PURCHASE_RECEIPT_D PRD
+                            WHERE PRD.ORDER_SOURCE_ID_ROid = PO_SD.PURCHASE_ORDER_SD_ID
+                            ORDER BY PRD.CreateDate
+                    ) PR
+                    WHERE PO.PURCHASE_TYPE = 2 
+                            AND PO.PURCHASE_DATE > '2024-11-13' 
+                            AND ITEM.ITEM_CODE LIKE N'CL%CP' 
+                            AND PO.SUPPLIER_FULL_NAME <> N'温州镁芯微电子有限公司'  
+                            AND PO.SUPPLIER_FULL_NAME <> N'苏州荐恒电子科技有限公司'  
+                            AND PO.SUPPLIER_FULL_NAME <> N'深圳市华新源科技有限公司'
+                ) t
+                WHERE 1=1 {' '.join(conditions)}
+            """
+            total = db.execute(text(count_query).bindparams(**{k:v for k,v in query_params.items() if k not in ['offset', 'pageSize']})).scalar()
+            
+            return {
+                "list": data,
+                "total": total
+            }
+        except Exception as e:
+            logger.error(f"获取CP测试单失败: {str(e)}")
+            raise CustomException(f"获取CP测试单失败: {str(e)}")
+
+    def export_cptest_orders_excel(self,db:Session,params:CpTestOrdersQuery)->bytes:
+        """导出CP测试单Excel
+        
+        Args:
+            db: 数据库会话
+            params: 查询参数
+
+        Returns:
+            bytes: 导出的Excel文件
+            
+        Raises:
+            CustomException: 当导出失败时抛出
+        """
+        try:
+            # 获取数据
+            params.pageIndex = 1
+            params.pageSize = 10000000
+            data = self.get_cptest_orders_by_params(db, params)
+            
+            # 创建Excel文件
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "CP测试单"
+            
+            # 设置表头
+            headers = [
+                "ID",
+                "单据号",
+                "晶圆编码",
+                "晶圆名称",
+                "批号",
+                "业务数量",
+                "收货数量",
+                "在制数量",
+                "测试流程",
+                "测试程序",
+                "备注",
+                "单据日期",
+                "首次到货日期",
+                "供应商",
+                "状态"
+            ]
+
+            # 设置列宽
+            column_widths = {
+                "A":10,
+                "B":30,
+                "C":20,
+                "D":20,
+                "E":20,
+                "F":20,
+                "G":20,
+                "H":20,
+                "I":40,
+                "J":40,
+                "K":40,
+                "L":20,
+                "M":20,
+                "N":40,
+                "O":10
+            }
+
+            # 设置样式
+            header_font = Font(name='微软雅黑', size=11, bold=True, color='FFFFFF')
+            header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+            header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            cell_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+            
+            # 写入表头
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col, value=header)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = header_alignment
+                cell.border = border
+                ws.column_dimensions[get_column_letter(col)].width = column_widths[get_column_letter(col)]
+            
+            # 写入数据
+            for row, result in enumerate(data['list'], 2):
+                data = [
+                    result.ID,
+                    result.DOC_NO,
+                    result.ITEM_CODE,
+                    result.ITEM_NAME,
+                    result.LOT_NAME,
+                    result.BUSINESS_QTY,
+                    result.RECEIPT_QTY,
+                    result.WIP_QTY,
+                    result.PROGRESS_NAME,
+                    result.TESTING_PROGRAM_NAME,
+                    result.REMARK,
+                    result.DOC_DATE,
+                    result.FIRST_ARRIVAL_DATE,
+                    result.SUPPLIER,
+                    result.STATUS
+                ]
+
+                for col, value in enumerate(data, 1):
+                    cell = ws.cell(row=row, column=col, value=value)
+                    cell.alignment = cell_alignment
+                    cell.border = border
+
+            # 冻结首行
+            ws.freeze_panes = 'A2'
+            
+            # 保存到内存
+            excel_file = io.BytesIO()
+            wb.save(excel_file)
+            excel_file.seek(0)
+            
+            return excel_file.getvalue()
+        except Exception as e:
+            logger.error(f"导出CP测试单Excel失败: {str(e)}")
+            raise CustomException(f"导出CP测试单Excel失败: {str(e)}")

@@ -10,7 +10,9 @@ from app.schemas.user import (
     UserCreate,
     UserTableListResponse,
     UpdatePasswordRequest,
-    BatchDeleteRequest
+    BatchDeleteRequest,
+    UpdateEmailPasswordRequest,
+    UserEmailInfo
 )
 from app.models.user import User
 from app.core.monitor import monitor_request
@@ -28,6 +30,35 @@ router = APIRouter()
 
 # 创建缓存实例
 cache = MemoryCache()
+
+@router.put("/email-password", response_model=IResponse)
+@monitor_request
+async def update_email_password(
+    data: UpdateEmailPasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    try:
+        # 注入数据库会话
+        user_service.db = db
+        
+        await user_service.update_email_password(current_user.id, data.new_password)
+        return CustomResponse.success(message="更新成功")
+        
+    except CustomException as e:
+        logger.error(f"业务异常: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_400_BAD_REQUEST,
+            message=e.message,
+            name="UserError"
+        )
+    except Exception as e:
+        logger.error(f"系统异常: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
+        )
 
 @router.put("/update", response_model=IResponse[UserInfoResponse])
 @monitor_request
@@ -276,6 +307,35 @@ async def batch_delete_users(
         )
     except Exception as e:
         logger.error(f"批量删除用户失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
+        )
+
+@router.get("/email-info", response_model=IResponse)
+@monitor_request
+async def get_user_email_info(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """获取用户邮箱信息"""
+    try:
+        # 注入数据库会话
+        user_service.db = db
+        
+        # 获取用户邮箱信息  
+        result = await user_service.get_user_email_info(current_user.id)
+        return CustomResponse.success(data=result)
+        
+    except CustomException as e:
+        return CustomResponse.error(
+            code=status.HTTP_400_BAD_REQUEST,
+            message=e.message,
+            name="UserError"
+        )
+    except Exception as e:
+        logger.error(f"获取用户邮箱信息失败: {str(e)}")
         return CustomResponse.error(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message=get_error_message(ErrorCode.SYSTEM_ERROR),
