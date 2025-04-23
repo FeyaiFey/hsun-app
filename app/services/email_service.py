@@ -1,4 +1,5 @@
 import aiosmtplib
+import imaplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
@@ -33,9 +34,19 @@ class EmailService:
         self.smtp_user = None
         self.smtp_password = None
         self.smtp_use_tls = True  # 默认使用 TLS
+        self.imap_host = None     # IMAP服务器
+        self.imap_port = 993      # 默认IMAP SSL端口
+        self.imap_use_ssl = True  # 默认使用SSL
         
-    async def send_email(self, email_data: EmailSendRequest, db = None, user_id: int = None) -> EmailSendResponse:
-        """发送邮件"""
+    async def send_email(self, email_data: EmailSendRequest, db = None, user_id: int = None, save_to_sent_folder: bool = True) -> EmailSendResponse:
+        """发送邮件
+        
+        Args:
+            email_data: 邮件数据
+            db: 数据库会话
+            user_id: 用户ID
+            save_to_sent_folder: 是否将邮件保存到发件箱，默认为True
+        """
         try:
             # 如果提供了 user_id 和 db，则使用用户的邮箱配置
             if db and user_id:
@@ -45,6 +56,13 @@ class EmailService:
                     self.smtp_port = user_email_info.SMTP_PORT
                     self.smtp_user = user_email_info.EMAIL
                     self.smtp_password = user_email_info.PASSWORD
+                    # 设置IMAP服务器信息，通常与SMTP服务器相同
+                    self.imap_host = user_email_info.IMAP_SERVER
+                    # 获取IMAP端口和SSL设置（如果有）
+                    if hasattr(user_email_info, 'IMAP_PORT'):
+                        self.imap_port = user_email_info.IMAP_PORT
+                    if hasattr(user_email_info, 'IMAP_USE_SSL'):
+                        self.imap_use_ssl = user_email_info.IMAP_USE_SSL
                 else:
                     logger.warning(f"未找到用户邮箱信息，将使用系统默认配置")
 
@@ -55,6 +73,7 @@ class EmailService:
                 self.smtp_port = settings.SMTP_PORT
                 self.smtp_user = settings.SMTP_USER
                 self.smtp_password = settings.SMTP_PASSWORD
+                self.imap_host = settings.SMTP_HOST  # 假设IMAP服务器与SMTP相同
 
             # 处理主题和内容
             subject = email_data.subject
@@ -122,6 +141,14 @@ class EmailService:
                     error=f"邮件服务器错误: {str(e)}"
                 )
 
+            # 如果需要，将邮件保存到发件箱
+            if save_to_sent_folder:
+                try:
+                    self._save_to_sent_folder(message)
+                except Exception as e:
+                    logger.warning(f"无法保存邮件到发件箱: {str(e)}")
+                    # 虽然保存到发件箱失败，但邮件已发送成功，因此不影响整体结果
+
             logger.info(f"邮件发送成功: {subject}")
             return EmailSendResponse(
                 success=True,
@@ -137,6 +164,70 @@ class EmailService:
                 success=False,
                 error=str(e)
             )
+            
+    def _save_to_sent_folder(self, message):
+        """将邮件保存到发件箱（已发送邮件文件夹）
+        
+        Args:
+            message: 邮件对象
+        """
+        try:
+            # 连接到IMAP服务器
+            if self.imap_use_ssl:
+                try:
+                    imap = imaplib.IMAP4_SSL(self.imap_host, self.imap_port)
+                except Exception as ssl_error:
+                    # SSL连接失败，尝试非SSL连接
+                    logger.warning(f"SSL连接IMAP服务器失败: {str(ssl_error)}，尝试非SSL连接")
+                    self.imap_use_ssl = False
+                    imap = imaplib.IMAP4(self.imap_host, 143)  # 使用标准非SSL端口
+            else:
+                imap = imaplib.IMAP4(self.imap_host, 143)
+                
+            imap.login(self.smtp_user, self.smtp_password)
+            
+            # 将邮件添加到"已发送"文件夹
+            # 不同邮件服务商的发件箱名称可能不同，常见的有：
+            # "Sent", "Sent Items", "已发送", "已发送邮件"
+            sent_folders = ["Sent", "Sent Items", "已发送", "已发送邮件"]
+            
+            # 尝试每个可能的发件箱名称
+            saved = False
+            for folder in sent_folders:
+                try:
+                    imap.select(folder)
+                    message_bytes = message.as_bytes()
+                    imap.append(folder, '\\Seen', None, message_bytes)
+                    saved = True
+                    logger.info(f"邮件已保存到发件箱: {folder}")
+                    break
+                except Exception as e:
+                    logger.debug(f"尝试保存到文件夹 {folder} 失败: {str(e)}")
+                    continue
+                    
+            if not saved:
+                # 如果所有常见文件夹都失败，尝试获取所有文件夹并查找发件箱
+                folders = [folder.decode().split(' "/" ')[1].strip('"') for folder in imap.list()[1]]
+                for folder in folders:
+                    if any(sent_name.lower() in folder.lower() for sent_name in ["sent", "发送"]):
+                        try:
+                            imap.select(folder)
+                            message_bytes = message.as_bytes()
+                            imap.append(folder, '\\Seen', None, message_bytes)
+                            logger.info(f"邮件已保存到发件箱: {folder}")
+                            saved = True
+                            break
+                        except Exception as e:
+                            logger.debug(f"尝试保存到文件夹 {folder} 失败: {str(e)}")
+                            continue
+                            
+            if not saved:
+                logger.warning("未能找到合适的发件箱文件夹")
+                
+            imap.logout()
+        except Exception as e:
+            logger.error(f"保存邮件到发件箱失败: {str(e)}")
+            raise
 
     def _render_template(self, template: EmailTemplate, variables: Dict[str, Any]) -> str:
         """渲染邮件模板内容"""
