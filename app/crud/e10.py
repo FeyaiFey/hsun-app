@@ -33,7 +33,7 @@ from app.schemas.e10 import (FeatureGroupNameQuery,
                              TestingProgramQuery,
                              BurningProgramQuery,
                              LotCodeQuery)
-from app.schemas.report import GlobalReport,SopAnalyzeResponse
+from app.schemas.report import GlobalReport,SopAnalyzeResponse,ChipInfoTraceQuery,ChipInfoTraceResponse,ChipInfoTrace
 from app.core.exceptions import CustomException
 from app.core.logger import logger
 from openpyxl import Workbook
@@ -2616,7 +2616,7 @@ class CRUDE10:
                 ISNULL(WIP.WIP_QTY_WITHOUT_STOCK,0) AS WIP_QTY_WITHOUT_STOCK,
                 ISNULL(WIP.ASSY_STOCK,0) AS ASSY_STOCK,
                 (ISNULL(S1.INVENTORY_QTY,0) + ISNULL(S2.INVENTORY_QTY,0) + ISNULL(WIP.WIP_QTY_WITHOUT_STOCK,0) + ISNULL(WIP.ASSY_STOCK,0)) AS TOTAL_STOCK,
-                (ISNULL(S1.INVENTORY_QTY,0) + ISNULL(S2.INVENTORY_QTY,0) + ISNULL(WIP.WIP_QTY_WITHOUT_STOCK,0) + ISNULL(WIP.ASSY_STOCK,0) - SS.SAFE_STOCK)  AS INVENTORT_GAP
+                (ISNULL(S1.INVENTORY_QTY,0) + ISNULL(S2.INVENTORY_QTY,0) + ISNULL(WIP.WIP_QTY_WITHOUT_STOCK,0) + ISNULL(WIP.ASSY_STOCK,0) - SS.SAFE_STOCK * 1.5 )  AS INVENTORT_GAP
                 FROM SAFE_STOCK SS
                 LEFT JOIN SALES ON (REPLACE(SS.ITEM_NAME, '_', '-') = SALES.ITEM_NAME AND SS.ABTR = SALES.ABTR)
                 LEFT JOIN STOCK S1 ON (S1.ITEM_NAME = REPLACE(SS.ITEM_NAME, '_', '-') AND S1.ABTR = SS.ABTR AND S1.CPBC = '产成品')
@@ -2974,10 +2974,24 @@ class CRUDE10:
         try:
             # 构建基础查询
             base_query = """
-                SELECT *
+                SELECT 
+                ROW_NUMBER() OVER (ORDER BY DOC_DATE,DOC_NO) + 100000 AS ID,
+                DOC_NO,
+                ITEM_CODE,
+                ITEM_NAME,
+                LOT_NAME,
+                CAST(BUSINESS_QTY AS INT) AS BUSINESS_QTY,
+                CAST(RECEIPT_QTY AS INT) AS RECEIPT_QTY,
+                CAST(WIP_QTY AS INT) AS WIP_QTY,
+                PROGRESS_NAME,
+                TESTING_PROGRAM_NAME,
+                REMARK,
+                CAST(DOC_DATE AS DATE) AS DOC_DATE,
+                CAST(FIRST_ARRIVAL_DATE AS DATE) AS FIRST_ARRIVAL_DATE,
+                SUPPLIER,
+                STATUS
                 FROM (
                     SELECT 
-                        ROW_NUMBER() OVER (ORDER BY HC.DOC_DATE,HC.DOC_NO) + 100000 AS ID,
                         HC.DOC_NO,
                         LEFT(HC.ITEM_NAME,6) AS ITEM_CODE,
                         HC.ITEM_NAME,
@@ -2995,19 +3009,18 @@ class CRUDE10:
                     FROM huaxinAdmin_cptest HC
                     UNION ALL
                     SELECT
-                            ROW_NUMBER() OVER (ORDER BY PO.PURCHASE_DATE, PO.DOC_NO) + 102133 AS ID,
                             PO.DOC_NO,
                             ITEM.ITEM_CODE,
                             ITEM.ITEM_NAME,
                             ITEM_LOT.LOT_CODE,
-                            CAST(PO_D.BUSINESS_QTY AS INT) AS BUSINESS_QTY,
-                            CAST(PO_D.RECEIPTED_PRICE_QTY AS INT) AS RECEIPTED_PRICE_QTY,
-                            CAST((PO_D.BUSINESS_QTY - PO_D.RECEIPTED_PRICE_QTY) AS INT) AS WIP_QTY,
+                            PO_D.BUSINESS_QTY,
+                            PO_D.RECEIPTED_PRICE_QTY,
+                            PO_D.BUSINESS_QTY - PO_D.RECEIPTED_PRICE_QTY,
                             ZAC.CUSTOM_FIELD10 AS PROGRESS_NAME,
                             ZTP.Z_TESTING_PROGRAM_NAME,
                             Z_PACKAGE.REMARK,
-                            CAST(PO.PURCHASE_DATE AS DATE) AS PURCHASE_DATE,
-                            CAST(PR.CreateDate AS DATE) AS FIRST_ARRIVAL_DATE,
+                            PO.PURCHASE_DATE,
+                            PR.CreateDate,
                             PO.SUPPLIER_FULL_NAME,
                             PO_SD.RECEIPT_CLOSE
                     FROM PURCHASE_ORDER PO
@@ -3043,6 +3056,31 @@ class CRUDE10:
                             AND PO.SUPPLIER_FULL_NAME <> N'温州镁芯微电子有限公司'  
                             AND PO.SUPPLIER_FULL_NAME <> N'苏州荐恒电子科技有限公司'  
                             AND PO.SUPPLIER_FULL_NAME <> N'深圳市华新源科技有限公司'
+                    UNION ALL
+                    SELECT 
+                    MO.DOC_NO,
+                    ITEM.ITEM_CODE,
+                    ITEM.ITEM_NAME,
+                    IL.LOT_CODE,
+                    MO_D.REQUIRED_SECOND_QTY,
+                    MP.COMPLETED_SECOND_QTY,
+                    MO_D.REQUIRED_SECOND_QTY-MP.COMPLETED_SECOND_QTY,
+                    NULL AS PROGRESS_NAME,
+                    NULL AS Z_TESTING_PROGRAM_NAME,
+                    NULL AS REMARK,
+                    MO.DOC_DATE AS PURCHASE_DATE,
+                    NULL AS FIRST_ARRIVAL_DATE,
+                    '苏工院' AS SUPPLIER,
+                    CASE
+                      WHEN (MO_D.REQUIRED_SECOND_QTY-MP.COMPLETED_SECOND_QTY) > 0 THEN '0'
+                      ELSE '2'
+                    END AS RECEIPT_CLOSE
+                    FROM MO
+                    LEFT JOIN MO_D ON MO.MO_ID = MO_D.MO_ID
+                    LEFT JOIN MO_PRODUCT MP ON MP.MO_ID = MO.MO_ID
+                    LEFT JOIN ITEM ON ITEM.ITEM_BUSINESS_ID = MO.ITEM_ID
+                    LEFT JOIN ITEM_LOT IL ON IL.ITEM_LOT_ID = MO_D.ITEM_LOT_ID
+                    WHERE ITEM.ITEM_CODE LIKE N'CL%CP' AND MO.DOC_NO LIKE '5105%'
                 ) AS CombinedResults
                 WHERE 1=1
             """
@@ -3130,7 +3168,6 @@ class CRUDE10:
                 SELECT COUNT(1) 
                 FROM (
                     SELECT 
-                        ROW_NUMBER() OVER (ORDER BY HC.DOC_DATE,HC.DOC_NO) + 100000 AS ID,
                         HC.DOC_NO,
                         LEFT(HC.ITEM_NAME,6) AS ITEM_CODE,
                         HC.ITEM_NAME,
@@ -3148,19 +3185,18 @@ class CRUDE10:
                     FROM huaxinAdmin_cptest HC
                     UNION ALL
                     SELECT
-                            ROW_NUMBER() OVER (ORDER BY PO.PURCHASE_DATE, PO.DOC_NO) + 102133 AS ID,
                             PO.DOC_NO,
                             ITEM.ITEM_CODE,
                             ITEM.ITEM_NAME,
                             ITEM_LOT.LOT_CODE,
-                            CAST(PO_D.BUSINESS_QTY AS INT) AS BUSINESS_QTY,
-                            CAST(PO_D.RECEIPTED_PRICE_QTY AS INT) AS RECEIPTED_PRICE_QTY,
-                            CAST((PO_D.BUSINESS_QTY - PO_D.RECEIPTED_PRICE_QTY) AS INT) AS WIP_QTY,
+                            PO_D.BUSINESS_QTY,
+                            PO_D.RECEIPTED_PRICE_QTY,
+                            PO_D.BUSINESS_QTY - PO_D.RECEIPTED_PRICE_QTY,
                             ZAC.CUSTOM_FIELD10 AS PROGRESS_NAME,
                             ZTP.Z_TESTING_PROGRAM_NAME,
                             Z_PACKAGE.REMARK,
-                            CAST(PO.PURCHASE_DATE AS DATE) AS PURCHASE_DATE,
-                            CAST(PR.CreateDate AS DATE) AS FIRST_ARRIVAL_DATE,
+                            PO.PURCHASE_DATE,
+                            PR.CreateDate,
                             PO.SUPPLIER_FULL_NAME,
                             PO_SD.RECEIPT_CLOSE
                     FROM PURCHASE_ORDER PO
@@ -3196,6 +3232,31 @@ class CRUDE10:
                             AND PO.SUPPLIER_FULL_NAME <> N'温州镁芯微电子有限公司'  
                             AND PO.SUPPLIER_FULL_NAME <> N'苏州荐恒电子科技有限公司'  
                             AND PO.SUPPLIER_FULL_NAME <> N'深圳市华新源科技有限公司'
+                    UNION ALL
+                    SELECT 
+                    MO.DOC_NO,
+                    ITEM.ITEM_CODE,
+                    ITEM.ITEM_NAME,
+                    IL.LOT_CODE,
+                    MO_D.REQUIRED_SECOND_QTY,
+                    MP.COMPLETED_SECOND_QTY,
+                    MO_D.REQUIRED_SECOND_QTY-MP.COMPLETED_SECOND_QTY,
+                    NULL AS PROGRESS_NAME,
+                    NULL AS Z_TESTING_PROGRAM_NAME,
+                    NULL AS REMARK,
+                    MO.DOC_DATE AS PURCHASE_DATE,
+                    NULL AS FIRST_ARRIVAL_DATE,
+                    '苏工院' AS SUPPLIER,
+                    CASE
+                      WHEN (MO_D.REQUIRED_SECOND_QTY-MP.COMPLETED_SECOND_QTY) > 0 THEN '0'
+                      ELSE '2'
+                    END AS RECEIPT_CLOSE
+                    FROM MO
+                    LEFT JOIN MO_D ON MO.MO_ID = MO_D.MO_ID
+                    LEFT JOIN MO_PRODUCT MP ON MP.MO_ID = MO.MO_ID
+                    LEFT JOIN ITEM ON ITEM.ITEM_BUSINESS_ID = MO.ITEM_ID
+                    LEFT JOIN ITEM_LOT IL ON IL.ITEM_LOT_ID = MO_D.ITEM_LOT_ID
+                    WHERE ITEM.ITEM_CODE LIKE N'CL%CP' AND MO.DOC_NO LIKE '5105%'
                 ) t
                 WHERE 1=1 {' '.join(conditions)}
             """
@@ -3329,3 +3390,572 @@ class CRUDE10:
         except Exception as e:
             logger.error(f"导出CP测试单Excel失败: {str(e)}")
             raise CustomException(f"导出CP测试单Excel失败: {str(e)}")
+        
+    def get_chipInfo_trace_by_params(self,db:Session,params:ChipInfoTraceQuery)->Dict[str,Any]:
+        """获取芯片信息追溯"""
+        try:
+            base_query = """
+            WITH
+            CL AS (
+            SELECT 
+            ROW_NUMBER() OVER (ORDER BY DOC_DATE,DOC_NO) + 100000 AS ID,
+            DOC_NO,
+            ITEM_CODE,
+            ITEM_NAME,
+            LOT_NAME,
+            CAST(BUSINESS_QTY AS INT) AS BUSINESS_QTY,
+            CAST(RECEIPT_QTY AS INT) AS RECEIPT_QTY,
+            CAST(WIP_QTY AS INT) AS WIP_QTY,
+            PROGRESS_NAME,
+            TESTING_PROGRAM_NAME,
+            REMARK,
+            CAST(DOC_DATE AS DATE) AS DOC_DATE,
+            CAST(FIRST_ARRIVAL_DATE AS DATE) AS FIRST_ARRIVAL_DATE,
+            SUPPLIER,
+            STATUS
+            FROM (
+                SELECT 
+                    HC.DOC_NO,
+                    LEFT(HC.ITEM_NAME,6) AS ITEM_CODE,
+                    HC.ITEM_NAME,
+                    HC.LOT_NAME,
+                    HC.BUSINESS_QTY,
+                    HC.RECEIPT_QTY,
+                    0 AS WIP_QTY,
+                    HC.PROGRESS_NAME,
+                    HC.TESTING_PROGRAM_NAME,
+                    HC.REMARK,
+                    HC.DOC_DATE,
+                    HC.FIRST_ARRIVAL_DATE,
+                    HC.SUPPLIER,
+                    HC.STATUS
+                FROM huaxinAdmin_cptest HC
+                UNION ALL
+                SELECT
+                        PO.DOC_NO,
+                        ITEM.ITEM_CODE,
+                        ITEM.ITEM_NAME,
+                        ITEM_LOT.LOT_CODE,
+                        PO_D.BUSINESS_QTY,
+                        PO_D.RECEIPTED_PRICE_QTY,
+                        PO_D.BUSINESS_QTY - PO_D.RECEIPTED_PRICE_QTY,
+                        ZAC.CUSTOM_FIELD10 AS PROGRESS_NAME,
+                        ZTP.Z_TESTING_PROGRAM_NAME,
+                        Z_PACKAGE.REMARK,
+                        PO.PURCHASE_DATE,
+                        PR.CreateDate,
+                        PO.SUPPLIER_FULL_NAME,
+                        PO_SD.RECEIPT_CLOSE
+                FROM PURCHASE_ORDER PO
+                LEFT JOIN PURCHASE_ORDER_D PO_D 
+                        ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
+                LEFT JOIN PURCHASE_ORDER_SD PO_SD 
+                        ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                LEFT JOIN PURCHASE_ORDER_SSD PO_SSD 
+                        ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+                LEFT JOIN Z_OUT_MO_D 
+                        ON PO_SSD.REFERENCE_SOURCE_ID_ROid = Z_OUT_MO_D.Z_OUT_MO_D_ID
+                LEFT JOIN ITEM 
+                        ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                LEFT JOIN ITEM_LOT 
+                        ON Z_OUT_MO_D.ITEM_LOT_ID = ITEM_LOT.ITEM_LOT_ID
+                LEFT JOIN Z_ASSEMBLY_CODE 
+                        ON Z_OUT_MO_D.Z_PACKAGE_ASSEMBLY_CODE_ID = Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE_ID
+                LEFT JOIN Z_ASSEMBLY_CODE ZAC
+                        ON Z_OUT_MO_D.Z_TESTING_ASSEMBLY_CODE_ID = ZAC.Z_ASSEMBLY_CODE_ID
+                LEFT JOIN Z_TESTING_PROGRAM ZTP
+                        ON ZAC.PROGRAM_ROid = ZTP.Z_TESTING_PROGRAM_ID
+                LEFT JOIN Z_PACKAGE 
+                        ON Z_ASSEMBLY_CODE.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
+                OUTER APPLY (
+                        SELECT TOP 1 *
+                        FROM PURCHASE_RECEIPT_D PRD
+                        WHERE PRD.ORDER_SOURCE_ID_ROid = PO_SD.PURCHASE_ORDER_SD_ID
+                        ORDER BY PRD.CreateDate
+                ) PR
+                WHERE PO.PURCHASE_TYPE = 2 
+                        AND PO.PURCHASE_DATE > '2024-11-13' 
+                        AND ITEM.ITEM_CODE LIKE N'CL%CP' 
+                        AND PO.SUPPLIER_FULL_NAME <> N'温州镁芯微电子有限公司'  
+                        AND PO.SUPPLIER_FULL_NAME <> N'苏州荐恒电子科技有限公司'  
+                        AND PO.SUPPLIER_FULL_NAME <> N'深圳市华新源科技有限公司'
+                UNION ALL
+                SELECT 
+                MO.DOC_NO,
+                ITEM.ITEM_CODE,
+                ITEM.ITEM_NAME,
+                IL.LOT_CODE,
+                MO_D.REQUIRED_SECOND_QTY,
+                MP.COMPLETED_SECOND_QTY,
+                MO_D.REQUIRED_SECOND_QTY-MP.COMPLETED_SECOND_QTY,
+                NULL AS PROGRESS_NAME,
+                NULL AS Z_TESTING_PROGRAM_NAME,
+                NULL AS REMARK,
+                MO.DOC_DATE AS PURCHASE_DATE,
+                NULL AS FIRST_ARRIVAL_DATE,
+                '苏工院' AS SUPPLIER,
+                CASE
+                    WHEN (MO_D.REQUIRED_SECOND_QTY-MP.COMPLETED_SECOND_QTY) > 0 THEN '0'
+                    ELSE '2'
+                END AS RECEIPT_CLOSE
+                FROM MO
+                LEFT JOIN MO_D ON MO.MO_ID = MO_D.MO_ID
+                LEFT JOIN MO_PRODUCT MP ON MP.MO_ID = MO.MO_ID
+                LEFT JOIN ITEM ON ITEM.ITEM_BUSINESS_ID = MO.ITEM_ID
+                LEFT JOIN ITEM_LOT IL ON IL.ITEM_LOT_ID = MO_D.ITEM_LOT_ID
+                WHERE ITEM.ITEM_CODE LIKE N'CL%CP' AND MO.DOC_NO LIKE '5105%'
+            ) AS CombinedResults
+            ),
+            AL AS (
+            SELECT CombinedResults.*,ALL_BOM.MAIN_CHIP,ALL_BOM.ITEM_CODE AS CHIP_CODE,ALL_BOM.LOT_CODE_NAME,ALL_BOM.BUSINESS_QTY AS WAFER_QTY,ALL_BOM.SECOND_QTY AS S_QTY,ALL_BOM.WAFER_ID
+            FROM (
+                SELECT
+                    hpl.ID,
+                    hpl.DOC_NO,
+                    hpl.ITEM_CODE,
+                    hpl.Z_PACKAGE_TYPE_NAME,
+                    hpl.LOT_CODE,
+                    hpl.BUSINESS_QTY,
+                    hpl.RECEIPTED_PRICE_QTY,
+                    0 AS WIP_QTY,
+                    hpl.Z_PROCESSING_PURPOSE_NAME,
+                    hpl.Z_TESTING_PROGRAM_NAME,
+                    hpl.Z_ASSEMBLY_CODE,
+                    hpl.Z_WIRE_NAME,
+                    hpl.REMARK,
+                    hpl.PURCHASE_DATE,
+                    ISNULL(hpl.FIRST_ARRIVAL_DATE, DATEADD(MONTH, 2, hpl.PURCHASE_DATE)) AS FIRST_ARRIVAL_DATE,
+                    hpl.SUPPLIER_FULL_NAME,
+                    hpl.RECEIPT_CLOSE
+                FROM HSUN_PACKAGE_LIST hpl
+                UNION ALL
+                SELECT
+                    ROW_NUMBER() OVER (ORDER BY PO.PURCHASE_DATE, PO.DOC_NO) + 115617 AS ID,
+                    PO.DOC_NO,
+                    ITEM.ITEM_CODE,
+                    ITEM.UDF025 AS Z_PACKAGE_TYPE_NAME,
+                    ITEM_LOT.LOT_CODE,
+                    CAST(PO_D.BUSINESS_QTY AS INT) AS BUSINESS_QTY,
+                    CAST(PO_D.RECEIPTED_PRICE_QTY AS INT) AS RECEIPTED_PRICE_QTY,
+                    CASE 
+                        WHEN PO.[CLOSE] = N'2' THEN 0
+                        WHEN PO_D.BUSINESS_QTY <> 0 AND (PO_D.RECEIPTED_PRICE_QTY / PO_D.BUSINESS_QTY) > 0.992 THEN 0
+                        ELSE CAST(((PO_D.BUSINESS_QTY * 0.996) - PO_D.RECEIPTED_PRICE_QTY) AS INT)
+                    END AS WIP_QTY,
+                    Z_PROCESSING_PURPOSE.Z_PROCESSING_PURPOSE_NAME,
+                    ZTP.Z_TESTING_PROGRAM_NAME,
+                    Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE,
+                    Z_WIRE.Z_WIRE_NAME,
+                    Z_PACKAGE.REMARK,
+                    CAST(PO.PURCHASE_DATE AS DATE) AS PURCHASE_DATE,
+                    CAST(PR.CreateDate AS DATE) AS FIRST_ARRIVAL_DATE,
+                    PO.SUPPLIER_FULL_NAME,
+                    PO_SD.RECEIPT_CLOSE
+                FROM PURCHASE_ORDER PO
+                LEFT JOIN PURCHASE_ORDER_D PO_D 
+                    ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
+                LEFT JOIN PURCHASE_ORDER_SD PO_SD 
+                    ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                LEFT JOIN PURCHASE_ORDER_SSD PO_SSD 
+                    ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+                LEFT JOIN Z_OUT_MO_D 
+                    ON PO_SSD.REFERENCE_SOURCE_ID_ROid = Z_OUT_MO_D.Z_OUT_MO_D_ID
+                LEFT JOIN ITEM 
+                    ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                LEFT JOIN ITEM_LOT 
+                    ON Z_OUT_MO_D.ITEM_LOT_ID = ITEM_LOT.ITEM_LOT_ID
+                LEFT JOIN Z_ASSEMBLY_CODE 
+                    ON Z_OUT_MO_D.Z_PACKAGE_ASSEMBLY_CODE_ID = Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE_ID
+                LEFT JOIN Z_ASSEMBLY_CODE ZAC
+                    ON Z_OUT_MO_D.Z_TESTING_ASSEMBLY_CODE_ID = ZAC.Z_ASSEMBLY_CODE_ID
+                LEFT JOIN Z_TESTING_PROGRAM ZTP
+                    ON ZAC.PROGRAM_ROid = ZTP.Z_TESTING_PROGRAM_ID
+                LEFT JOIN Z_PACKAGE 
+                    ON Z_ASSEMBLY_CODE.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
+                LEFT JOIN Z_PROCESSING_PURPOSE 
+                    ON Z_ASSEMBLY_CODE.Z_PROCESSING_PURPOSE_ID = Z_PROCESSING_PURPOSE.Z_PROCESSING_PURPOSE_ID
+                LEFT JOIN Z_LOADING_METHOD 
+                    ON Z_LOADING_METHOD.Z_LOADING_METHOD_ID = Z_PACKAGE.Z_LOADING_METHOD_ID
+                LEFT JOIN Z_WIRE 
+                    ON Z_WIRE.Z_WIRE_ID = Z_PACKAGE.Z_WIRE_ID
+                LEFT JOIN FEATURE_GROUP 
+                    ON FEATURE_GROUP.FEATURE_GROUP_ID = ITEM.FEATURE_GROUP_ID
+                OUTER APPLY (
+                    SELECT TOP 1 *
+                    FROM PURCHASE_RECEIPT_D PRD
+                    WHERE PRD.ORDER_SOURCE_ID_ROid = PO_SD.PURCHASE_ORDER_SD_ID
+                    ORDER BY PRD.CreateDate
+                ) PR
+                WHERE PO.PURCHASE_TYPE = 2 
+                    AND PO.PURCHASE_DATE > '2024-10-21' 
+                    AND ITEM.ITEM_CODE LIKE N'BC%AB' 
+                    AND PO.SUPPLIER_FULL_NAME <> N'温州镁芯微电子有限公司'  
+                    AND PO.SUPPLIER_FULL_NAME <> N'苏州荐恒电子科技有限公司'  
+                    AND PO.SUPPLIER_FULL_NAME <> N'深圳市华新源科技有限公司'
+            ) AS CombinedResults
+                LEFT JOIN 
+                    (
+                        SELECT * FROM HSUN_BOM_LIST
+                        UNION ALL
+                        SELECT 
+                        ROW_NUMBER() OVER (ORDER BY PO.PURCHASE_DATE,PO.DOC_NO) + 16820 AS ID,
+                        PO.DOC_NO,
+                        ZOMSD.Z_MAIN_CHIP,
+                        ITEM.ITEM_CODE,
+                        ITEM.ITEM_NAME,
+                        IL.LOT_CODE,
+                        CAST(ZOMSD.BUSINESS_QTY AS FLOAT) AS BUSINESS_QTY,
+                        CAST(ZOMSD.SECOND_QTY AS FLOAT) AS SECOND_QTY,
+                        ZOMSD.Z_WF_ID_STRING
+                        FROM PURCHASE_ORDER PO
+                        LEFT JOIN PURCHASE_ORDER_D PO_D
+                        ON PO.PURCHASE_ORDER_ID = PO_D.PURCHASE_ORDER_ID
+                        LEFT JOIN PURCHASE_ORDER_SD PO_SD
+                        ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                        LEFT JOIN PURCHASE_ORDER_SSD PO_SSD
+                        ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+                        LEFT JOIN Z_OUT_MO_D ZOMD
+                        ON ZOMD.Z_OUT_MO_D_ID = PO_SSD.REFERENCE_SOURCE_ID_ROid
+                        LEFT JOIN Z_OUT_MO_SD ZOMSD
+                        ON ZOMSD.Z_OUT_MO_D_ID = ZOMD.Z_OUT_MO_D_ID
+                        LEFT JOIN ITEM
+                        ON ZOMSD.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                        LEFT JOIN ITEM_LOT IL
+                        ON IL.ITEM_LOT_ID = ZOMSD.ITEM_LOT_ID
+                        WHERE PO_D.PURCHASE_TYPE=2 AND PO.PURCHASE_DATE > '2024-10-21')
+                        AS ALL_BOM ON ALL_BOM.DOC_NO = CombinedResults.DOC_NO
+            )
+
+            SELECT AL.*,CL.*
+            FROM CL
+            INNER JOIN AL ON AL.LOT_CODE_NAME LIKE '%' + CL.LOT_NAME + '%'
+            WHERE 1=1
+            """
+
+            # 构建查询条件
+            conditions = []
+            query_params = {}
+
+            # 参数验证和清理
+            if params.CHIP_LOT_CODE and isinstance(params.CHIP_LOT_CODE, str):
+                conditions.append("AND UPPER(CL.LOT_NAME) LIKE UPPER(:chip_lot_code)")
+                query_params["chip_lot_code"] = f"%{self._clean_input(params.CHIP_LOT_CODE)}%"
+            
+            if params.WAFER_LOT_CODE and isinstance(params.WAFER_LOT_CODE, str):
+                conditions.append("AND UPPER(AL.LOT_CODE_NAME) LIKE UPPER(:wafer_lot_code)")
+                query_params["wafer_lot_code"] = f"%{self._clean_input(params.WAFER_LOT_CODE)}%"
+            
+            if params.SUPPLIER and isinstance(params.SUPPLIER, str):
+                conditions.append("AND UPPER(CL.SUPPLIER) LIKE UPPER(:supplier)")
+                query_params["supplier"] = f"%{self._clean_input(params.SUPPLIER)}%"
+            
+            if params.CHIP_NAME and isinstance(params.CHIP_NAME, str):
+                conditions.append("AND UPPER(CL.ITEM_NAME) LIKE UPPER(:chip_name)")
+                query_params["chip_name"] = f"%{self._clean_input(params.CHIP_NAME)}%"
+            
+            if params.WAFER_NAME and isinstance(params.WAFER_NAME, str):
+                conditions.append("AND UPPER(AL.ITEM_NAME) LIKE UPPER(:wafer_name)")
+                query_params["wafer_name"] = f"%{self._clean_input(params.WAFER_NAME)}%"
+            
+            if params.TESTING_PROGRAM_NAME and isinstance(params.TESTING_PROGRAM_NAME, str):
+                conditions.append("AND UPPER(CL.TESTING_PROGRAM_NAME) LIKE UPPER(:testing_program_name)")
+                query_params["testing_program_name"] = f"%{self._clean_input(params.TESTING_PROGRAM_NAME)}%"
+            
+
+            # 拼接查询条件
+            query = base_query + " " + " ".join(conditions)
+            
+            # 添加排序
+            query += " ORDER BY AL.DOC_NO"
+            
+            # 添加分页
+            if params.pageIndex and params.pageSize:
+                offset = (params.pageIndex - 1) * params.pageSize
+                query += " OFFSET :offset ROWS FETCH NEXT :pageSize ROWS ONLY"
+                query_params["offset"] = offset
+                query_params["pageSize"] = params.pageSize
+
+            # 执行查询
+            stmt = text(query).bindparams(**query_params)
+            result = db.execute(stmt).all()
+
+            # 获取总记录数
+            count_query = f"""
+            WITH
+            CL AS (
+            SELECT 
+            ROW_NUMBER() OVER (ORDER BY DOC_DATE,DOC_NO) + 100000 AS ID,
+            DOC_NO,
+            ITEM_CODE,
+            ITEM_NAME,
+            LOT_NAME,
+            CAST(BUSINESS_QTY AS INT) AS BUSINESS_QTY,
+            CAST(RECEIPT_QTY AS INT) AS RECEIPT_QTY,
+            CAST(WIP_QTY AS INT) AS WIP_QTY,
+            PROGRESS_NAME,
+            TESTING_PROGRAM_NAME,
+            REMARK,
+            CAST(DOC_DATE AS DATE) AS DOC_DATE,
+            CAST(FIRST_ARRIVAL_DATE AS DATE) AS FIRST_ARRIVAL_DATE,
+            SUPPLIER,
+            STATUS
+            FROM (
+                SELECT 
+                    HC.DOC_NO,
+                    LEFT(HC.ITEM_NAME,6) AS ITEM_CODE,
+                    HC.ITEM_NAME,
+                    HC.LOT_NAME,
+                    HC.BUSINESS_QTY,
+                    HC.RECEIPT_QTY,
+                    0 AS WIP_QTY,
+                    HC.PROGRESS_NAME,
+                    HC.TESTING_PROGRAM_NAME,
+                    HC.REMARK,
+                    HC.DOC_DATE,
+                    HC.FIRST_ARRIVAL_DATE,
+                    HC.SUPPLIER,
+                    HC.STATUS
+                FROM huaxinAdmin_cptest HC
+                UNION ALL
+                SELECT
+                        PO.DOC_NO,
+                        ITEM.ITEM_CODE,
+                        ITEM.ITEM_NAME,
+                        ITEM_LOT.LOT_CODE,
+                        PO_D.BUSINESS_QTY,
+                        PO_D.RECEIPTED_PRICE_QTY,
+                        PO_D.BUSINESS_QTY - PO_D.RECEIPTED_PRICE_QTY,
+                        ZAC.CUSTOM_FIELD10 AS PROGRESS_NAME,
+                        ZTP.Z_TESTING_PROGRAM_NAME,
+                        Z_PACKAGE.REMARK,
+                        PO.PURCHASE_DATE,
+                        PR.CreateDate,
+                        PO.SUPPLIER_FULL_NAME,
+                        PO_SD.RECEIPT_CLOSE
+                FROM PURCHASE_ORDER PO
+                LEFT JOIN PURCHASE_ORDER_D PO_D 
+                        ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
+                LEFT JOIN PURCHASE_ORDER_SD PO_SD 
+                        ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                LEFT JOIN PURCHASE_ORDER_SSD PO_SSD 
+                        ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+                LEFT JOIN Z_OUT_MO_D 
+                        ON PO_SSD.REFERENCE_SOURCE_ID_ROid = Z_OUT_MO_D.Z_OUT_MO_D_ID
+                LEFT JOIN ITEM 
+                        ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                LEFT JOIN ITEM_LOT 
+                        ON Z_OUT_MO_D.ITEM_LOT_ID = ITEM_LOT.ITEM_LOT_ID
+                LEFT JOIN Z_ASSEMBLY_CODE 
+                        ON Z_OUT_MO_D.Z_PACKAGE_ASSEMBLY_CODE_ID = Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE_ID
+                LEFT JOIN Z_ASSEMBLY_CODE ZAC
+                        ON Z_OUT_MO_D.Z_TESTING_ASSEMBLY_CODE_ID = ZAC.Z_ASSEMBLY_CODE_ID
+                LEFT JOIN Z_TESTING_PROGRAM ZTP
+                        ON ZAC.PROGRAM_ROid = ZTP.Z_TESTING_PROGRAM_ID
+                LEFT JOIN Z_PACKAGE 
+                        ON Z_ASSEMBLY_CODE.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
+                OUTER APPLY (
+                        SELECT TOP 1 *
+                        FROM PURCHASE_RECEIPT_D PRD
+                        WHERE PRD.ORDER_SOURCE_ID_ROid = PO_SD.PURCHASE_ORDER_SD_ID
+                        ORDER BY PRD.CreateDate
+                ) PR
+                WHERE PO.PURCHASE_TYPE = 2 
+                        AND PO.PURCHASE_DATE > '2024-11-13' 
+                        AND ITEM.ITEM_CODE LIKE N'CL%CP' 
+                        AND PO.SUPPLIER_FULL_NAME <> N'温州镁芯微电子有限公司'  
+                        AND PO.SUPPLIER_FULL_NAME <> N'苏州荐恒电子科技有限公司'  
+                        AND PO.SUPPLIER_FULL_NAME <> N'深圳市华新源科技有限公司'
+                UNION ALL
+                SELECT 
+                MO.DOC_NO,
+                ITEM.ITEM_CODE,
+                ITEM.ITEM_NAME,
+                IL.LOT_CODE,
+                MO_D.REQUIRED_SECOND_QTY,
+                MP.COMPLETED_SECOND_QTY,
+                MO_D.REQUIRED_SECOND_QTY-MP.COMPLETED_SECOND_QTY,
+                NULL AS PROGRESS_NAME,
+                NULL AS Z_TESTING_PROGRAM_NAME,
+                NULL AS REMARK,
+                MO.DOC_DATE AS PURCHASE_DATE,
+                NULL AS FIRST_ARRIVAL_DATE,
+                '苏工院' AS SUPPLIER,
+                CASE
+                    WHEN (MO_D.REQUIRED_SECOND_QTY-MP.COMPLETED_SECOND_QTY) > 0 THEN '0'
+                    ELSE '2'
+                END AS RECEIPT_CLOSE
+                FROM MO
+                LEFT JOIN MO_D ON MO.MO_ID = MO_D.MO_ID
+                LEFT JOIN MO_PRODUCT MP ON MP.MO_ID = MO.MO_ID
+                LEFT JOIN ITEM ON ITEM.ITEM_BUSINESS_ID = MO.ITEM_ID
+                LEFT JOIN ITEM_LOT IL ON IL.ITEM_LOT_ID = MO_D.ITEM_LOT_ID
+                WHERE ITEM.ITEM_CODE LIKE N'CL%CP' AND MO.DOC_NO LIKE '5105%'
+            ) AS CombinedResults
+            ),
+            AL AS (
+            SELECT CombinedResults.*,ALL_BOM.MAIN_CHIP,ALL_BOM.ITEM_CODE AS CHIP_CODE,ALL_BOM.LOT_CODE_NAME,ALL_BOM.BUSINESS_QTY AS WAFER_QTY,ALL_BOM.SECOND_QTY AS S_QTY,ALL_BOM.WAFER_ID
+            FROM (
+                SELECT
+                    hpl.ID,
+                    hpl.DOC_NO,
+                    hpl.ITEM_CODE,
+                    hpl.Z_PACKAGE_TYPE_NAME,
+                    hpl.LOT_CODE,
+                    hpl.BUSINESS_QTY,
+                    hpl.RECEIPTED_PRICE_QTY,
+                    0 AS WIP_QTY,
+                    hpl.Z_PROCESSING_PURPOSE_NAME,
+                    hpl.Z_TESTING_PROGRAM_NAME,
+                    hpl.Z_ASSEMBLY_CODE,
+                    hpl.Z_WIRE_NAME,
+                    hpl.REMARK,
+                    hpl.PURCHASE_DATE,
+                    ISNULL(hpl.FIRST_ARRIVAL_DATE, DATEADD(MONTH, 2, hpl.PURCHASE_DATE)) AS FIRST_ARRIVAL_DATE,
+                    hpl.SUPPLIER_FULL_NAME,
+                    hpl.RECEIPT_CLOSE
+                FROM HSUN_PACKAGE_LIST hpl
+                UNION ALL
+                SELECT
+                    ROW_NUMBER() OVER (ORDER BY PO.PURCHASE_DATE, PO.DOC_NO) + 115617 AS ID,
+                    PO.DOC_NO,
+                    ITEM.ITEM_CODE,
+                    ITEM.UDF025 AS Z_PACKAGE_TYPE_NAME,
+                    ITEM_LOT.LOT_CODE,
+                    CAST(PO_D.BUSINESS_QTY AS INT) AS BUSINESS_QTY,
+                    CAST(PO_D.RECEIPTED_PRICE_QTY AS INT) AS RECEIPTED_PRICE_QTY,
+                    CASE 
+                        WHEN PO.[CLOSE] = N'2' THEN 0
+                        WHEN PO_D.BUSINESS_QTY <> 0 AND (PO_D.RECEIPTED_PRICE_QTY / PO_D.BUSINESS_QTY) > 0.992 THEN 0
+                        ELSE CAST(((PO_D.BUSINESS_QTY * 0.996) - PO_D.RECEIPTED_PRICE_QTY) AS INT)
+                    END AS WIP_QTY,
+                    Z_PROCESSING_PURPOSE.Z_PROCESSING_PURPOSE_NAME,
+                    ZTP.Z_TESTING_PROGRAM_NAME,
+                    Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE,
+                    Z_WIRE.Z_WIRE_NAME,
+                    Z_PACKAGE.REMARK,
+                    CAST(PO.PURCHASE_DATE AS DATE) AS PURCHASE_DATE,
+                    CAST(PR.CreateDate AS DATE) AS FIRST_ARRIVAL_DATE,
+                    PO.SUPPLIER_FULL_NAME,
+                    PO_SD.RECEIPT_CLOSE
+                FROM PURCHASE_ORDER PO
+                LEFT JOIN PURCHASE_ORDER_D PO_D 
+                    ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
+                LEFT JOIN PURCHASE_ORDER_SD PO_SD 
+                    ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                LEFT JOIN PURCHASE_ORDER_SSD PO_SSD 
+                    ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+                LEFT JOIN Z_OUT_MO_D 
+                    ON PO_SSD.REFERENCE_SOURCE_ID_ROid = Z_OUT_MO_D.Z_OUT_MO_D_ID
+                LEFT JOIN ITEM 
+                    ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                LEFT JOIN ITEM_LOT 
+                    ON Z_OUT_MO_D.ITEM_LOT_ID = ITEM_LOT.ITEM_LOT_ID
+                LEFT JOIN Z_ASSEMBLY_CODE 
+                    ON Z_OUT_MO_D.Z_PACKAGE_ASSEMBLY_CODE_ID = Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE_ID
+                LEFT JOIN Z_ASSEMBLY_CODE ZAC
+                    ON Z_OUT_MO_D.Z_TESTING_ASSEMBLY_CODE_ID = ZAC.Z_ASSEMBLY_CODE_ID
+                LEFT JOIN Z_TESTING_PROGRAM ZTP
+                    ON ZAC.PROGRAM_ROid = ZTP.Z_TESTING_PROGRAM_ID
+                LEFT JOIN Z_PACKAGE 
+                    ON Z_ASSEMBLY_CODE.PROGRAM_ROid = Z_PACKAGE.Z_PACKAGE_ID
+                LEFT JOIN Z_PROCESSING_PURPOSE 
+                    ON Z_ASSEMBLY_CODE.Z_PROCESSING_PURPOSE_ID = Z_PROCESSING_PURPOSE.Z_PROCESSING_PURPOSE_ID
+                LEFT JOIN Z_LOADING_METHOD 
+                    ON Z_LOADING_METHOD.Z_LOADING_METHOD_ID = Z_PACKAGE.Z_LOADING_METHOD_ID
+                LEFT JOIN Z_WIRE 
+                    ON Z_WIRE.Z_WIRE_ID = Z_PACKAGE.Z_WIRE_ID
+                LEFT JOIN FEATURE_GROUP 
+                    ON FEATURE_GROUP.FEATURE_GROUP_ID = ITEM.FEATURE_GROUP_ID
+                OUTER APPLY (
+                    SELECT TOP 1 *
+                    FROM PURCHASE_RECEIPT_D PRD
+                    WHERE PRD.ORDER_SOURCE_ID_ROid = PO_SD.PURCHASE_ORDER_SD_ID
+                    ORDER BY PRD.CreateDate
+                ) PR
+                WHERE PO.PURCHASE_TYPE = 2 
+                    AND PO.PURCHASE_DATE > '2024-10-21' 
+                    AND ITEM.ITEM_CODE LIKE N'BC%AB' 
+                    AND PO.SUPPLIER_FULL_NAME <> N'温州镁芯微电子有限公司'  
+                    AND PO.SUPPLIER_FULL_NAME <> N'苏州荐恒电子科技有限公司'  
+                    AND PO.SUPPLIER_FULL_NAME <> N'深圳市华新源科技有限公司'
+            ) AS CombinedResults
+                LEFT JOIN 
+                    (
+                        SELECT * FROM HSUN_BOM_LIST
+                        UNION ALL
+                        SELECT 
+                        ROW_NUMBER() OVER (ORDER BY PO.PURCHASE_DATE,PO.DOC_NO) + 16820 AS ID,
+                        PO.DOC_NO,
+                        ZOMSD.Z_MAIN_CHIP,
+                        ITEM.ITEM_CODE,
+                        ITEM.ITEM_NAME,
+                        IL.LOT_CODE,
+                        CAST(ZOMSD.BUSINESS_QTY AS FLOAT) AS BUSINESS_QTY,
+                        CAST(ZOMSD.SECOND_QTY AS FLOAT) AS SECOND_QTY,
+                        ZOMSD.Z_WF_ID_STRING
+                        FROM PURCHASE_ORDER PO
+                        LEFT JOIN PURCHASE_ORDER_D PO_D
+                        ON PO.PURCHASE_ORDER_ID = PO_D.PURCHASE_ORDER_ID
+                        LEFT JOIN PURCHASE_ORDER_SD PO_SD
+                        ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                        LEFT JOIN PURCHASE_ORDER_SSD PO_SSD
+                        ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+                        LEFT JOIN Z_OUT_MO_D ZOMD
+                        ON ZOMD.Z_OUT_MO_D_ID = PO_SSD.REFERENCE_SOURCE_ID_ROid
+                        LEFT JOIN Z_OUT_MO_SD ZOMSD
+                        ON ZOMSD.Z_OUT_MO_D_ID = ZOMD.Z_OUT_MO_D_ID
+                        LEFT JOIN ITEM
+                        ON ZOMSD.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                        LEFT JOIN ITEM_LOT IL
+                        ON IL.ITEM_LOT_ID = ZOMSD.ITEM_LOT_ID
+                        WHERE PO_D.PURCHASE_TYPE=2 AND PO.PURCHASE_DATE > '2024-10-21')
+                        AS ALL_BOM ON ALL_BOM.DOC_NO = CombinedResults.DOC_NO
+            )
+
+            SELECT COUNT(*)
+            FROM CL
+            INNER JOIN AL ON AL.LOT_CODE_NAME LIKE '%' + CL.LOT_NAME + '%'
+            WHERE 1=1 {' '.join(conditions)}
+            """
+            total = db.execute(text(count_query).bindparams(**{k:v for k,v in query_params.items() if k not in ['offset', 'pageSize']})).scalar()
+            
+            # 构建响应
+            chip_trace_list = [
+                ChipInfoTrace(
+                    ID=row.ID,
+                    DOC_NO=row.DOC_NO,
+                    ITEM_CODE=row.ITEM_CODE,
+                    Z_PACKAGE_TYPE_NAME=row.Z_PACKAGE_TYPE_NAME,
+                    LOT_CODE=row.LOT_CODE,
+                    BUSINESS_QTY=row.BUSINESS_QTY,
+                    RECEIPTED_PRICE_QTY=row.RECEIPTED_PRICE_QTY,
+                    WIP_QTY=row.WIP_QTY,
+                    Z_PROCESSING_PURPOSE_NAME=row.Z_PROCESSING_PURPOSE_NAME,
+                    Z_TESTING_PROGRAM_NAME=row.Z_TESTING_PROGRAM_NAME,
+                    Z_ASSEMBLY_CODE=row.Z_ASSEMBLY_CODE,
+                    Z_WIRE_NAME=row.Z_WIRE_NAME,
+                    REMARK=row.REMARK,
+                    PURCHASE_DATE=row.PURCHASE_DATE,
+                    FIRST_ARRIVAL_DATE=row.FIRST_ARRIVAL_DATE,
+                    SUPPLIER_FULL_NAME=row.SUPPLIER_FULL_NAME,
+                    MAIN_CHIP=row.MAIN_CHIP,
+                    CHIP_CODE=row.CHIP_CODE,
+                    LOT_CODE_NAME=row.LOT_CODE_NAME,
+                    WAFER_QTY=row.WAFER_QTY,
+                    S_QTY=row.S_QTY,
+                    WAFER_ID=row.WAFER_ID,
+                    PROGRESS_NAME=row.PROGRESS_NAME,
+                    TESTING_PROGRAM_NAME=row.TESTING_PROGRAM_NAME,
+                    SUPPLIER=row.SUPPLIER
+                )
+                for row in result
+            ]
+
+            return {
+                "list":chip_trace_list,
+                "total":total
+            }
+
+        except Exception as e:
+            logger.error(f"获取芯片信息追溯失败: {str(e)}")
+            raise CustomException(f"获取芯片信息追溯失败: {str(e)}")

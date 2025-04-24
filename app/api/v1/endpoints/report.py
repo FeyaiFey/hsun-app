@@ -16,7 +16,7 @@ from app.core.exceptions import CustomException
 from app.core.response import CustomResponse
 from app.core.error_codes import ErrorCode, get_error_message
 from app.models.user import User
-from app.schemas.report import GlobalReport
+from app.schemas.report import GlobalReport,ChipInfoTraceQuery
 from app.services.e10_service import E10Service
 
 router = APIRouter()
@@ -160,3 +160,31 @@ async def export_sop_report(
             message="导出SOP报表失败",
             name="SopReportError"
         )
+
+@router.get("/chipInfoTrace/table")
+@monitor_request
+async def get_chipInfo_trace_table(
+    params: ChipInfoTraceQuery = Depends(),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """获取芯片信息追溯表格"""
+    try:
+        e10_service = E10Service(db, cache)
+        result = await e10_service.get_chipInfo_trace_by_params(params)
+        return CustomResponse.success(data=result)
+    except CustomException as e:
+        logger.error(f"获取芯片信息追溯表格失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="ChipInfoTraceError"
+        )
+    except Exception as e:
+        logger.error(f"获取芯片信息追溯表格失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.DB_ERROR),
+            name="ChipInfoTraceError"
+        )
+

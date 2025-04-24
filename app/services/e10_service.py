@@ -12,7 +12,7 @@ from app.schemas.assy import (AssyOrder, AssyOrderQuery, AssyWip, AssyWipQuery, 
                              AssySupplyAnalyzeResponse, ItemWaferInfoResponse, SalesResponse, AssySubmitOrdersRequest, AssySubmitOrdersResponse,
                              CpTestOrdersQuery, CpTestOrdersResponse)
 from app.schemas.stock import (StockQuery, Stock, WaferIdQtyDetailQuery, WaferIdQtyDetail, StockSummaryQuery, StockSummary)
-from app.schemas.report import GlobalReport,SopAnalyzeResponse
+from app.schemas.report import GlobalReport,SopAnalyzeResponse,ChipInfoTraceQuery,ChipInfoTraceResponse
 from app.schemas.e10 import (FeatureGroupName, FeatureGroupNameQuery, ItemCode, ItemCodeQuery, ItemName, ItemNameQuery,
                              WarehouseName, WarehouseNameQuery, TestingProgram, TestingProgramQuery, BurningProgram, BurningProgramQuery,
                              LotCode, LotCodeQuery
@@ -562,5 +562,13 @@ class E10Service:
         except Exception as e:
             logger.error(f"导出CP测试单Excel失败: {str(e)}")
             raise CustomException("导出CP测试单Excel失败")
-        
+
+    async def get_chipInfo_trace_by_params(self,params:ChipInfoTraceQuery) -> Dict[str,Any]:
+        """获取芯片信息追溯"""
+        try:
+            return self.crud_e10.get_chipInfo_trace_by_params(self.db,params)
+        except Exception as e:
+            logger.error(f"获取芯片信息追溯失败: {str(e)}")
+            raise CustomException("获取芯片信息追溯失败")
+
 e10_service = E10Service(None, None)  # 在应用启动时注入实际的 db 和 cache

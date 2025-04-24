@@ -45,3 +45,48 @@ class SopAnalyzeResponse(BaseModel):
     ASSY_STOCK: Optional[int] = Field(None, description="委外仓库存")
     TOTAL_STOCK: Optional[int] = Field(None, description="库存合计")
     INVENTORT_GAP: Optional[int] = Field(None, description="库存缺口")
+
+class ChipInfoTraceQuery(BaseModel):
+    """芯片信息追溯"""
+    CHIP_LOT_CODE: Optional[str] = Field(None, description="芯片批次号")
+    WAFER_LOT_CODE: Optional[str] = Field(None, description="晶圆批次号")
+    SUPPLIER: Optional[str] = Field(None, description="供应商")
+    CHIP_NAME: Optional[str] = Field(None, description="芯片名称")
+    WAFER_NAME: Optional[str] = Field(None, description="晶圆名称")
+    TESTING_PROGRAM_NAME: Optional[str] = Field(None, description="测试程序名称")
+    pageIndex: Optional[int] = Field(default=1, ge=1, description="页码")
+    pageSize: Optional[int] = Field(default=50, ge=1, le=100, description="每页数量")
+
+class ChipInfoTrace(BaseModel):
+    """芯片信息追溯"""
+    ID: Optional[int] = Field(None, description="ID")
+    DOC_NO: Optional[str] = Field(None, description="单据号")
+    ITEM_CODE: Optional[str] = Field(None, description="品号")
+    Z_PACKAGE_TYPE_NAME: Optional[str] = Field(None, description="封装类型")
+    LOT_CODE: Optional[str] = Field(None, description="批次号")
+    BUSINESS_QTY: Optional[int] = Field(None, description="业务数量")
+    RECEIPTED_PRICE_QTY: Optional[int] = Field(None, description="收货数量")
+    WIP_QTY: Optional[int] = Field(None, description="在制数量")
+    Z_PROCESSING_PURPOSE_NAME: Optional[str] = Field(None, description="加工方式")
+    Z_TESTING_PROGRAM_NAME: Optional[str] = Field(None, description="测试程序")
+    Z_ASSEMBLY_CODE: Optional[str] = Field(None, description="打线图号")
+    Z_WIRE_NAME: Optional[str] = Field(None, description="线材")
+    REMARK: Optional[str] = Field(None, description="备注")
+    PURCHASE_DATE: Optional[date] = Field(None, description="采购日期")
+    FIRST_ARRIVAL_DATE: Optional[date] = Field(None, description="首次到料日期")
+    SUPPLIER_FULL_NAME: Optional[str] = Field(None, description="供应商全称")
+    MAIN_CHIP: Optional[str] = Field(None, description="主芯片")
+    CHIP_CODE: Optional[str] = Field(None, description="芯片编码")
+    LOT_CODE_NAME: Optional[str] = Field(None, description="晶圆批次号")
+    WAFER_QTY: Optional[float] = Field(None, description="晶圆数量")
+    S_QTY: Optional[float] = Field(None, description="晶圆片数")
+    WAFER_ID: Optional[str] = Field(None, description="晶圆片号")
+    PROGRESS_NAME: Optional[str] = Field(None, description="测试流程")
+    TESTING_PROGRAM_NAME: Optional[str] = Field(None, description="测试程序")
+    SUPPLIER: Optional[str] = Field(None, description="CP供应商")
+
+
+class ChipInfoTraceResponse(BaseModel):
+    """芯片信息追溯"""
+    list: List[ChipInfoTrace] = Field(..., description="数据列表")
+    total: int = Field(..., description="总数量")
