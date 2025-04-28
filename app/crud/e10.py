@@ -1419,32 +1419,37 @@ class CRUDE10:
         """获取库存"""
         try:
             base_query = """
-                    SELECT FG.FEATURE_GROUP_NAME,
-                    ITEM.ITEM_CODE,ITEM.ITEM_NAME,
-                    IL.LOT_CODE,
-                    W.WAREHOUSE_NAME,
-                    CAST(SUM(A.INVENTORY_QTY) AS INT) AS INVENTORY_QTY,CAST(SUM(A.SECOND_QTY) AS FLOAT) AS SECOND_QTY,
-                    B.Z_BIN_LEVEL_NAME,
-                    T.Z_TESTING_PROGRAM_NAME,
-                    BP.Z_BURNING_PROGRAM_NAME
-                    FROM Z_WF_IC_WAREHOUSE_BIN A
-                    LEFT JOIN ITEM
-                    ON ITEM.ITEM_BUSINESS_ID = A.ITEM_ID
-                    LEFT JOIN ITEM_LOT IL
-                    ON IL.ITEM_LOT_ID = A.ITEM_LOT_ID
-                    LEFT JOIN FEATURE_GROUP FG
-                    ON FG.FEATURE_GROUP_ID = ITEM.FEATURE_GROUP_ID
-                    LEFT JOIN Z_BIN_LEVEL B
-                    ON B.Z_BIN_LEVEL_ID = A.Z_BIN_LEVEL_ID
-                    LEFT JOIN Z_TESTING_PROGRAM T
-                    ON T.Z_TESTING_PROGRAM_ID = A.Z_TESTING_PROGRAM_ID
-                    LEFT JOIN Z_BURNING_PROGRAM BP
-                    ON BP.Z_BURNING_PROGRAM_ID = A.Z_BURNING_PROGRAM_ID
-                    LEFT JOIN WAREHOUSE W
-                    ON A.WAREHOUSE_ID = W.WAREHOUSE_ID
-                    GROUP BY FG.FEATURE_GROUP_NAME,ITEM.ITEM_CODE,ITEM.ITEM_NAME,IL.LOT_CODE,W.WAREHOUSE_NAME,B.Z_BIN_LEVEL_NAME,
-                    T.Z_TESTING_PROGRAM_NAME,BP.Z_BURNING_PROGRAM_NAME
-                    HAVING SUM(A.INVENTORY_QTY) > 0 
+                        SELECT 
+                        FG.FEATURE_GROUP_NAME,
+                        ITEM.ITEM_CODE,
+                        ITEM.ITEM_NAME,
+                        IL.LOT_CODE,
+                        W.WAREHOUSE_NAME,
+                        CAST(SUM(A.INVENTORY_QTY) AS INT) AS INVENTORY_QTY,
+                        CAST(SUM(ISNULL(C.SECOND_QTY,0)) AS FLOAT) AS SECOND_QTY,
+                        B.Z_BIN_LEVEL_NAME,
+                        T.Z_TESTING_PROGRAM_NAME,
+                        BP.Z_BURNING_PROGRAM_NAME
+                        FROM ITEM_WAREHOUSE_BIN A
+                        LEFT JOIN Z_WF_IC_WAREHOUSE_BIN C
+                        ON C.ITEM_ID = A.ITEM_ID AND C.ITEM_LOT_ID = A.ITEM_LOT_ID
+                        LEFT JOIN ITEM
+                        ON ITEM.ITEM_BUSINESS_ID = A.ITEM_ID
+                        LEFT JOIN ITEM_LOT IL
+                        ON IL.ITEM_LOT_ID = A.ITEM_LOT_ID
+                        LEFT JOIN FEATURE_GROUP FG
+                        ON FG.FEATURE_GROUP_ID = ITEM.FEATURE_GROUP_ID
+                        LEFT JOIN Z_BIN_LEVEL B
+                        ON B.Z_BIN_LEVEL_ID = C.Z_BIN_LEVEL_ID
+                        LEFT JOIN Z_TESTING_PROGRAM T
+                        ON T.Z_TESTING_PROGRAM_ID = C.Z_TESTING_PROGRAM_ID
+                        LEFT JOIN Z_BURNING_PROGRAM BP
+                        ON BP.Z_BURNING_PROGRAM_ID = C.Z_BURNING_PROGRAM_ID
+                        LEFT JOIN WAREHOUSE W
+                        ON A.WAREHOUSE_ID = W.WAREHOUSE_ID
+                        GROUP BY FG.FEATURE_GROUP_NAME,ITEM.ITEM_CODE,ITEM.ITEM_NAME,IL.LOT_CODE,W.WAREHOUSE_NAME,B.Z_BIN_LEVEL_NAME,
+                        T.Z_TESTING_PROGRAM_NAME,BP.Z_BURNING_PROGRAM_NAME
+                        HAVING SUM(A.INVENTORY_QTY) > 0
                     """
             # 构建查询条件
             having_conditions = []
@@ -1758,55 +1763,38 @@ class CRUDE10:
         try:
             base_query = text("""
                 WITH SD AS(
-                SELECT 
-                    STK.ITEM_NAME,
-                    STK.TOTAL_FINISHED_GOODS,
-                    STK.TOP_FINISHED_GOODS,
-                    STK.BACK_FINISHED_GOODS,
-                    STK.TOTAL_SEMI_MANUFACTURED,
-                    STK.TOP_SEMI_MANUFACTURED,
-                    STK.BACK_SEMI_MANUFACTURED,
-                    SGK.SG_QTY,
-                    SGK.SG_FINISHED_GOODS,
-                    SGK.SG_SEMI_MANUFACTURED,
-                    STK.TOTAL_RAW_MATERIALS,
-                    NO_TESTED_WAFER,
-                    TESTED_WAFER,
-                    OUTSOURCING_WAFER
-                FROM
-                    (
                     SELECT 
-                    ITEM_NAME,
-                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CP%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS TOTAL_FINISHED_GOODS,
-                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CP%ZY%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS TOP_FINISHED_GOODS,
-                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CP%BY%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS BACK_FINISHED_GOODS,
-                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'BC%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS TOTAL_SEMI_MANUFACTURED,
-                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'BC%ZY%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS TOP_SEMI_MANUFACTURED,
-                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'BC%BY%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS BACK_SEMI_MANUFACTURED,
-                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%' THEN SECOND_QTY ELSE 0 END) AS FLOAT) AS TOTAL_RAW_MATERIALS,
-                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%WF' THEN SECOND_QTY ELSE 0 END) AS FLOAT) AS NO_TESTED_WAFER,
-                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%CP' THEN SECOND_QTY ELSE 0 END) AS FLOAT) AS TESTED_WAFER,
-                    CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%WG' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS OUTSOURCING_WAFER
+                        STK.ITEM_NAME,
+                        STK.TOTAL_FINISHED_GOODS,
+                        STK.TOP_FINISHED_GOODS,
+                        STK.BACK_FINISHED_GOODS,
+                        STK.TOTAL_SEMI_MANUFACTURED,
+                        STK.TOP_SEMI_MANUFACTURED,
+                        STK.BACK_SEMI_MANUFACTURED,
+                        SGK.SG_QTY,
+                        SGK.SG_FINISHED_GOODS,
+                        SGK.SG_SEMI_MANUFACTURED,
+                        STK.TOTAL_RAW_MATERIALS,
+                        NO_TESTED_WAFER,
+                        TESTED_WAFER,
+                        OUTSOURCING_WAFER
                     FROM
-                    (
+                        (
                         SELECT 
-                        ITEM.ITEM_CODE,
-                        CASE 
-                            WHEN ITEM.ITEM_NAME = N'HS6601MX-16H-SOP8-H' THEN N'HS6601MX-SOP8-H'
-                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
-                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
-                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
-                            ELSE ITEM.ITEM_NAME
-                        END AS ITEM_NAME,
-                        SUM(A.INVENTORY_QTY) AS INVENTORY_QTY,
-                        SUM(A.SECOND_QTY) AS SECOND_QTY
-                        FROM Z_WF_IC_WAREHOUSE_BIN A
-                        LEFT JOIN ITEM
-                            ON ITEM.ITEM_BUSINESS_ID = A.ITEM_ID
-                        LEFT JOIN WAREHOUSE W
-                            ON A.WAREHOUSE_ID = W.WAREHOUSE_ID
-                        WHERE A.INVENTORY_QTY > 0 AND (W.WAREHOUSE_NAME != '实验仓-TH（产成品）') AND (W.WAREHOUSE_NAME NOT LIKE 'HOLD仓%') AND (W.WAREHOUSE_NAME NOT LIKE '华新源%')
-                        GROUP BY
+                        ITEM_NAME,
+                        CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CP%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS TOTAL_FINISHED_GOODS,
+                        CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CP%ZY%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS TOP_FINISHED_GOODS,
+                        CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CP%BY%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS BACK_FINISHED_GOODS,
+                        CAST(SUM(CASE WHEN ITEM_CODE LIKE N'BC%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS TOTAL_SEMI_MANUFACTURED,
+                        CAST(SUM(CASE WHEN ITEM_CODE LIKE N'BC%ZY%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS TOP_SEMI_MANUFACTURED,
+                        CAST(SUM(CASE WHEN ITEM_CODE LIKE N'BC%BY%' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS BACK_SEMI_MANUFACTURED,
+                        CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%' THEN SECOND_QTY ELSE 0 END) AS FLOAT) AS TOTAL_RAW_MATERIALS,
+                        CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%WF' THEN SECOND_QTY ELSE 0 END) AS FLOAT) AS NO_TESTED_WAFER,
+                        CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%CP' THEN SECOND_QTY ELSE 0 END) AS FLOAT) AS TESTED_WAFER,
+                        CAST(SUM(CASE WHEN ITEM_CODE LIKE N'CL%WG' THEN INVENTORY_QTY ELSE 0 END) AS INT) AS OUTSOURCING_WAFER
+                        FROM
+                        (
+                            SELECT 
                             ITEM.ITEM_CODE,
                             CASE 
                                 WHEN ITEM.ITEM_NAME = N'HS6601MX-16H-SOP8-H' THEN N'HS6601MX-SOP8-H'
@@ -1814,164 +1802,192 @@ class CRUDE10:
                                 WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
                                 WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
                                 ELSE ITEM.ITEM_NAME
-                            END
-                        ) AS NT
-                    GROUP BY ITEM_NAME
-                    ) AS STK
-                LEFT JOIN 
-                    (SELECT 
-                        CASE 
-                            WHEN ITEM.ITEM_NAME = N'HS6601MX-16H-SOP8-H' THEN N'HS6601MX-SOP8-H'
-                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
-                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
-                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
-                            ELSE ITEM.ITEM_NAME
-                        END AS ITEM_NAME,
-                        CAST(SUM(A.INVENTORY_QTY) AS INT) AS SG_QTY,
-                        CAST(SUM(CASE WHEN W.WAREHOUSE_NAME=N'苏工院（半成品）' THEN A.INVENTORY_QTY ELSE 0 END) AS INT) AS SG_SEMI_MANUFACTURED,
-                        CAST(SUM(CASE WHEN W.WAREHOUSE_NAME=N'苏工院（产成品）' THEN A.INVENTORY_QTY ELSE 0 END) AS INT) AS SG_FINISHED_GOODS
-                        FROM Z_WF_IC_WAREHOUSE_BIN A
-                        LEFT JOIN ITEM
-                        ON ITEM.ITEM_BUSINESS_ID = A.ITEM_ID
-                        LEFT JOIN WAREHOUSE W
-                        ON A.WAREHOUSE_ID = W.WAREHOUSE_ID
-                        WHERE A.INVENTORY_QTY > 0 AND (W.WAREHOUSE_NAME = N'苏工院（半成品）' OR W.WAREHOUSE_NAME = N'苏工院（产成品）')
-                        GROUP BY 
-                        CASE 
-                            WHEN ITEM.ITEM_NAME = N'HS6601MX-16H-SOP8-H' THEN N'HS6601MX-SOP8-H'
-                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
-                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
-                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
-                            ELSE ITEM.ITEM_NAME
-                        END) AS SGK
-                    ON STK.ITEM_NAME = SGK.ITEM_NAME
-                    ),
-                    
-                WIP AS
-                (	
-                    SELECT
-                    ITEM_NAME,
-                    SUM(CASE WHEN (ITEM_CODE LIKE N'CL%WF' OR ITEM_CODE LIKE N'CL%WG') THEN WIP_QTY ELSE 0 END ) AS PURCHASE_WIP_QTY,
-                    SUM(CASE WHEN ITEM_CODE LIKE N'CL%WG' THEN WIP_QTY ELSE 0 END ) AS OUTSOURCING_WIP_QTY,
-                    SUM(CASE WHEN ITEM_CODE LIKE N'BC%AB' THEN WIP_QTY ELSE 0 END ) AS PACKAGE_WIP_QTY,
-                    SUM(CASE WHEN ITEM_CODE LIKE N'BC%ZY%AB' THEN WIP_QTY ELSE 0 END ) AS PACKAGE_TOP_WIP_QTY,
-                    SUM(CASE WHEN ITEM_CODE LIKE N'BC%BY%AB' THEN WIP_QTY ELSE 0 END ) AS PACKAGE_BACK_WIP_QTY,
-                    SUM(CASE WHEN ITEM_CODE LIKE N'CL%CP' THEN WIP_QTY ELSE 0 END ) AS CP_WIP_QTY,
-                    SUM(CASE WHEN ITEM_CODE LIKE N'CP%' THEN WIP_QTY ELSE 0 END ) AS SECONDARY_OUTSOURCING_WIP_QTY
-                    FROM
+                            END AS ITEM_NAME,
+                            SUM(A.INVENTORY_QTY) AS INVENTORY_QTY,
+                            SUM(CASE WHEN A.SECOND_QTY = 0 THEN A.INVENTORY_QTY ELSE A.SECOND_QTY END) AS SECOND_QTY
+                            FROM ITEM_WAREHOUSE_BIN A
+                            LEFT JOIN ITEM
+                                ON ITEM.ITEM_BUSINESS_ID = A.ITEM_ID
+                            LEFT JOIN WAREHOUSE W
+                                ON A.WAREHOUSE_ID = W.WAREHOUSE_ID
+                            WHERE A.INVENTORY_QTY > 0 AND (W.WAREHOUSE_NAME != '实验仓-TH（产成品）') AND (W.WAREHOUSE_NAME NOT LIKE 'HOLD仓%') AND (W.WAREHOUSE_NAME NOT LIKE '华新源%')
+                            GROUP BY
+                                ITEM.ITEM_CODE,
+                                CASE 
+                                    WHEN ITEM.ITEM_NAME = N'HS6601MX-16H-SOP8-H' THEN N'HS6601MX-SOP8-H'
+                                    WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
+                                    WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
+                                    WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
+                                    ELSE ITEM.ITEM_NAME
+                                END
+                            ) AS NT
+                        GROUP BY ITEM_NAME
+                        ) AS STK
+                    LEFT JOIN 
+                        (SELECT 
+                            CASE 
+                                WHEN ITEM.ITEM_NAME = N'HS6601MX-16H-SOP8-H' THEN N'HS6601MX-SOP8-H'
+                                WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
+                                WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
+                                WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
+                                ELSE ITEM.ITEM_NAME
+                            END AS ITEM_NAME,
+                            CAST(SUM(A.INVENTORY_QTY) AS INT) AS SG_QTY,
+                            CAST(SUM(CASE WHEN W.WAREHOUSE_NAME=N'苏工院（半成品）' THEN A.INVENTORY_QTY ELSE 0 END) AS INT) AS SG_SEMI_MANUFACTURED,
+                            CAST(SUM(CASE WHEN W.WAREHOUSE_NAME=N'苏工院（产成品）' THEN A.INVENTORY_QTY ELSE 0 END) AS INT) AS SG_FINISHED_GOODS
+                            FROM ITEM_WAREHOUSE_BIN A
+                            LEFT JOIN ITEM
+                            ON ITEM.ITEM_BUSINESS_ID = A.ITEM_ID
+                            LEFT JOIN WAREHOUSE W
+                            ON A.WAREHOUSE_ID = W.WAREHOUSE_ID
+                            WHERE A.INVENTORY_QTY > 0 AND (W.WAREHOUSE_NAME = N'苏工院（半成品）' OR W.WAREHOUSE_NAME = N'苏工院（产成品）')
+                            GROUP BY 
+                            CASE 
+                                WHEN ITEM.ITEM_NAME = N'HS6601MX-16H-SOP8-H' THEN N'HS6601MX-SOP8-H'
+                                WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
+                                WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
+                                WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
+                                ELSE ITEM.ITEM_NAME
+                            END) AS SGK
+                        ON STK.ITEM_NAME = SGK.ITEM_NAME
+                        ),
+                        
+                    WIP AS
                     (	
-                    SELECT NT.ITEM_CODE,NT.ITEM_NAME,SUM(NT.WIP_QTY) AS WIP_QTY
+                        SELECT
+                        ITEM_NAME,
+                        SUM(CASE WHEN (ITEM_CODE LIKE N'CL%WF' OR ITEM_CODE LIKE N'CL%WG') THEN WIP_QTY ELSE 0 END ) AS PURCHASE_WIP_QTY,
+                        SUM(CASE WHEN ITEM_CODE LIKE N'CL%WG' THEN WIP_QTY ELSE 0 END ) AS OUTSOURCING_WIP_QTY,
+                        SUM(CASE WHEN ITEM_CODE LIKE N'BC%AB' THEN WIP_QTY ELSE 0 END ) AS PACKAGE_WIP_QTY,
+                        SUM(CASE WHEN ITEM_CODE LIKE N'BC%ZY%AB' THEN WIP_QTY ELSE 0 END ) AS PACKAGE_TOP_WIP_QTY,
+                        SUM(CASE WHEN ITEM_CODE LIKE N'BC%BY%AB' THEN WIP_QTY ELSE 0 END ) AS PACKAGE_BACK_WIP_QTY,
+                        SUM(CASE WHEN ITEM_CODE LIKE N'CL%CP' THEN WIP_QTY ELSE 0 END ) AS CP_WIP_QTY,
+                        SUM(CASE WHEN ITEM_CODE LIKE N'CP%' THEN WIP_QTY ELSE 0 END ) AS SECONDARY_OUTSOURCING_WIP_QTY
+                        FROM
+                        (	
+                        SELECT NT.ITEM_CODE,NT.ITEM_NAME,SUM(NT.WIP_QTY) AS WIP_QTY
+                        FROM
+                        (
+                            SELECT
+                            ITEM.ITEM_CODE,
+                            CASE 
+                            WHEN ITEM.ITEM_NAME='GC1808-TSSOP14-D-ZY' THEN 'GC1808D-TSSOP14-D-ZY'
+                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
+                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
+                            WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
+                            ELSE ITEM.ITEM_NAME
+                            END AS ITEM_NAME,
+                            CASE 
+                            WHEN PO.[CLOSE] <> N'0' THEN 0
+                            WHEN PO_D.BUSINESS_QTY <> 0 AND (PO_D.RECEIPTED_PRICE_QTY / PO_D.BUSINESS_QTY) > 0.9989 THEN 0
+                            ELSE CAST((PO_D.BUSINESS_QTY - PO_D.RECEIPTED_PRICE_QTY) AS INT)
+                            END AS WIP_QTY
+                            FROM PURCHASE_ORDER PO
+                            LEFT JOIN PURCHASE_ORDER_D PO_D ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
+                            LEFT JOIN PURCHASE_ORDER_SD PO_SD ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                            LEFT JOIN ITEM ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                            WHERE PO_SD.RECEIPT_CLOSE = 0
+                            UNION ALL 
+                            SELECT ITEM.ITEM_CODE,ITEM.ITEM_NAME,(MO_D.REQUIRED_SECOND_QTY-MP.COMPLETED_SECOND_QTY) AS WIP_QTY
+                            FROM MO
+                            LEFT JOIN MO_D ON MO.MO_ID = MO_D.MO_ID
+                            LEFT JOIN MO_PRODUCT MP ON MP.MO_ID = MO.MO_ID
+                            LEFT JOIN ITEM ON ITEM.ITEM_BUSINESS_ID = MO.ITEM_ID
+                            WHERE ITEM.ITEM_CODE LIKE N'CL%CP' AND MO.STATUS NOT IN ('Y','y') AND MO.DOC_NO LIKE '5105%'
+                            ) AS NT
+                            GROUP BY NT.ITEM_CODE,NT.ITEM_NAME
+                        ) AS NNT
+                        GROUP BY ITEM_NAME
+                    ),
+                    BL AS
+                    (
+                    SELECT
+                    ROW_NUMBER ( ) OVER ( ORDER BY MAIN_CHIP, DEPUTY_CHIP, CHIP_NAME ) + 10000 AS ROW,BB.*
                     FROM
                     (
-                        SELECT
-                        ITEM.ITEM_CODE,
-                        CASE 
-                        WHEN ITEM.ITEM_NAME='GC1808-TSSOP14-D-ZY' THEN 'GC1808D-TSSOP14-D-ZY'
-                        WHEN RIGHT(ITEM.ITEM_NAME,3)='-BY' THEN REPLACE(ITEM.ITEM_NAME, '-BY', '') 
-                        WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZY' THEN REPLACE(ITEM.ITEM_NAME, '-ZY', '') 
-                        WHEN RIGHT(ITEM.ITEM_NAME,3)='-ZB' THEN REPLACE(ITEM.ITEM_NAME, '-ZB', '')
-                        ELSE ITEM.ITEM_NAME
-                        END AS ITEM_NAME,
-                        CASE 
-                        WHEN PO.[CLOSE] <> N'0' THEN 0
-                        WHEN PO_D.BUSINESS_QTY <> 0 AND (PO_D.RECEIPTED_PRICE_QTY / PO_D.BUSINESS_QTY) > 0.9989 THEN 0
-                        ELSE CAST((PO_D.BUSINESS_QTY - PO_D.RECEIPTED_PRICE_QTY) AS INT)
-                        END AS WIP_QTY
-                        FROM PURCHASE_ORDER PO
-                        LEFT JOIN PURCHASE_ORDER_D PO_D ON PO_D.PURCHASE_ORDER_ID = PO.PURCHASE_ORDER_ID
-                        LEFT JOIN PURCHASE_ORDER_SD PO_SD ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
-                        LEFT JOIN ITEM ON PO_D.ITEM_ID = ITEM.ITEM_BUSINESS_ID
-                        WHERE PO_SD.RECEIPT_CLOSE = 0
-                        UNION ALL 
-                        SELECT ITEM.ITEM_CODE,ITEM.ITEM_NAME,(MO_D.REQUIRED_SECOND_QTY-MP.COMPLETED_SECOND_QTY) AS WIP_QTY
-                        FROM MO
-                        LEFT JOIN MO_D ON MO.MO_ID = MO_D.MO_ID
-                        LEFT JOIN MO_PRODUCT MP ON MP.MO_ID = MO.MO_ID
-                        LEFT JOIN ITEM ON ITEM.ITEM_BUSINESS_ID = MO.ITEM_ID
-                        WHERE ITEM.ITEM_CODE LIKE N'CL%CP' AND MO.STATUS NOT IN ('Y','y') AND MO.DOC_NO LIKE '5105%'
+                    SELECT 
+                    DISTINCT(ITEM_NAME) AS MAIN_CHIP,BOM.DEPUTY_CHIP,BOM.CHIP_NAME,
+                    ROW_NUMBER() OVER (PARTITION BY NT.ITEM_NAME ORDER BY NT.ITEM_NAME, BOM.DEPUTY_CHIP, BOM.CHIP_NAME) AS RN,
+                    COUNT(*) OVER (PARTITION BY NT.ITEM_NAME) AS MAIN_CHIP_COUNT
+                    FROM
+                    (
+                        SELECT DISTINCT(ITEM.ITEM_NAME) AS ITEM_NAME
+                        FROM ITEM
+                        LEFT JOIN FEATURE_GROUP FG ON FG.FEATURE_GROUP_ID = ITEM.FEATURE_GROUP_ID
+                        WHERE ITEM.ITEM_CODE LIKE N'CL%' AND ITEM.FEATURE_GROUP_ID NOT IN ('16CC4C4F-7563-405C-37AF-1B442416133B','8848D890-F146-4542-98ED-1B521A585688','61A2E333-0BBB-4CE9-D47E-1B45AF842140','61A2E333-0BBB-4CE9-D47E-1B45AF842140') AND ITEM.ITEM_NAME != '待失效'
+                    ) AS NT
+                    LEFT JOIN 
+                    (
+                        SELECT 
+                        MAX(CASE WHEN RowNum = 1 THEN NT.WAFER_NAME END) AS MAIN_CHIP,
+                        MAX(CASE WHEN RowNum = 2 THEN NT.WAFER_NAME END) AS DEPUTY_CHIP,
+                            CHIP_NAME
+                        FROM
+                        (
+                        SELECT 
+                        CASE
+                        WHEN IT.ITEM_NAME='GC1808-TSSOP14-D-ZY' THEN 'GC1808D-TSSOP14-D'
+                        WHEN (RIGHT(IT.ITEM_NAME,3)='-ZY' OR RIGHT(IT.ITEM_NAME,3)='-BY' OR RIGHT(IT.ITEM_NAME,3)='-ZB') THEN LEFT(IT.ITEM_NAME, LEN(IT.ITEM_NAME)-3)
+                        ELSE IT.ITEM_NAME
+                        END AS CHIP_NAME,
+                        ROW_NUMBER() OVER(PARTITION BY IT.ITEM_CODE ORDER BY BD.Z_MAIN_CHIP) AS RowNum,ITEM.ITEM_NAME AS WAFER_NAME
+                        FROM BOM_PRODUCT BP
+                        LEFT JOIN ITEM IT
+                        ON BP.ITEM_ID = IT.ITEM_BUSINESS_ID
+                        LEFT JOIN BOM_D BD
+                        ON BD.BOM_ID =BP.BOM_ID 
+                        LEFT JOIN ITEM 
+                        ON BD.SOURCE_ID_ROid = ITEM.ITEM_BUSINESS_ID
+                        WHERE IT.STATUS != 3 AND IT.ITEM_NAME <> N'AZ1' AND IT.ITEM_CODE LIKE N'BC%AB'
                         ) AS NT
-                        GROUP BY NT.ITEM_CODE,NT.ITEM_NAME
-                    ) AS NNT
-                    GROUP BY ITEM_NAME
-                ),
-                BL AS
-                (
-                SELECT 
-                ROW_NUMBER() OVER (ORDER BY MAIN_CHIP,DEPUTY_CHIP,CHIP_NAME) + 10000 AS ROW,
-                BOM.*,
-                ROW_NUMBER() OVER (PARTITION BY MAIN_CHIP ORDER BY MAIN_CHIP, DEPUTY_CHIP, CHIP_NAME) AS RN,
-                COUNT(*) OVER (PARTITION BY MAIN_CHIP) AS MAIN_CHIP_COUNT
-                FROM
-                (
-                SELECT 
-                MAX(CASE WHEN RowNum = 1 THEN NT.WAFER_NAME END) AS MAIN_CHIP,
-                MAX(CASE WHEN RowNum = 2 THEN NT.WAFER_NAME END) AS DEPUTY_CHIP,
-                    CHIP_NAME
-                FROM
-                (
-                SELECT 
-                CASE
-                  WHEN IT.ITEM_NAME='GC1808-TSSOP14-D-ZY' THEN 'GC1808D-TSSOP14-D'
-                  WHEN (RIGHT(IT.ITEM_NAME,3)='-ZY' OR RIGHT(IT.ITEM_NAME,3)='-BY' OR RIGHT(IT.ITEM_NAME,3)='-ZB') THEN LEFT(IT.ITEM_NAME, LEN(IT.ITEM_NAME)-3)
-                  ELSE IT.ITEM_NAME
-                END AS CHIP_NAME,
-                ROW_NUMBER() OVER(PARTITION BY IT.ITEM_CODE ORDER BY BD.Z_MAIN_CHIP) AS RowNum,ITEM.ITEM_NAME AS WAFER_NAME
-                FROM BOM_PRODUCT BP
-                LEFT JOIN ITEM IT
-                ON BP.ITEM_ID = IT.ITEM_BUSINESS_ID
-                LEFT JOIN BOM_D BD
-                ON BD.BOM_ID =BP.BOM_ID 
-                LEFT JOIN ITEM 
-                ON BD.SOURCE_ID_ROid = ITEM.ITEM_BUSINESS_ID
-                WHERE IT.STATUS != 3 AND IT.ITEM_NAME <> N'AZ1' AND IT.ITEM_CODE LIKE N'BC%AB'
-                ) AS NT
-                GROUP BY NT.CHIP_NAME
-                ) AS BOM 
-                )
+                        GROUP BY NT.CHIP_NAME
+                        ) AS BOM  ON BOM.MAIN_CHIP = NT.ITEM_NAME
+                    ) AS BB
+                    )
 
-                SELECT
-                BL.ROW,
-                BL.RN,
-                BL.MAIN_CHIP_COUNT,
-                BL.MAIN_CHIP,
-                NNT.ITEM_CODE AS WAFER_CODE,
-                BL.CHIP_NAME,
-                ISNULL(SD1.TOTAL_FINISHED_GOODS, 0) AS TOTAL_FINISHED_GOODS,
-                ISNULL(SD1.TOP_FINISHED_GOODS, 0) AS TOP_FINISHED_GOODS,
-                ISNULL(SD1.BACK_FINISHED_GOODS, 0) AS BACK_FINISHED_GOODS,
-                ISNULL(SD1.TOTAL_SEMI_MANUFACTURED, 0) AS TOTAL_SEMI_MANUFACTURED,
-                ISNULL(SD1.TOP_SEMI_MANUFACTURED, 0) AS TOP_SEMI_MANUFACTURED,
-                ISNULL(SD1.BACK_SEMI_MANUFACTURED, 0) AS BACK_SEMI_MANUFACTURED,
-                ISNULL(WIP3.PACKAGE_WIP_QTY, 0) AS PACKAGE_WIP_QTY,
-                ISNULL(WIP3.PACKAGE_TOP_WIP_QTY, 0) AS PACKAGE_TOP_WIP_QTY,
-                ISNULL(WIP3.PACKAGE_BACK_WIP_QTY, 0) AS PACKAGE_BACK_WIP_QTY,
-                ISNULL(SD1.SG_QTY, 0) AS SG_QTY,
-                ISNULL(SD1.SG_FINISHED_GOODS, 0) AS SG_FINISHED_GOODS,
-                ISNULL(SD1.SG_SEMI_MANUFACTURED, 0) AS SG_SEMI_MANUFACTURED,
-                ISNULL(WIP3.SECONDARY_OUTSOURCING_WIP_QTY, 0) AS SECONDARY_OUTSOURCING_WIP_QTY,
-                ISNULL(WIP1.PURCHASE_WIP_QTY, 0) AS PURCHASE_WIP_QTY,
-                ISNULL(SD2.TOTAL_RAW_MATERIALS,0) AS TOTAL_RAW_MATERIALS,
-                ISNULL(WIP1.CP_WIP_QTY, 0) AS CP_WIP_QTY,
-                ISNULL(SD2.NO_TESTED_WAFER, 0) AS NO_TESTED_WAFER,
-                ISNULL(SD2.TESTED_WAFER, 0) AS TESTED_WAFER,
-                BL.DEPUTY_CHIP,
-                ISNULL(WIP2.PURCHASE_WIP_QTY, 0) AS OUTSOURCING_WIP_QTY,
-                ISNULL(SD3.TOTAL_RAW_MATERIALS, 0) AS TOTAL_B_RAW_MATERIALS
-                FROM BL
-                LEFT JOIN SD SD1 ON SD1.ITEM_NAME = BL.CHIP_NAME
-                LEFT JOIN SD SD2 ON SD2.ITEM_NAME = BL.MAIN_CHIP
-                LEFT JOIN SD SD3 ON SD3.ITEM_NAME = BL.DEPUTY_CHIP
-                LEFT JOIN WIP WIP1 ON WIP1.ITEM_NAME = BL.MAIN_CHIP
-                LEFT JOIN WIP WIP2 ON WIP2.ITEM_NAME = BL.DEPUTY_CHIP
-                LEFT JOIN WIP WIP3 ON WIP3.ITEM_NAME = BL.CHIP_NAME
-                INNER JOIN 
-                (
-                  SELECT ITEM_NAME,ITEM_CODE
-                  FROM ITEM
-                  WHERE ITEM_CODE LIKE N'%WG' OR ITEM_CODE LIKE N'%WF'
-                )NNT 
-                ON NNT.ITEM_NAME = BL.MAIN_CHIP
-                ORDER BY BL.ROW
+                    SELECT
+                    BL.ROW,
+                    BL.RN,
+                    BL.MAIN_CHIP_COUNT,
+                    BL.MAIN_CHIP,
+                    NNT.ITEM_CODE AS WAFER_CODE,
+                    BL.CHIP_NAME,
+                    ISNULL(SD1.TOTAL_FINISHED_GOODS, 0) AS TOTAL_FINISHED_GOODS,
+                    ISNULL(SD1.TOP_FINISHED_GOODS, 0) AS TOP_FINISHED_GOODS,
+                    ISNULL(SD1.BACK_FINISHED_GOODS, 0) AS BACK_FINISHED_GOODS,
+                    ISNULL(SD1.TOTAL_SEMI_MANUFACTURED, 0) AS TOTAL_SEMI_MANUFACTURED,
+                    ISNULL(SD1.TOP_SEMI_MANUFACTURED, 0) AS TOP_SEMI_MANUFACTURED,
+                    ISNULL(SD1.BACK_SEMI_MANUFACTURED, 0) AS BACK_SEMI_MANUFACTURED,
+                    ISNULL(WIP3.PACKAGE_WIP_QTY, 0) AS PACKAGE_WIP_QTY,
+                    ISNULL(WIP3.PACKAGE_TOP_WIP_QTY, 0) AS PACKAGE_TOP_WIP_QTY,
+                    ISNULL(WIP3.PACKAGE_BACK_WIP_QTY, 0) AS PACKAGE_BACK_WIP_QTY,
+                    ISNULL(SD1.SG_QTY, 0) AS SG_QTY,
+                    ISNULL(SD1.SG_FINISHED_GOODS, 0) AS SG_FINISHED_GOODS,
+                    ISNULL(SD1.SG_SEMI_MANUFACTURED, 0) AS SG_SEMI_MANUFACTURED,
+                    ISNULL(WIP3.SECONDARY_OUTSOURCING_WIP_QTY, 0) AS SECONDARY_OUTSOURCING_WIP_QTY,
+                    ISNULL(WIP1.PURCHASE_WIP_QTY, 0) AS PURCHASE_WIP_QTY,
+                    ISNULL(SD2.TOTAL_RAW_MATERIALS,0) AS TOTAL_RAW_MATERIALS,
+                    ISNULL(WIP1.CP_WIP_QTY, 0) AS CP_WIP_QTY,
+                    ISNULL(SD2.NO_TESTED_WAFER, 0) AS NO_TESTED_WAFER,
+                    ISNULL(SD2.TESTED_WAFER, 0) AS TESTED_WAFER,
+                    BL.DEPUTY_CHIP,
+                    ISNULL(WIP2.PURCHASE_WIP_QTY, 0) AS OUTSOURCING_WIP_QTY,
+                    ISNULL(SD3.TOTAL_RAW_MATERIALS, 0) AS TOTAL_B_RAW_MATERIALS
+                    FROM BL
+                    LEFT JOIN SD SD1 ON SD1.ITEM_NAME = BL.CHIP_NAME
+                    LEFT JOIN SD SD2 ON SD2.ITEM_NAME = BL.MAIN_CHIP
+                    LEFT JOIN SD SD3 ON SD3.ITEM_NAME = BL.DEPUTY_CHIP
+                    LEFT JOIN WIP WIP1 ON WIP1.ITEM_NAME = BL.MAIN_CHIP
+                    LEFT JOIN WIP WIP2 ON WIP2.ITEM_NAME = BL.DEPUTY_CHIP
+                    LEFT JOIN WIP WIP3 ON WIP3.ITEM_NAME = BL.CHIP_NAME
+                    INNER JOIN 
+                    (
+                        SELECT ITEM_NAME,ITEM_CODE
+                        FROM ITEM
+                        WHERE ITEM_CODE LIKE N'%WG' OR ITEM_CODE LIKE N'%WF'
+                    )NNT 
+                    ON NNT.ITEM_NAME = BL.MAIN_CHIP
+                    ORDER BY BL.ROW
             """)
             result = db.execute(base_query).all()
             

@@ -124,5 +124,9 @@ class UserEmailInfo(BaseModel):
     EMAIL: str = Field(..., description="邮箱")
     PASSWORD: Optional[str] = Field(None, description="邮箱密码")
     IMAP_SERVER: str = Field(..., description="IMAP服务器")
-    SMTP_PORT: int = Field(..., description="IMAP端口")
+    IMAP_PORT: int = Field(..., description="IMAP端口")
+    IMAP_USE_SSL: int = Field(..., description="IMAP是否使用SSL")
+    SMTP_SERVER: str = Field(..., description="SMTP服务器")
+    SMTP_PORT: int = Field(..., description="SMTP端口")
+    SMTP_USE_SSL: int = Field(..., description="SMTP是否使用SSL")
     

@@ -286,8 +286,12 @@ class CRUDUser:
                 hu.id AS ID,
                 hu.email AS EMAIL, 
                 he.email_special_password AS PASSWORD,
-                's220s.chinaemail.cn' AS IMAP_SERVER, 
-                465 AS SMTP_PORT
+                'p220s.chinaemail.cn' AS IMAP_SERVER, 
+                993 AS IMAP_PORT,
+                1 AS IMAP_USE_SSL,
+                's220s.chinaemail.cn' AS SMTP_SERVER, 
+                465 AS SMTP_PORT,
+                1 AS SMTP_USE_SSL
                 FROM huaxinAdmin_users hu
                 LEFT JOIN huaxinAdmin_email_msg he ON he.id = hu.id
                 WHERE hu.id = :user_id
@@ -300,7 +304,11 @@ class CRUDUser:
                     "EMAIL": result.EMAIL,
                     "PASSWORD": result.PASSWORD,
                     "IMAP_SERVER": result.IMAP_SERVER,
-                    "SMTP_PORT": result.SMTP_PORT
+                    "IMAP_PORT": result.IMAP_PORT,
+                    "IMAP_USE_SSL": result.IMAP_USE_SSL,
+                    "SMTP_SERVER": result.SMTP_SERVER,
+                    "SMTP_PORT": result.SMTP_PORT,
+                    "SMTP_USE_SSL": result.SMTP_USE_SSL
                 }
                 return UserEmailInfo(**data)
             return None
