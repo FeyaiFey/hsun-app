@@ -1426,13 +1426,11 @@ class CRUDE10:
                         IL.LOT_CODE,
                         W.WAREHOUSE_NAME,
                         CAST(SUM(A.INVENTORY_QTY) AS INT) AS INVENTORY_QTY,
-                        CAST(SUM(ISNULL(C.SECOND_QTY,0)) AS FLOAT) AS SECOND_QTY,
+                        CAST(SUM(ISNULL(A.SECOND_QTY,0)) AS FLOAT) AS SECOND_QTY,
                         B.Z_BIN_LEVEL_NAME,
                         T.Z_TESTING_PROGRAM_NAME,
                         BP.Z_BURNING_PROGRAM_NAME
-                        FROM ITEM_WAREHOUSE_BIN A
-                        LEFT JOIN Z_WF_IC_WAREHOUSE_BIN C
-                        ON C.ITEM_ID = A.ITEM_ID AND C.ITEM_LOT_ID = A.ITEM_LOT_ID
+                        FROM Z_WF_IC_WAREHOUSE_BIN A
                         LEFT JOIN ITEM
                         ON ITEM.ITEM_BUSINESS_ID = A.ITEM_ID
                         LEFT JOIN ITEM_LOT IL
@@ -1440,11 +1438,11 @@ class CRUDE10:
                         LEFT JOIN FEATURE_GROUP FG
                         ON FG.FEATURE_GROUP_ID = ITEM.FEATURE_GROUP_ID
                         LEFT JOIN Z_BIN_LEVEL B
-                        ON B.Z_BIN_LEVEL_ID = C.Z_BIN_LEVEL_ID
+                        ON B.Z_BIN_LEVEL_ID = A.Z_BIN_LEVEL_ID
                         LEFT JOIN Z_TESTING_PROGRAM T
-                        ON T.Z_TESTING_PROGRAM_ID = C.Z_TESTING_PROGRAM_ID
+                        ON T.Z_TESTING_PROGRAM_ID = A.Z_TESTING_PROGRAM_ID
                         LEFT JOIN Z_BURNING_PROGRAM BP
-                        ON BP.Z_BURNING_PROGRAM_ID = C.Z_BURNING_PROGRAM_ID
+                        ON BP.Z_BURNING_PROGRAM_ID = A.Z_BURNING_PROGRAM_ID
                         LEFT JOIN WAREHOUSE W
                         ON A.WAREHOUSE_ID = W.WAREHOUSE_ID
                         GROUP BY FG.FEATURE_GROUP_NAME,ITEM.ITEM_CODE,ITEM.ITEM_NAME,IL.LOT_CODE,W.WAREHOUSE_NAME,B.Z_BIN_LEVEL_NAME,
