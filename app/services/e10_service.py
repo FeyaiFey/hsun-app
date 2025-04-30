@@ -10,7 +10,7 @@ from app.schemas.assy import (AssyOrder, AssyOrderQuery, AssyWip, AssyWipQuery, 
                              AssyOrderPackageTypeQuery, AssyOrderPackageType, AssyOrderSupplierQuery, AssyOrderSupplier,
                              AssyBomQuery, AssyBom, AssyAnalyzeTotalResponse, AssyAnalyzeLoadingResponse, AssyYearTrendResponse,
                              AssySupplyAnalyzeResponse, ItemWaferInfoResponse, SalesResponse, AssySubmitOrdersRequest, AssySubmitOrdersResponse,
-                             CpTestOrdersQuery, CpTestOrdersResponse)
+                             CpTestOrdersQuery, CpTestOrdersResponse, AssyRequireOrdersQuery, AssyRequireOrdersCancel)
 from app.schemas.stock import (StockQuery, Stock, WaferIdQtyDetailQuery, WaferIdQtyDetail, StockSummaryQuery, StockSummary)
 from app.schemas.report import GlobalReport,SopAnalyzeResponse,ChipInfoTraceQuery,ChipInfoTraceResponse
 from app.schemas.e10 import (FeatureGroupName, FeatureGroupNameQuery, ItemCode, ItemCodeQuery, ItemName, ItemNameQuery,
@@ -395,7 +395,8 @@ class E10Service:
             db_result = self.crud_e10.get_stock_by_params(self.db, params)
             # 构造返回结果
             result = {
-                "list": db_result["list"]
+                "list": db_result["list"],
+                "total": db_result["total"]
             }
             return result
         except CustomException:
@@ -539,10 +540,10 @@ class E10Service:
             logger.error(f"批量提交封装单失败: {str(e)}")
             raise CustomException("批量提交封装单失败")
             
-    async def export_assy_orders(self,data:AssySubmitOrdersRequest) -> bytes:
+    async def export_assy_orders(self) -> bytes:
         """导出封装单"""
         try:
-            return self.crud_e10.export_assy_orders(self.db,data)
+            return self.crud_e10.export_assy_orders(self.db)
         except Exception as e:
             logger.error(f"导出封装单失败: {str(e)}")
             raise CustomException("导出封装单失败")
@@ -570,5 +571,34 @@ class E10Service:
         except Exception as e:
             logger.error(f"获取芯片信息追溯失败: {str(e)}")
             raise CustomException("获取芯片信息追溯失败")
+    
+    async def get_assy_require_orders(self,params:AssyRequireOrdersQuery) -> Dict[str,Any]:
+        """获取封装需求单"""
+        try:
+            return self.crud_e10.get_assy_require_orders(self.db,params)
+        except Exception as e:
+            logger.error(f"获取封装需求单失败: {str(e)}")
+            raise CustomException("获取封装需求单失败")
+    
+    async def cancel_assy_require_orders(self,data:AssyRequireOrdersCancel) -> str:
+        try:
+            return self.crud_e10.cancel_assy_require_orders(self.db,data)
+        except Exception as e:
+            logger.error(f"取消封装需求单失败: {str(e)}")
+            raise CustomException("取消封装需求单失败")
+    
+    async def delete_assy_require_orders(self,data:AssyRequireOrdersCancel) -> str:
+        try:
+            return self.crud_e10.delete_assy_require_orders(self.db,data)
+        except Exception as e:
+            logger.error(f"删除封装需求单失败: {str(e)}")
+            raise CustomException("删除封装需求单失败")
+
+    async def change_assy_order_status(self) -> str:
+        try:
+            return self.crud_e10.change_assy_order_status(self.db)
+        except Exception as e:
+            logger.error(f"提交封装需求单失败: {str(e)}")
+            raise CustomException("提交封装需求单失败")
 
 e10_service = E10Service(None, None)  # 在应用启动时注入实际的 db 和 cache

@@ -11,6 +11,8 @@ class StockQuery(BaseModel):
     warehouse_name: Optional[List[str]] = Field(None, description="仓库")
     testing_program: Optional[List[str]] = Field(None, description="测试程序")
     burning_program: Optional[List[str]] = Field(None, description="烧录程序")
+    pageIndex: Optional[int] = Field(None, description="页码")
+    pageSize: Optional[int] = Field(None, description="每页数量")
 
 class Stock(BaseModel):
     """库存"""
@@ -28,7 +30,7 @@ class Stock(BaseModel):
 class StockResponse(BaseModel):
     """库存响应"""
     list: List[Stock] = Field(..., description="库存列表")
-    
+    total: int = Field(..., description="总数量")
 class WaferIdQtyDetailQuery(BaseModel):
     """晶圆ID数量明细查询参数"""
     item_code: Optional[str] = Field(None, description="品号")

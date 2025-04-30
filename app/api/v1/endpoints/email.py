@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlmodel import Session
-from typing import List
+from typing import List,Any
 from app.core.deps import get_db, get_current_user
 from app.schemas.email import (
     EmailSendRequest,
@@ -11,6 +11,7 @@ from app.schemas.email import (
 )
 from app.services.email_service import email_service
 from app.crud.email import email as crud_email
+from app.crud.e10 import CRUDE10
 from app.core.logger import logger
 from app.models.user import User
 from app.core.response import CustomResponse
@@ -58,6 +59,59 @@ async def send_email(
             db=db,
             user_id=current_user.id
         )
+        
+
+        if not result.success:
+            raise BusinessException(result.error)
+            
+        return CustomResponse.success(data=result, message="邮件发送成功")
+        
+    except (ValidationException, NotFoundException, BusinessException):
+        raise
+    except Exception as e:
+        logger.error(f"发送邮件失败: {str(e)}")
+        raise BusinessException(f"发送邮件失败: {str(e)}")
+
+@router.post("/orders")
+async def email_assy_order_status(
+    email_data: EmailSendRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    try:
+         # 基本验证
+        if not email_data.to or len(email_data.to) == 0:
+            raise ValidationException("收件人不能为空")
+            
+        # 如果使用模板，验证模板是否存在
+        if email_data.template_id:
+            template = await crud_email.get_template(db, email_data.template_id)
+            if not template:
+                raise NotFoundException(f"模板不存在 (ID: {email_data.template_id})")
+                
+            # 如果没有内容，则必须使用模板
+            if not email_data.content and not template:
+                raise ValidationException("邮件内容不能为空")
+                
+        # 如果不使用模板，则必须提供内容
+        elif not email_data.content:
+            raise ValidationException("不使用模板时，邮件内容不能为空")
+        
+        # 如果不使用模板主题，则必须提供主题
+        if not email_data.use_template_subject and not email_data.subject and not email_data.template_id:
+            raise ValidationException("邮件主题不能为空")
+            
+        # 发送邮件
+        result = await email_service.send_assyorder_email(
+            email_data=email_data,
+            db=db,
+            user_id=current_user.id
+        )
+
+        # 实例化CRUDE10类并调用方法
+        e10 = CRUDE10()
+        result_change = e10.change_assy_order_status(db)
+        logger.info(result_change)
         
         if not result.success:
             raise BusinessException(result.error)

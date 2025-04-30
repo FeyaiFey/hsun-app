@@ -44,7 +44,8 @@ class SopAnalyzeResponse(BaseModel):
     WIP_QTY_WITHOUT_STOCK: Optional[int] = Field(None, description="在制数量")
     ASSY_STOCK: Optional[int] = Field(None, description="委外仓库存")
     TOTAL_STOCK: Optional[int] = Field(None, description="库存合计")
-    INVENTORT_GAP: Optional[int] = Field(None, description="库存缺口")
+    INVENTORY_GAP: Optional[int] = Field(None, description="库存缺口")
+    INVENTORY_GAP_TOTAL: Optional[int] = Field(None, description="库存缺口合计")
 
 class ChipInfoTraceQuery(BaseModel):
     """芯片信息追溯"""

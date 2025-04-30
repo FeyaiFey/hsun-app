@@ -215,6 +215,40 @@ class SalesResponse(BaseModel):
     label: Optional[str] = Field(None, description="销售员名称")
     value: Optional[str] = Field(None, description="销售员名称值")
 
+class AssyRequireOrdersQuery(BaseModel):
+    assy_requirements_id: Optional[str] = Field(None, description="订单号ID")
+    itemName: Optional[str] = Field(None, description="芯片名称")
+    requirementType: Optional[str] = Field(None, description="需求类型")
+    abtr: Optional[str] = Field(None, description="管装，编带")
+    sales: Optional[str] = Field(None, description="销售员")
+    status: Optional[str] = Field(None, description="状态")
+    order_date_start: Optional[str] = Field(None, description="起始日期")
+    order_date_end: Optional[str] = Field(None, description="结束日期")
+    pageIndex: Optional[int] = Field(default=1, ge=1, description="页码")
+    pageSize: Optional[int] = Field(default=50, ge=1, le=100, description="每页数量")
+
+class AssyRequireOrdersList(BaseModel):
+    ASSY_REQUIREMENTS_ID: Optional[str] = Field(None, description="订单号ID")
+    ITEM_NAME: Optional[str] = Field(None, description="芯片名称")
+    ITEM_CODE: Optional[str] = Field(None, description="品号")
+    ABTR: Optional[str] = Field(None, description="管装，编带")
+    BUSINESS_QTY: Optional[int] = Field(None, description="需求数")
+    REQUIREMENT_TYPE: Optional[str] = Field(None, description="需求类型")
+    EMERGENCY: Optional[str] = Field(None, description="需求类型")
+    SALES: Optional[str] = Field(None, description="销售员")
+    REMARK: Optional[str] = Field(None, description="备注")
+    CHIP_A: Optional[str] = Field(None, description="A芯")
+    CHIP_A_QTY: Optional[float] = Field(None, description="A芯用量")
+    CHIP_B: Optional[str] = Field(None, description="B芯")
+    CHIP_B_QTY: Optional[float] = Field(None, description="B芯用量")
+    STATUS: Optional[str] = Field(None, description="状态")
+    CreateDate: Optional[date] = Field(None, description="创建日期")
+    CreateBy: Optional[str] = Field(None, description="创建人")
+
+class AssyRequireOrdersResponse(BaseModel):
+    list: List[AssyRequireOrdersList] = Field(..., description="封装需求列表")
+    total: int = Field(..., description="总条数")
+
 class AssySubmitOrderItem(BaseModel):
     """封装单提交参数类型"""
     itemName: str
@@ -224,11 +258,12 @@ class AssySubmitOrderItem(BaseModel):
     requirementType: str # 需求类型
     emergency: str # 紧急程度
     sales: str # 销售员
-    remark: str
+    remark: Optional[str] = Field(None, description="备注")
     mainChip: Optional[str] = Field(None, description="A芯片")
     deputyChip: Optional[str] = Field(None, description="B芯片")
     mainChipUsage: Optional[float] = Field(None, description="A芯片用量")
     deputyChipUsage: Optional[float] = Field(None, description="B芯片用量")
+    status: Optional[str] = Field(default="1", description="状态")
 
 class AssySubmitOrdersRequest(BaseModel):
     """批量提交封装单请求参数"""
@@ -238,6 +273,9 @@ class AssySubmitOrdersResponse(BaseModel):
     """批量提交封装单响应"""
     message: str
     success: bool
+
+class AssyRequireOrdersCancel(BaseModel):
+    id: str
 
 class CpTestOrdersQuery(BaseModel):
     """CP测试单查询参数"""

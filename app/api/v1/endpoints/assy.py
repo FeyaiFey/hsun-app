@@ -21,7 +21,7 @@ from app.schemas.assy import (
     AssyOrderPackageTypeQuery, AssyOrderPackageTypeResponse, AssyOrderSupplierQuery, AssyOrderSupplierResponse,
     AssyBomQuery, AssyBomResponse, AssyAnalyzeTotalResponse, AssyAnalyzeLoadingResponse, AssyYearTrendResponse,
     AssySupplyAnalyzeResponse, AssySubmitOrdersRequest, AssySubmitOrdersResponse, CpTestOrdersQuery, CpTestOrdersResponse,
-    CpTestOrdersQuery
+    CpTestOrdersQuery,AssyRequireOrdersQuery,AssyRequireOrdersResponse,AssyRequireOrdersCancel
 )
 from app.services.e10_service import E10Service
 
@@ -373,6 +373,84 @@ async def get_assy_supply_analyze(
             name="SystemError"
         )
 
+@router.get("/orders/table",response_model=IResponse[AssyRequireOrdersResponse])
+@monitor_request
+async def get_assy_require_orders(
+    params: AssyRequireOrdersQuery = Depends(),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    try:
+        e10_service = E10Service(db, cache)
+        result = await e10_service.get_assy_require_orders(params)
+        return CustomResponse.success(data=result)
+    except CustomException as e:
+        logger.error(f"获取封装需求单失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="AssyError"
+        )
+    except Exception as e:
+        logger.error(f"获取封装需求单失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
+        )
+    
+@router.post("/orders/cancel", response_model=IResponse)
+@monitor_request
+async def cancel_assy_require_orders(
+    data: AssyRequireOrdersCancel,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    try:
+        e10_service = E10Service(db, cache)
+        result = await e10_service.cancel_assy_require_orders(data)
+        return CustomResponse.success(data=result)
+    except CustomException as e:
+        logger.error(f"取消封装需求单失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="AssyError"
+        )
+    except Exception as e:
+        logger.error(f"取消封装需求单失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
+        )
+
+@router.delete("/orders/delete", response_model=IResponse)
+@monitor_request
+async def delete_assy_require_orders(
+    data: AssyRequireOrdersCancel,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    try:
+        e10_service = E10Service(db, cache)
+        result = await e10_service.delete_assy_require_orders(data)
+        return CustomResponse.success(data=result)
+    except CustomException as e:
+        logger.error(f"删除封装需求单失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="AssyError"
+        )
+    except Exception as e:
+        logger.error(f"删除封装需求单失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
+        )
+
 @router.post("/orders/batch", response_model=IResponse[AssySubmitOrdersResponse])
 @monitor_request
 async def get_assy_order_batch(
@@ -402,14 +480,13 @@ async def get_assy_order_batch(
 @router.post("/orders/export")
 @monitor_request
 async def export_assy_orders(
-    data: AssySubmitOrdersRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ) -> Any:
     """导出封装需求单"""
     try:
         e10_service = E10Service(db, cache)
-        excel_data = await e10_service.export_assy_orders(data)
+        excel_data = await e10_service.export_assy_orders()
         
         # 生成文件名
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")

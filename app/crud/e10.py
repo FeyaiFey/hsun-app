@@ -19,7 +19,10 @@ from app.schemas.assy import (AssyOrder,
                               AssySubmitOrdersRequest,
                               AssySubmitOrdersResponse,
                               CpTestOrdersQuery,
-                              CpTestOrders)
+                              CpTestOrders,
+                              AssyRequireOrdersQuery,
+                              AssyRequireOrdersList,
+                              AssyRequireOrdersCancel)
 from app.schemas.stock import (StockQuery,
                              Stock,
                              WaferIdQtyDetailQuery,
@@ -1508,6 +1511,8 @@ class CRUDE10:
                 having_conditions.append(f"AND UPPER(BP.Z_BURNING_PROGRAM_NAME) IN ({','.join([f'UPPER({p})' for p in placeholders])})")
                 for i, name in enumerate(burning_programs):
                     query_params[f"burning_program_{i}"] = name
+        
+            query = base_query + " " + " ".join(having_conditions)
 
             # 构建完整的 SQL 查询语句
             if having_conditions:
@@ -1515,9 +1520,25 @@ class CRUDE10:
             else:
                 query = f"{base_query} ORDER BY ITEM.ITEM_CODE,IL.LOT_CODE"
 
+            # 添加分页
+            if params.pageIndex and params.pageSize:
+                offset = (params.pageIndex - 1) * params.pageSize
+                query += " OFFSET :offset ROWS FETCH NEXT :pageSize ROWS ONLY"
+                query_params["offset"] = offset
+                query_params["pageSize"] = params.pageSize
+
             # 执行查询
-            stmt = text(query).bindparams(**query_params)
-            result = db.execute(stmt).all()
+            result = db.execute(text(query), query_params)
+            rows = result.fetchall()
+
+            # 获取总记录数 - 使用COUNT聚合函数
+            count_query = f"""
+                SELECT COUNT(*) as total_count
+                FROM (
+                    {base_query} {''.join(having_conditions)}
+                ) AS subquery
+            """
+            total_count = db.execute(text(count_query), query_params).scalar_one()
 
             # 转换为响应对象
             stocks = [
@@ -1532,9 +1553,12 @@ class CRUDE10:
                     Z_BIN_LEVEL_NAME=row.Z_BIN_LEVEL_NAME,
                     Z_TESTING_PROGRAM_NAME=row.Z_TESTING_PROGRAM_NAME,
                     Z_BURNING_PROGRAM_NAME=row.Z_BURNING_PROGRAM_NAME
-                ) for row in result
+                ) for row in rows
             ]
-            return {"list": stocks}
+            return {
+                "list": stocks,
+                "total": total_count
+            }
         except Exception as e:
             logger.error(f"查询库存失败: {str(e)}")
             raise CustomException("查询库存失败")
@@ -2630,18 +2654,21 @@ class CRUDE10:
                 ISNULL(WIP.WIP_QTY_WITHOUT_STOCK,0) AS WIP_QTY_WITHOUT_STOCK,
                 ISNULL(WIP.ASSY_STOCK,0) AS ASSY_STOCK,
                 (ISNULL(S1.INVENTORY_QTY,0) + ISNULL(S2.INVENTORY_QTY,0) + ISNULL(WIP.WIP_QTY_WITHOUT_STOCK,0) + ISNULL(WIP.ASSY_STOCK,0)) AS TOTAL_STOCK,
-                (ISNULL(S1.INVENTORY_QTY,0) + ISNULL(S2.INVENTORY_QTY,0) + ISNULL(WIP.WIP_QTY_WITHOUT_STOCK,0) + ISNULL(WIP.ASSY_STOCK,0) - SS.SAFE_STOCK * 1.5 )  AS INVENTORT_GAP
+                CAST((ISNULL(S1.INVENTORY_QTY,0) + ISNULL(S2.INVENTORY_QTY,0) + ISNULL(WIP.WIP_QTY_WITHOUT_STOCK,0) + ISNULL(WIP.ASSY_STOCK,0) - SS.SAFE_STOCK * 1.5 ) AS INT)  AS                INVENTORY_GAP,
+                CAST(SUM(
+                    (ISNULL(S1.INVENTORY_QTY, 0) + ISNULL(S2.INVENTORY_QTY, 0) + ISNULL(WIP.WIP_QTY_WITHOUT_STOCK, 0) + ISNULL(WIP.ASSY_STOCK, 0) - SS.SAFE_STOCK * 1.5)
+                ) OVER (PARTITION BY SS.ITEM_NAME) AS INT)  AS INVENTORY_GAP_TOTAL
                 FROM SAFE_STOCK SS
                 LEFT JOIN SALES ON (REPLACE(SS.ITEM_NAME, '_', '-') = SALES.ITEM_NAME AND SS.ABTR = SALES.ABTR)
                 LEFT JOIN STOCK S1 ON (S1.ITEM_NAME = REPLACE(SS.ITEM_NAME, '_', '-') AND S1.ABTR = SS.ABTR AND S1.CPBC = '产成品')
                 LEFT JOIN STOCK S2 ON (S2.ITEM_NAME = REPLACE(SS.ITEM_NAME, '_', '-') AND S2.ABTR = SS.ABTR AND S2.CPBC = '半成品')
                 LEFT JOIN WIP ON (WIP.ITEM_NAME = SS.ITEM_NAME AND WIP.ABTR = SS.ABTR)
-                ORDER BY SS.ITEM_NAME,SS.ABTR
+                ORDER BY SS.ITEM_NAME,SS.ABTR 
         """)
 
         try:
             result = db.execute(SOP_ANALYZE_QUERY).fetchall()
-            return [SopAnalyzeResponse(ID=row.ID, ITEM_NAME=row.ITEM_NAME, ABTR=row.ABTR, SAFE_STOCK=row.SAFE_STOCK, LAST_MONTH_SALE=row.LAST_MONTH_SALE, CP_QTY=row.CP_QTY, BC_QTY=row.BC_QTY, WIP_QTY_WITHOUT_STOCK=row.WIP_QTY_WITHOUT_STOCK, ASSY_STOCK=row.ASSY_STOCK, TOTAL_STOCK=row.TOTAL_STOCK, INVENTORT_GAP=row.INVENTORT_GAP) for row in result]
+            return [SopAnalyzeResponse(ID=row.ID, ITEM_NAME=row.ITEM_NAME, ABTR=row.ABTR, SAFE_STOCK=row.SAFE_STOCK, LAST_MONTH_SALE=row.LAST_MONTH_SALE, CP_QTY=row.CP_QTY, BC_QTY=row.BC_QTY, WIP_QTY_WITHOUT_STOCK=row.WIP_QTY_WITHOUT_STOCK, ASSY_STOCK=row.ASSY_STOCK, TOTAL_STOCK=row.TOTAL_STOCK, INVENTORY_GAP=row.INVENTORY_GAP,INVENTORY_GAP_TOTAL=row.INVENTORY_GAP_TOTAL) for row in result]
         except Exception as e:
             logger.error(f"获取SOP分析失败: {str(e)}")
             raise CustomException("获取SOP分析失败")
@@ -2664,7 +2691,8 @@ class CRUDE10:
                 "封装数量",
                 "封装厂库存",
                 "总库存",
-                "库存缺口"
+                "库存缺口",
+                "缺口合计"
             ]
 
             # 设置列宽
@@ -2679,7 +2707,8 @@ class CRUDE10:
                 "H": 20,
                 "I": 20,
                 "J": 20,
-                "K": 20
+                "K": 20,
+                "L": 20
             }
 
             # 设置样式
@@ -2716,7 +2745,8 @@ class CRUDE10:
                     result.WIP_QTY_WITHOUT_STOCK,
                     result.ASSY_STOCK,
                     result.TOTAL_STOCK,
-                    result.INVENTORT_GAP
+                    result.INVENTORY_GAP,
+                    result.INVENTORY_GAP_TOTAL,
                 ]
                 for col, value in enumerate(data, 1):
                     cell = ws.cell(row=row, column=col, value=value)
@@ -2817,6 +2847,194 @@ class CRUDE10:
         except Exception as e:
             logger.error(f"获取销售员名称失败: {str(e)}")
             raise CustomException("获取销售员名称失败")
+    
+    def get_assy_require_orders(self, db: Session, params: AssyRequireOrdersQuery) -> Dict[str, Any]:
+        try:
+            # 基础查询
+            base_query = """
+                SELECT 
+                    ASSY_REQUIREMENTS_ID,
+                    ITEM_NAME,
+                    ITEM_CODE,
+                    ABTR,
+                    BUSINESS_QTY,
+                    REQUIREMENT_TYPE,
+                    EMERGENCY,
+                    SALES,
+                    REMARK,
+                    CHIP_A,
+                    CHIP_A_QTY,
+                    CHIP_B,
+                    CHIP_B_QTY,
+                    STATUS,
+                    CreateDate,
+                    CreateBy
+                FROM huaxinAdmin_Requirement_DOC
+                WHERE 1=1
+            """
+            
+            # 构建查询条件
+            conditions = []
+            query_params = {}
+
+            # 参数验证和清理
+            if params.assy_requirements_id:
+                conditions.append("AND ASSY_REQUIREMENTS_ID = :assy_requirements_id")
+                query_params["assy_requirements_id"] = self._clean_input(params.assy_requirements_id)
+
+            if params.itemName:
+                conditions.append("AND UPPER(ITEM_NAME) LIKE UPPER(:item_name)")
+                query_params["item_name"] = f"%{self._clean_input(params.itemName)}%"
+
+            if params.requirementType:
+                conditions.append("AND REQUIREMENT_TYPE = :requirement_type")
+                query_params["requirement_type"] = self._clean_input(params.requirementType)
+
+            if params.abtr:
+                conditions.append("AND ABTR = :abtr")
+                query_params["abtr"] = self._clean_input(params.abtr)
+
+            if params.status:
+                conditions.append("AND STATUS = :status")
+                query_params["status"] = self._clean_input(params.status)
+                
+            if params.sales:
+                conditions.append("AND SALES = :sales")
+                query_params["sales"] = self._clean_input(params.sales)
+
+            if params.order_date_start:
+                conditions.append("AND CAST(CreateDate AS DATE) >= :order_date_start")
+                query_params["order_date_start"] = params.order_date_start
+            
+            if params.order_date_end:
+                conditions.append("AND CAST(CreateDate AS DATE) <= :order_date_end")
+                query_params["order_date_end"] = params.order_date_end
+            
+            # 拼接查询条件
+            query = base_query + " " + " ".join(conditions)
+            
+            # 添加排序
+            query += " ORDER BY CreateDate"
+
+            # 添加分页
+            if params.pageIndex and params.pageSize:
+                offset = (params.pageIndex - 1) * params.pageSize
+                query += " OFFSET :offset ROWS FETCH NEXT :pageSize ROWS ONLY"
+                query_params["offset"] = offset
+                query_params["pageSize"] = params.pageSize
+
+            # 执行查询
+            stmt = text(query).bindparams(**query_params)
+            result = db.execute(stmt).fetchall()
+            
+            # 获取总记录数
+            count_query = f"""
+                SELECT COUNT(1) as total_count
+                FROM huaxinAdmin_Requirement_DOC
+                WHERE 1=1
+                {' '.join(conditions)}
+            """
+            total = db.execute(
+                text(count_query).bindparams(
+                    **{k: v for k, v in query_params.items() if k not in ['offset', 'pageSize']}
+                )
+            ).scalar_one()
+            
+            # 转换为响应对象
+            assy_orders = [
+                AssyRequireOrdersList(
+                    ASSY_REQUIREMENTS_ID=row.ASSY_REQUIREMENTS_ID,
+                    ITEM_NAME=row.ITEM_NAME,
+                    ITEM_CODE=row.ITEM_CODE,
+                    ABTR=row.ABTR,
+                    BUSINESS_QTY=row.BUSINESS_QTY,
+                    REQUIREMENT_TYPE=row.REQUIREMENT_TYPE,
+                    EMERGENCY=row.EMERGENCY,
+                    SALES=row.SALES,
+                    REMARK=row.REMARK,
+                    CHIP_A=row.CHIP_A,
+                    CHIP_A_QTY=row.CHIP_A_QTY,
+                    CHIP_B=row.CHIP_B,
+                    CHIP_B_QTY=row.CHIP_B_QTY,
+                    STATUS=row.STATUS,
+                    CreateDate=row.CreateDate.date() if row.CreateDate else None,
+                    CreateBy=row.CreateBy
+                ) for row in result
+            ]
+            
+            return {
+                "list": assy_orders,
+                "total": total
+            }
+            
+        except Exception as e:
+            logger.error(f"查询封装需求订单失败: {str(e)}")
+            raise CustomException("查询封装需求订单失败")
+                
+    def cancel_assy_require_orders(self, db: Session, data: AssyRequireOrdersCancel) -> AssySubmitOrdersResponse:
+        try:
+            if not data.id:
+                raise CustomException("订单ID不能为空")
+                
+            query = """
+                UPDATE huaxinAdmin_Requirement_DOC
+                SET STATUS = '2'
+                WHERE ASSY_REQUIREMENTS_ID = :assy_requirements_id
+            """
+            
+            result = db.execute(
+                text(query).bindparams(assy_requirements_id=self._clean_input(data.id))
+            )
+            
+            if result.rowcount == 0:
+                raise CustomException("未找到对应的订单记录")
+                
+            db.commit()
+            
+            return AssySubmitOrdersResponse(
+                message="作废成功！",
+                success=True
+            )
+            
+        except CustomException as e:
+            db.rollback()
+            raise e
+        except Exception as e:
+            db.rollback()
+            logger.error(f"作废失败: {str(e)}")
+            raise CustomException("作废失败")
+
+    def delete_assy_require_orders(self, db: Session, data: AssyRequireOrdersCancel) -> AssySubmitOrdersResponse:
+        try:
+            if not data.id:
+                raise CustomException("订单ID不能为空")
+                
+            query = """
+                DELETE FROM huaxinAdmin_Requirement_DOC
+                WHERE STATUS = '0' AND ASSY_REQUIREMENTS_ID = :assy_requirements_id
+            """
+            
+            result = db.execute(
+                text(query).bindparams(assy_requirements_id=self._clean_input(data.id))
+            )
+            
+            if result.rowcount == 0:
+                raise CustomException("未找到对应的订单记录或订单非待处理状态！")
+                
+            db.commit()
+            
+            return AssySubmitOrdersResponse(
+                message="删除成功！",
+                success=True
+            )
+            
+        except CustomException as e:
+            db.rollback()
+            raise e
+        except Exception as e:
+            db.rollback()
+            logger.error(f"删除失败: {str(e)}")
+            raise CustomException("删除失败")
 
     def batch_submit_assy_orders(self,db:Session,data:AssySubmitOrdersRequest,current_user:str)->AssySubmitOrdersResponse:
         """批量提交封装单"""
@@ -2842,7 +3060,7 @@ class CRUDE10:
                 ) VALUES (
                     NEWID(), :item_name, :item_code, :abtr, :business_qty,
                     :requirement_type, :emergency, :sales, :remark, :chip_a, :chip_a_qty,
-                    :chip_b, :chip_b_qty, :create_by, SYSDATETIME(), SYSDATETIME(), N'1'
+                    :chip_b, :chip_b_qty, :create_by, SYSDATETIME(), SYSDATETIME(), :status
                 )
                 """)
                 
@@ -2862,7 +3080,8 @@ class CRUDE10:
                         "chip_a_qty": chip_a_qty,
                         "chip_b": order.deputyChip,
                         "chip_b_qty": chip_b_qty,
-                        "create_by": current_user
+                        "create_by": current_user,
+                        "status": order.status
                     }
                 )
             
@@ -2881,34 +3100,20 @@ class CRUDE10:
             logger.error(f"批量提交封装单失败: {str(e)}")
             raise CustomException(f"批量提交封装单失败: {str(e)}")
 
-    def export_assy_orders(self,db:Session,data:AssySubmitOrdersRequest)->bytes:
+    def export_assy_orders(self,db:Session)->bytes:
         """导出封装单"""
         try:
             # 准备数据
-            orders_data = []
-            for order in data.orders:
-                logger.info(f"处理订单数据: {order.model_dump()}")
-                orders_data.append({
-                    "品名": order.itemName,
-                    "品号": order.itemCode,
-                    "管装/编带": order.abtr,
-                    "需求数量": order.businessQty,
-                    "需求类型": order.requirementType,
-                    "紧急程度": order.emergency,
-                    "销售员": order.sales,
-                    "备注": order.remark,
-                    "A芯片": order.mainChip if order.mainChip else "",
-                    "A芯片用量": order.mainChipUsage if order.mainChipUsage is not None else 0,
-                    "B芯片": order.deputyChip if order.deputyChip else "",
-                    "B芯片用量": order.deputyChipUsage if order.deputyChipUsage is not None else 0
-                })
+            params = AssyRequireOrdersQuery(status='0')
+            result = self.get_assy_require_orders(db,params)
+            orders = result['list']
             
             wb = Workbook()
             ws = wb.active
             ws.title = "封装单"
             
             # 设置表头
-            headers = list(orders_data[0].keys()) if orders_data else [
+            headers = [
                 "品名", "品号", "管装/编带", "需求数量", "需求类型", 
                 "紧急程度", "销售员", "备注", "A芯片", "A芯片用量", 
                 "B芯片", "B芯片用量"
@@ -2952,9 +3157,24 @@ class CRUDE10:
                 ws.column_dimensions[get_column_letter(col)].width = column_widths.get(get_column_letter(col), 15)
             
             # 写入数据
-            for row_idx, row_data in enumerate(orders_data, 2):
-                for col_idx, (header, value) in enumerate(zip(headers, row_data.values()), 1):
-                    cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            for row, order in enumerate(orders, 2):
+                data = [
+                    order.ITEM_NAME if order.ITEM_NAME else '',
+                    order.ITEM_CODE if order.ITEM_CODE else '',
+                    order.ABTR if order.ABTR else '',
+                    order.BUSINESS_QTY if order.BUSINESS_QTY else '',
+                    order.REQUIREMENT_TYPE if order.REQUIREMENT_TYPE else '',
+                    order.EMERGENCY if order.EMERGENCY else '',
+                    order.SALES if order.SALES else '',
+                    order.REMARK if order.REMARK else '',
+                    order.CHIP_A if order.CHIP_A else '',
+                    order.CHIP_A_QTY if order.CHIP_A_QTY else '',
+                    order.CHIP_B if order.CHIP_B else '',
+                    order.CHIP_B_QTY if order.CHIP_B_QTY else '',
+                ]
+
+                for col, value in enumerate(data, 1):
+                    cell = ws.cell(row=row, column=col, value=value)
                     cell.alignment = cell_alignment
                     cell.border = border
             
@@ -2971,6 +3191,33 @@ class CRUDE10:
         except Exception as e:
             logger.error(f"导出封装单Excel失败: {str(e)}")
             raise CustomException(f"导出封装单Excel失败: {str(e)}")
+
+    def change_assy_order_status(self,db:Session)->AssySubmitOrdersResponse:
+        try:
+            query = """
+                UPDATE huaxinAdmin_Requirement_DOC
+                SET STATUS = '1'
+                WHERE STATUS = '0'
+            """
+
+            result = db.execute(text(query))
+            if result.rowcount == 0:
+                raise CustomException("未找到对应的订单记录")
+                
+            db.commit()
+            
+            return AssySubmitOrdersResponse(
+                message="修改成功！",
+                success=True
+            )
+            
+        except CustomException as e:
+            db.rollback()
+            raise e
+        except Exception as e:
+            db.rollback()
+            logger.error("提交失败: {str(e)}")
+            raise CustomException("提交失败")
 
     def get_cptest_orders_by_params(self,db:Session,params:CpTestOrdersQuery)->Dict[str,Any]:
         """获取CP测试单
@@ -3525,22 +3772,22 @@ class CRUDE10:
             FROM (
                 SELECT
                     hpl.ID,
-                    hpl.DOC_NO,
-                    hpl.ITEM_CODE,
+                    hpl.DOC_NO AS ASSY_DOC_NO,
+                    hpl.ITEM_CODE AS CHIP_ITEM_CODE,
                     hpl.Z_PACKAGE_TYPE_NAME,
-                    hpl.LOT_CODE,
-                    hpl.BUSINESS_QTY,
-                    hpl.RECEIPTED_PRICE_QTY,
-                    0 AS WIP_QTY,
+                    hpl.LOT_CODE AS CHIP_LOT_CODE,
+                    hpl.BUSINESS_QTY AS CHIP_BUSINESS_QTY,
+                    hpl.RECEIPTED_PRICE_QTY AS CHIP_RECEIPTED_PRICE_QTY,
+                    0 AS CHIP_WIP_QTY,
                     hpl.Z_PROCESSING_PURPOSE_NAME,
                     hpl.Z_TESTING_PROGRAM_NAME,
                     hpl.Z_ASSEMBLY_CODE,
                     hpl.Z_WIRE_NAME,
-                    hpl.REMARK,
-                    hpl.PURCHASE_DATE,
-                    ISNULL(hpl.FIRST_ARRIVAL_DATE, DATEADD(MONTH, 2, hpl.PURCHASE_DATE)) AS FIRST_ARRIVAL_DATE,
-                    hpl.SUPPLIER_FULL_NAME,
-                    hpl.RECEIPT_CLOSE
+                    hpl.REMARK AS CHIP_REMARK,
+                    hpl.PURCHASE_DATE AS CHIP_PURCHASE_DATE,
+                    ISNULL(hpl.FIRST_ARRIVAL_DATE, DATEADD(MONTH, 2, hpl.PURCHASE_DATE)) AS CHIP_FIRST_ARRIVAL_DATE,
+                    hpl.SUPPLIER_FULL_NAME AS CHIP_SUPPLY_FULL_NAME,
+                    hpl.RECEIPT_CLOSE AS CHIP_RECEIPT_CLOSE
                 FROM HSUN_PACKAGE_LIST hpl
                 UNION ALL
                 SELECT
@@ -3637,13 +3884,14 @@ class CRUDE10:
                         LEFT JOIN ITEM_LOT IL
                         ON IL.ITEM_LOT_ID = ZOMSD.ITEM_LOT_ID
                         WHERE PO_D.PURCHASE_TYPE=2 AND PO.PURCHASE_DATE > '2024-10-21')
-                        AS ALL_BOM ON ALL_BOM.DOC_NO = CombinedResults.DOC_NO
+                        AS ALL_BOM ON ALL_BOM.DOC_NO = CombinedResults.ASSY_DOC_NO
             )
+          
 
             SELECT AL.*,CL.*
             FROM CL
             INNER JOIN AL ON AL.LOT_CODE_NAME LIKE '%' + CL.LOT_NAME + '%'
-            WHERE 1=1
+            WHERE 1=1 
             """
 
             # 构建查询条件
@@ -3652,7 +3900,7 @@ class CRUDE10:
 
             # 参数验证和清理
             if params.CHIP_LOT_CODE and isinstance(params.CHIP_LOT_CODE, str):
-                conditions.append("AND UPPER(CL.LOT_NAME) LIKE UPPER(:chip_lot_code)")
+                conditions.append("AND UPPER(AL.CHIP_LOT_CODE) LIKE UPPER(:chip_lot_code)")
                 query_params["chip_lot_code"] = f"%{self._clean_input(params.CHIP_LOT_CODE)}%"
             
             if params.WAFER_LOT_CODE and isinstance(params.WAFER_LOT_CODE, str):
@@ -3664,11 +3912,11 @@ class CRUDE10:
                 query_params["supplier"] = f"%{self._clean_input(params.SUPPLIER)}%"
             
             if params.CHIP_NAME and isinstance(params.CHIP_NAME, str):
-                conditions.append("AND UPPER(CL.ITEM_NAME) LIKE UPPER(:chip_name)")
+                conditions.append("AND UPPER(AL.CHIP_ITEM_CODE) LIKE UPPER(:chip_name)")
                 query_params["chip_name"] = f"%{self._clean_input(params.CHIP_NAME)}%"
             
             if params.WAFER_NAME and isinstance(params.WAFER_NAME, str):
-                conditions.append("AND UPPER(AL.ITEM_NAME) LIKE UPPER(:wafer_name)")
+                conditions.append("AND UPPER(CL.CHIP_CODE) LIKE UPPER(:wafer_name)")
                 query_params["wafer_name"] = f"%{self._clean_input(params.WAFER_NAME)}%"
             
             if params.TESTING_PROGRAM_NAME and isinstance(params.TESTING_PROGRAM_NAME, str):
@@ -3680,7 +3928,7 @@ class CRUDE10:
             query = base_query + " " + " ".join(conditions)
             
             # 添加排序
-            query += " ORDER BY AL.DOC_NO"
+            query += " ORDER BY AL.ASSY_DOC_NO"
             
             # 添加分页
             if params.pageIndex and params.pageSize:
@@ -3811,22 +4059,22 @@ class CRUDE10:
             FROM (
                 SELECT
                     hpl.ID,
-                    hpl.DOC_NO,
-                    hpl.ITEM_CODE,
+                    hpl.DOC_NO AS ASSY_DOC_NO,
+                    hpl.ITEM_CODE AS CHIP_ITEM_CODE,
                     hpl.Z_PACKAGE_TYPE_NAME,
-                    hpl.LOT_CODE,
-                    hpl.BUSINESS_QTY,
-                    hpl.RECEIPTED_PRICE_QTY,
-                    0 AS WIP_QTY,
+                    hpl.LOT_CODE AS CHIP_LOT_CODE,
+                    hpl.BUSINESS_QTY AS CHIP_BUSINESS_QTY,
+                    hpl.RECEIPTED_PRICE_QTY AS CHIP_RECEIPTED_PRICE_QTY,
+                    0 AS CHIP_WIP_QTY,
                     hpl.Z_PROCESSING_PURPOSE_NAME,
                     hpl.Z_TESTING_PROGRAM_NAME,
                     hpl.Z_ASSEMBLY_CODE,
                     hpl.Z_WIRE_NAME,
-                    hpl.REMARK,
-                    hpl.PURCHASE_DATE,
-                    ISNULL(hpl.FIRST_ARRIVAL_DATE, DATEADD(MONTH, 2, hpl.PURCHASE_DATE)) AS FIRST_ARRIVAL_DATE,
-                    hpl.SUPPLIER_FULL_NAME,
-                    hpl.RECEIPT_CLOSE
+                    hpl.REMARK AS CHIP_REMARK,
+                    hpl.PURCHASE_DATE AS CHIP_PURCHASE_DATE,
+                    ISNULL(hpl.FIRST_ARRIVAL_DATE, DATEADD(MONTH, 2, hpl.PURCHASE_DATE)) AS CHIP_FIRST_ARRIVAL_DATE,
+                    hpl.SUPPLIER_FULL_NAME AS CHIP_SUPPLY_FULL_NAME,
+                    hpl.RECEIPT_CLOSE AS CHIP_RECEIPT_CLOSE
                 FROM HSUN_PACKAGE_LIST hpl
                 UNION ALL
                 SELECT
@@ -3923,7 +4171,7 @@ class CRUDE10:
                         LEFT JOIN ITEM_LOT IL
                         ON IL.ITEM_LOT_ID = ZOMSD.ITEM_LOT_ID
                         WHERE PO_D.PURCHASE_TYPE=2 AND PO.PURCHASE_DATE > '2024-10-21')
-                        AS ALL_BOM ON ALL_BOM.DOC_NO = CombinedResults.DOC_NO
+                        AS ALL_BOM ON ALL_BOM.DOC_NO = CombinedResults.ASSY_DOC_NO
             )
 
             SELECT COUNT(*)
@@ -3937,26 +4185,26 @@ class CRUDE10:
             chip_trace_list = [
                 ChipInfoTrace(
                     ID=row.ID,
-                    DOC_NO=row.DOC_NO,
-                    ITEM_CODE=row.ITEM_CODE,
+                    DOC_NO=row.ASSY_DOC_NO,
+                    ITEM_CODE=row.CHIP_ITEM_CODE,
                     Z_PACKAGE_TYPE_NAME=row.Z_PACKAGE_TYPE_NAME,
-                    LOT_CODE=row.LOT_CODE,
-                    BUSINESS_QTY=row.BUSINESS_QTY,
-                    RECEIPTED_PRICE_QTY=row.RECEIPTED_PRICE_QTY,
-                    WIP_QTY=row.WIP_QTY,
+                    LOT_CODE=row.CHIP_LOT_CODE,
+                    BUSINESS_QTY=row.CHIP_BUSINESS_QTY,
+                    RECEIPTED_PRICE_QTY=row.CHIP_RECEIPTED_PRICE_QTY,
+                    WIP_QTY=row.CHIP_WIP_QTY,
                     Z_PROCESSING_PURPOSE_NAME=row.Z_PROCESSING_PURPOSE_NAME,
                     Z_TESTING_PROGRAM_NAME=row.Z_TESTING_PROGRAM_NAME,
                     Z_ASSEMBLY_CODE=row.Z_ASSEMBLY_CODE,
                     Z_WIRE_NAME=row.Z_WIRE_NAME,
-                    REMARK=row.REMARK,
-                    PURCHASE_DATE=row.PURCHASE_DATE,
-                    FIRST_ARRIVAL_DATE=row.FIRST_ARRIVAL_DATE,
-                    SUPPLIER_FULL_NAME=row.SUPPLIER_FULL_NAME,
+                    REMARK=row.CHIP_REMARK,
+                    PURCHASE_DATE=row.CHIP_PURCHASE_DATE,
+                    FIRST_ARRIVAL_DATE=row.CHIP_FIRST_ARRIVAL_DATE,
+                    SUPPLIER_FULL_NAME=row.CHIP_SUPPLY_FULL_NAME,
                     MAIN_CHIP=row.MAIN_CHIP,
                     CHIP_CODE=row.CHIP_CODE,
                     LOT_CODE_NAME=row.LOT_CODE_NAME,
-                    WAFER_QTY=row.WAFER_QTY,
-                    S_QTY=row.S_QTY,
+                    WAFER_QTY=row.BUSINESS_QTY,
+                    S_QTY=row.RECEIPT_QTY,
                     WAFER_ID=row.WAFER_ID,
                     PROGRESS_NAME=row.PROGRESS_NAME,
                     TESTING_PROGRAM_NAME=row.TESTING_PROGRAM_NAME,

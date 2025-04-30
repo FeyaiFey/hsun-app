@@ -17,10 +17,12 @@ from app.schemas.email import (
     EmailSendResponse,
     EmailTemplate,
     EmailTemplateCreate,
-    EmailTemplateUpdate
+    EmailTemplateUpdate,
+    EmailAttachment
 )
 from app.crud.email import email as crud_email
 from app.crud.user import user as crud_user
+from app.crud.e10 import CRUDE10
 from app.core.exceptions import CustomException, BusinessException, ValidationException
 
 class EmailService:
@@ -50,6 +52,51 @@ class EmailService:
         try:
             # 设置邮箱配置
             self._setup_email_config(db, user_id)
+            
+            # 构建邮件内容
+            message, subject = await self._build_email_message(email_data, db)
+            
+            # 发送邮件
+            success, error_msg, message_id = await self._send_email_via_smtp(message)
+            if not success:
+                return EmailSendResponse(
+                    success=False,
+                    error=error_msg
+                )
+
+            logger.info(f"邮件发送成功: {subject}")
+            return EmailSendResponse(
+                success=True,
+                message_id=message_id if isinstance(message_id, str) else str(message_id)
+            )
+
+        except BusinessException as e:
+            # 重新抛出业务异常
+            raise
+        except Exception as e:
+            logger.error(f"发送邮件失败: {str(e)}")
+            return EmailSendResponse(
+                success=False,
+                error=str(e)
+            )
+    
+    async def send_assyorder_email(self, email_data: EmailSendRequest, db = None, user_id: int = None)-> EmailSendResponse:
+        try:
+            # 设置邮箱配置
+            self._setup_email_config(db, user_id)
+
+            e10 = CRUDE10()
+            excel_data = e10.export_assy_orders(db)
+
+            if excel_data:
+                # 将bytes数据包装成附件格式
+                current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"封装单_{current_time}.xlsx"
+                email_data.attachments = [EmailAttachment(
+                    filename=filename,
+                    content=base64.b64encode(excel_data).decode('utf-8'),
+                    content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )]
             
             # 构建邮件内容
             message, subject = await self._build_email_message(email_data, db)

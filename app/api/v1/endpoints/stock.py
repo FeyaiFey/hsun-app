@@ -40,6 +40,8 @@ async def get_stock_by_params(
     warehouse_name: Optional[str] = Query(None, description="仓库,多个用逗号分隔"),
     testing_program: Optional[str] = Query(None, description="测试程序,多个用逗号分隔"),
     burning_program: Optional[str] = Query(None, description="烧录程序,多个用逗号分隔"),
+    pageIndex: Optional[int] = Query(None, description="页码"),
+    pageSize: Optional[int] = Query(None, description="每页数量"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ) -> Any:
@@ -70,6 +72,12 @@ async def get_stock_by_params(
         
         if burning_program:
             params.burning_program = [name.strip() for name in burning_program.split(',') if name.strip()]
+
+        if pageIndex:
+            params.pageIndex = pageIndex
+
+        if pageSize:
+            params.pageSize = pageSize
 
         # 调用服务层方法获取数据
         result = await e10_service.get_stock_by_params(params)
