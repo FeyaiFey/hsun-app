@@ -341,3 +341,41 @@ async def get_user_email_info(
             message=get_error_message(ErrorCode.SYSTEM_ERROR),
             name="SystemError"
         )
+    
+@router.post("/avatar", response_model=IResponse)
+@monitor_request
+async def update_user_avatar(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """更新用户头像"""
+    try:
+        # 验证数据格式
+        if not data or "avatar" not in data:
+            raise CustomException("缺少头像数据")
+            
+        avatar_data = data["avatar"]
+        if not isinstance(avatar_data, str) or not avatar_data.startswith("data:image/"):
+            raise CustomException("无效的头像数据格式")
+            
+        # 注入数据库会话
+        user_service.db = db
+        
+        # 更新用户头像
+        await user_service.update_user_avatar(current_user.id, avatar_data)
+        return CustomResponse.success(message="头像更新成功")
+        
+    except CustomException as e:
+        return CustomResponse.error(
+            code=status.HTTP_400_BAD_REQUEST,
+            message=e.message,
+            name="UserError"
+        )
+    except Exception as e:
+        logger.error(f"更新头像失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
+        )

@@ -1,5 +1,9 @@
 from typing import Dict, Any, Optional, List
 from sqlmodel import Session, select, func
+import base64
+import hashlib
+import os
+from datetime import datetime
 from app.core.logger import logger
 from app.core.cache import MemoryCache
 from app.core.exceptions import CustomException
@@ -14,6 +18,7 @@ from app.schemas.user import (
 )
 from app.crud.user import user as crud_user
 from app.crud.role import role as crud_role
+from app.models.user import UserAvatar
 
 # 默认头像路径
 DEFAULT_AVATAR_PATH = "static/avatars/default.png"
@@ -243,6 +248,71 @@ class UserService:
             raise CustomException(
                 message=get_error_message(ErrorCode.DB_ERROR)
             )
+
+    async def update_user_avatar(self, user_id: int, avatar_data: str) -> None:
+        """更新用户头像
+        
+        Args:
+            user_id: 用户ID
+            avatar_data: base64编码的图片数据，格式为 "data:image/xxx;base64,xxxxx"
+        """
+        try:
+            # 验证用户是否存在
+            user = self.db.query(User).filter(User.id == user_id).first()
+            if not user:
+                raise CustomException("用户不存在")
+                
+            # 解析base64数据
+            try:
+                # 移除 data:image/xxx;base64, 前缀
+                if "," in avatar_data:
+                    avatar_data = avatar_data.split(",", 1)[1]
+                    
+                # 解码base64数据
+                image_data = base64.b64decode(avatar_data)
+                
+                # 生成文件名
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                filename = f"avatar_{user_id}_{timestamp}.png"
+                
+                # 确保上传目录存在
+                upload_dir = os.path.join("static", "avatars")
+                os.makedirs(upload_dir, exist_ok=True)
+                
+                # 保存图片文件
+                file_path = os.path.join(upload_dir, filename)
+                with open(file_path, "wb") as f:
+                    f.write(image_data)
+                    
+                # 更新用户头像URL
+                avatar_url = f"/static/avatars/{filename}"
+                
+                # 将之前的头像设置为非活动
+                self.db.query(UserAvatar).filter(
+                    UserAvatar.user_id == user_id,
+                    UserAvatar.is_active == True
+                ).update({"is_active": False})
+                
+                # 创建新的头像记录
+                new_avatar = UserAvatar(
+                    user_id=user_id,
+                    avatar_url=avatar_url,
+                    is_active=True
+                )
+                self.db.add(new_avatar)
+                self.db.commit()
+                
+                logger.info(f"用户 {user_id} 头像更新成功")
+                
+            except Exception as e:
+                logger.error(f"处理头像数据失败: {str(e)}")
+                raise CustomException("处理头像数据失败")
+                
+        except CustomException as e:
+            raise e
+        except Exception as e:
+            logger.error(f"更新用户头像失败: {str(e)}")
+            raise CustomException("更新用户头像失败")
 
 # 创建服务实例
 user_service = UserService(None, None)  # 在应用启动时注入实际的 db 和 cache 
