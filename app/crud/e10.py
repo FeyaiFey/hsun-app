@@ -2544,6 +2544,7 @@ class CRUDE10:
                 ELSE (
                     CASE 
                     WHEN ITEM.ITEM_NAME = 'HS6601MX-16H-SOP8-H' THEN 'HS6601MX-SOP8-H-BY'
+                    WHEN ITEM.ITEM_NAME = 'HS6601L-25 可重复触发 LDO:2.5V' THEN 'HS6601L-25-SOP8-A-ZY'
                     WHEN ITEM.ITEM_CODE LIKE '%-ZY-%' THEN ITEM.ITEM_NAME + '-ZY'
                     WHEN ITEM.ITEM_CODE LIKE '%-BY-%' THEN ITEM.ITEM_NAME + '-BY'
                     END
@@ -2563,6 +2564,7 @@ class CRUDE10:
                     ELSE (
                     CASE 
                         WHEN ITEM.ITEM_NAME = 'HS6601MX-16H-SOP8-H' THEN 'HS6601MX-SOP8-H-BY'
+                        WHEN ITEM.ITEM_NAME = 'HS6601L-25 可重复触发 LDO:2.5V' THEN 'HS6601L-25-SOP8-A-ZY'
                         WHEN ITEM.ITEM_CODE LIKE '%-ZY-%' THEN ITEM.ITEM_NAME + '-ZY'
                         WHEN ITEM.ITEM_CODE LIKE '%-BY-%' THEN ITEM.ITEM_NAME + '-BY'
                     END
