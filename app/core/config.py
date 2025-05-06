@@ -50,10 +50,12 @@ class Settings(BaseSettings):
     LOG_FILE: Path = Path("logs/app.log")
 
     # 邮件配置
-    IMAP_SERVER: str = "s220s.chinaemail.cn"
+    IMAP_SERVER: str = "p220s.chinaemail.cn"
+    IMAP_PORT: int = 993
+    IMAP_USE_SSL: bool = True
+    SMTP_SERVER: str = "s220s.chinaemail.cn"
     SMTP_PORT: int = 465
-    EMAIL_ACCOUNT: str = "wxb1@h-sun.com"
-    EMAIL_PASSWORD: str = "496795ef2tsWaJol"
+    SMTP_USE_SSL: bool = True
 
     model_config = SettingsConfigDict(
         case_sensitive=True,
