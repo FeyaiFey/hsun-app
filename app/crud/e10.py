@@ -3109,7 +3109,10 @@ class CRUDE10:
             params = AssyRequireOrdersQuery(status='0')
             result = self.get_assy_require_orders(db,params)
             orders = result['list']
+            if not orders:
+                raise CustomException(message="没有封装单数据")
             
+            # 创建工作簿
             wb = Workbook()
             ws = wb.active
             ws.title = "封装单"
@@ -3209,7 +3212,7 @@ class CRUDE10:
             db.commit()
             
             return AssySubmitOrdersResponse(
-                message="修改成功！",
+                message="状态修改成功！",
                 success=True
             )
             

@@ -234,15 +234,13 @@ class EmailService:
         
         返回元组：(成功标志, 错误信息, 消息ID)
         """
+        client = None
         try:
             # 创建安全上下文
             context = ssl.create_default_context()
             
             # 记录连接信息
             logger.info(f"正在连接SMTP服务器: {self.smtp_host}:{self.smtp_port} (SSL: {self.smtp_use_ssl})")
-            
-            # 初始化SMTP参数
-            smtp_kwargs = {}
             
             # 根据是否使用SSL选择不同的连接方式
             if self.smtp_use_ssl:
@@ -277,9 +275,6 @@ class EmailService:
             # 发送邮件
             send_result = await client.send_message(message)
             
-            # 关闭连接
-            await client.quit()
-            
             # 从元组中提取消息ID或使用消息的Message-ID
             message_id = None
             if isinstance(send_result, tuple) and len(send_result) > 1:
@@ -289,14 +284,29 @@ class EmailService:
                 
             return True, None, message_id
                 
+        except aiosmtplib.SMTPConnectError as e:
+            error_msg = f"SMTP连接错误: {str(e)}"
+            logger.error(error_msg)
+            return False, error_msg, None
+        except aiosmtplib.SMTPAuthenticationError as e:
+            error_msg = f"SMTP认证错误: {str(e)}"
+            logger.error(error_msg)
+            return False, error_msg, None
         except aiosmtplib.SMTPException as e:
-            error_msg = f"邮件服务器错误: {str(e)}"
-            logger.error(f"SMTP错误: {str(e)}")
+            error_msg = f"SMTP错误: {str(e)}"
+            logger.error(error_msg)
             return False, error_msg, None
         except Exception as e:
             error_msg = f"发送邮件时发生错误: {str(e)}"
             logger.error(error_msg)
             return False, error_msg, None
+        finally:
+            # 确保客户端连接被正确关闭
+            if client:
+                try:
+                    await client.quit()
+                except Exception as e:
+                    logger.error(f"关闭SMTP连接时发生错误: {str(e)}")
     
     def _connect_to_imap(self):
         """连接到IMAP服务器，处理不同的连接方式"""
