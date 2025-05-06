@@ -2507,7 +2507,7 @@ class CRUDE10:
                     WHEN ITEM.ITEM_CODE LIKE '%TR' THEN '编带'
                     ELSE '管装'
                     END AS ABTR,
-                    dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB') AS ITEM_NAME,
+                    dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB,+TR') AS ITEM_NAME,
                     SID.PRICE_QTY
                 FROM SALES_ISSUE SI
                 LEFT JOIN SALES_ISSUE_D SID
@@ -2521,7 +2521,7 @@ class CRUDE10:
                     WHEN ITEM.ITEM_CODE LIKE '%TR' THEN '编带'
                     ELSE '管装'
                     END AS ABTR,
-                    dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB') AS ITEM_NAME,
+                    dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB,+TR') AS ITEM_NAME,
                     SRRD.PRICE_QTY*-1
                 FROM SALES_RETURN_RECEIPT SRR
                 LEFT JOIN SALES_RETURN_RECEIPT_D SRRD
@@ -2583,7 +2583,7 @@ class CRUDE10:
                     WHEN ITEM.ITEM_CODE LIKE 'DG-%' THEN '代工品'
                     ELSE '半成品'
                 END AS CPBC,
-                dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'BC-,CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB') AS ITEM_NAME,
+                dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'BC-,CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB,+TR') AS ITEM_NAME,
                 SUM(CAST(A.INVENTORY_QTY AS INT)) AS INVENTORY_QTY
                 FROM Z_WF_IC_WAREHOUSE_BIN A
                 LEFT JOIN ITEM
@@ -2606,12 +2606,12 @@ class CRUDE10:
                     WHEN ITEM.ITEM_CODE LIKE 'DG-%' THEN '代工品'
                     ELSE '半成品'
                 END,
-                dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'BC-,CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB')
+                dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'BC-,CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB,+TR')
                 ),
                 WIP AS 
                 (
                 SELECT 
-                dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'BC-,CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB') AS ITEM_NAME,
+                dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'BC-,CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB,+TR') AS ITEM_NAME,
                 CASE
                 WHEN ZPP.Z_PROCESSING_PURPOSE_NAME LIKE '%编带' THEN '编带'
                 ELSE '管装'
@@ -2637,7 +2637,7 @@ class CRUDE10:
                 ITEM.ITEM_CODE LIKE N'BC%AB' AND
                 (PO_D.BUSINESS_QTY * 0.9989- PO_D.RECEIPTED_PRICE_QTY)>5000
                 GROUP BY
-                dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'BC-,CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB'),
+                dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'BC-,CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB,+TR'),
                 CASE
                 WHEN ZPP.Z_PROCESSING_PURPOSE_NAME LIKE '%编带' THEN '编带'
                 ELSE '管装'
