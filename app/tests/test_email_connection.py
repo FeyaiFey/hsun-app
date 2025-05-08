@@ -10,7 +10,7 @@ async def test_smtp_connection():
         smtp_host = "s220s.chinaemail.cn"
         smtp_port = 465
         smtp_user = "fangmr@h-sun.com"
-        smtp_password = "5022381eCgfGeyXQ"
+        smtp_password = "8275c9caLfPyByAO"
         # smtp_user = "shenlj@h-sun.com"
         # smtp_password = "7a44f92fWqeGeEG7"
         
