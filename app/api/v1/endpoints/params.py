@@ -26,7 +26,9 @@ from app.schemas.e10 import (FeatureGroupNameQuery,
                              TestingProgramResponse, 
                              BurningProgramQuery, 
                              BurningProgramResponse, 
-                             LotCodeQuery, LotCodeResponse)
+                             LotCodeQuery, 
+                             LotCodeResponse,
+                             SaleUnitResponse)
 from app.services.e10_service import E10Service
 
 router = APIRouter()
@@ -295,3 +297,27 @@ async def get_sales(
             name="SystemError"
         )
 
+@router.get("/sale/unit", response_model=IResponse[SaleUnitResponse])
+@monitor_request
+async def get_sale_unit(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    try:
+        e10_service = E10Service(db, cache)
+        result = await e10_service.get_sale_unit()
+        return CustomResponse.success(data=result)
+    except CustomException as e:
+        logger.error(f"获取销售单位失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="SaleUnitError"
+        )
+    except Exception as e:
+        logger.error(f"获取销售单位失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.SYSTEM_ERROR),
+            name="SystemError"
+        )

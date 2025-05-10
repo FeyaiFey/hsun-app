@@ -82,7 +82,6 @@ class PurchaseWip(BaseModel):
     supplier: Optional[str] = Field(..., description="供应商")
     finished_at: Optional[date] = Field(..., description="完成日期")
     stranded: Optional[int] = Field(..., description="滞留天数")
-    leadTime: Optional[int] = Field(..., description="提前期,交货期")
 
 class PurchaseWipResponse(BaseModel):
     """采购在制响应"""

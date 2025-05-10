@@ -125,17 +125,14 @@ async def export_assy_order(
         
         # 生成文件名
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"封装订单_{current_time}.xlsx"
-        
-        # 对文件名进行URL编码
-        encoded_filename = quote(filename)
+        filename = f"packageOrders_{current_time}.xlsx"
         
         # 返回文件流
         return StreamingResponse(
             io.BytesIO(excel_data),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={
-                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
+                "Content-Disposition": f"attachment; filename={filename}"
             }
         )
     except CustomException as e:
@@ -490,17 +487,14 @@ async def export_assy_orders(
         
         # 生成文件名
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"封装单_{current_time}.xlsx"
-        
-        # 对文件名进行URL编码
-        encoded_filename = quote(filename)
+        filename = f"S&OPrequirements_{current_time}.xlsx"
         
         # 返回文件流
         return StreamingResponse(
             io.BytesIO(excel_data),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={
-                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
+                "Content-Disposition": f"attachment; filename={filename}"
             }
         )
     except CustomException as e:
@@ -556,17 +550,14 @@ async def export_cptest_orders_excel(
         excel_data = await e10_service.export_cptest_orders_excel(params)
          # 生成文件名
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"CP订单单_{current_time}.xlsx"
-        
-        # 对文件名进行URL编码
-        encoded_filename = quote(filename)
+        filename = f"CPtestOrders_{current_time}.xlsx"
         
         # 返回文件
         return StreamingResponse(
             io.BytesIO(excel_data),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={
-                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
+                "Content-Disposition": f"attachment; filename={filename}"
             }
         )
     except CustomException as e:

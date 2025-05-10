@@ -142,16 +142,13 @@ async def export_stock_by_params(
         
         # 生成文件名
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"库存查询_{current_time}.xlsx"
-        
-        # 对文件名进行URL编码
-        encoded_filename = quote(filename)
-        
+        filename = f"stockQuery_{current_time}.xlsx"
+
         # 返回文件流
         return StreamingResponse(
             io.BytesIO(excel_data),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename={encoded_filename}"}
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
         )
     except CustomException as e:
         logger.error(f"导出库存失败: {str(e)}")

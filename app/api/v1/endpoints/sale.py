@@ -15,7 +15,11 @@ from app.core.exceptions import CustomException
 from app.core.response import CustomResponse
 from app.core.error_codes import ErrorCode, get_error_message
 from app.models.user import User
-from app.schemas.sale import SaleTableQuery, SaleTableResponse, SaleTargetCreate, SaleTargetUpdate
+from app.schemas.sale import (
+    SaleTableQuery, SaleTableResponse, SaleTargetCreate, SaleTargetUpdate,
+    SaleTargetSummaryQuery, SaleTargetSummaryResponse,
+    SaleTargetDetailQuery, SaleTargetDetailResponse
+)
 from app.services.sale_service import SaleService
 
 router = APIRouter()
@@ -23,9 +27,9 @@ router = APIRouter()
 # 创建缓存实例
 cache = MemoryCache()
 
-@router.get("/table", response_model=IResponse[SaleTableResponse])
+@router.get("/target/table", response_model=IResponse[SaleTableResponse])
 @monitor_request
-async def get_sale_table(
+async def get_sale_target_table(
     params: SaleTableQuery = Depends(),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -49,7 +53,7 @@ async def get_sale_table(
             name="SaleError"
         )
 
-@router.post("/create", response_model=IResponse[SaleTableResponse])
+@router.post("/target/create", response_model=IResponse[SaleTableResponse])
 @monitor_request
 async def create_sale_target(
     params: SaleTargetCreate = Depends(),
@@ -75,7 +79,7 @@ async def create_sale_target(
             name="SaleError"
         )
 
-@router.put("/update", response_model=IResponse[SaleTableResponse])
+@router.put("/target/update", response_model=IResponse[SaleTableResponse])
 @monitor_request
 async def update_sale_target(
     params: SaleTargetUpdate = Depends(),
@@ -101,7 +105,7 @@ async def update_sale_target(
             name="SaleError"
         )
     
-@router.delete("/delete", response_model=IResponse[SaleTableResponse])
+@router.delete("/target/delete", response_model=IResponse[SaleTableResponse])
 @monitor_request
 async def delete_sale_target(
     id: UUID = Depends(),
@@ -126,4 +130,58 @@ async def delete_sale_target(
             message=get_error_message(ErrorCode.DB_ERROR),
             name="SaleError"
         )
+
+@router.get("/target/summary",response_model=IResponse[SaleTargetSummaryResponse])
+@monitor_request
+async def get_sale_target_summary(
+    params: SaleTargetSummaryQuery = Depends(),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    try:
+        sale_service = SaleService(db)
+        sale_target = await sale_service.get_sale_target_summary(db,params)
+        return CustomResponse.success(data=sale_target)
+    except CustomException as e:
+        logger.error(f"获取销售目标汇总失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="SaleError"
+        )
+    except Exception as e:
+        logger.error(f"获取销售目标汇总失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.DB_ERROR),
+            name="SaleError"
+        )
+
+
+@router.get("/target/detail",response_model=IResponse[SaleTargetDetailResponse])
+@monitor_request
+async def get_sale_target_detail(
+    params: SaleTargetDetailQuery = Depends(),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    try:
+        sale_service = SaleService(db)
+        sale_target = await sale_service.get_sale_target_detail(db,params)
+        return CustomResponse.success(data=sale_target)
+    except CustomException as e:
+        logger.error(f"获取销售目标详情失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="SaleError"
+        )
+    except Exception as e:
+        logger.error(f"获取销售目标详情失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.DB_ERROR),
+            name="SaleError"
+        )
+    
 

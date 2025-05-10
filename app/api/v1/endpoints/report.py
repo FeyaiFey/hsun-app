@@ -62,19 +62,14 @@ async def export_global_report(
         excel_data = await e10_service.export_global_report()
         # 生成文件名
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"外协报表_{current_time}.xlsx"
-        
-        # 对文件名进行URL编码
-        encoded_filename = quote(filename)
-        
-        # 不再需要ASCII文件名
+        filename = f"globalReport_{current_time}.xlsx"
         
         # 返回文件流
         return StreamingResponse(
             io.BytesIO(excel_data),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={
-                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
+                "Content-Disposition": f"attachment; filename={filename}"
             }
         )
     except CustomException as e:
@@ -131,19 +126,14 @@ async def export_sop_report(
         excel_data = await e10_service.export_sop_report()
         # 生成文件名
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"SOP报表_{current_time}.xlsx"
-        
-        # 对文件名进行URL编码
-        encoded_filename = quote(filename)
-        
-        # 不再需要ASCII文件名
+        filename = f"S&OPreport_{current_time}.xlsx"
         
         # 返回文件流
         return StreamingResponse(
             io.BytesIO(excel_data),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={
-                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
+                "Content-Disposition": f"attachment; filename={filename}"
             }
         )
     except CustomException as e:
@@ -188,3 +178,40 @@ async def get_chipInfo_trace_table(
             name="ChipInfoTraceError"
         )
 
+@router.get("/chipInfoTrace/export")
+@monitor_request
+async def export_chip_trace(
+    params: ChipInfoTraceQuery = Depends(),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """导出芯片追溯Excel"""
+    try:
+        e10_service = E10Service(db, cache)
+        excel_data = await e10_service.export_chip_trace_by_params(params)
+        # 生成文件名
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"chipTrace_{current_time}.xlsx"
+
+        # 返回文件流
+        return StreamingResponse(
+            io.BytesIO(excel_data),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename*={filename}"
+            }
+        )
+    except CustomException as e:
+        logger.error(f"导出芯片追溯Excel失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="ChipInfoTraceError"
+        )
+    except Exception as e:
+        logger.error(f"导出芯片追溯Excel失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="导出芯片追溯Excel失败",
+            name="ChipInfoTraceError"
+        )

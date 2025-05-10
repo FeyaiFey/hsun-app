@@ -6,7 +6,11 @@ from uuid import UUID
 from app.core.logger import logger
 from app.core.exceptions import CustomException
 from app.core.error_codes import ErrorCode, get_error_message
-from app.schemas.sale import SaleTableQuery, SaleTableResponse, SaleTargetCreate, SaleTargetUpdate
+from app.schemas.sale import (
+    SaleTableQuery, SaleTableResponse, SaleTargetCreate, SaleTargetUpdate,
+    SaleTargetSummaryQuery, SaleTargetSummaryResponse,
+    SaleTargetDetailQuery, SaleTargetDetailResponse
+)
 from app.crud.sale import CRUSale
 
 
@@ -26,3 +30,10 @@ class SaleService:
     
     async def delete_sale_target(self,db: Session,id: UUID) -> SaleTableResponse:
         return await self.crud_sale.delete_sale_target(db,id)
+
+    async def get_sale_target_summary(self,db: Session,params: SaleTargetSummaryQuery) -> SaleTargetSummaryResponse:
+        return await self.crud_sale.get_sale_target_summary(db,params)
+
+    async def get_sale_target_detail(self,db: Session,params: SaleTargetDetailQuery) -> SaleTargetDetailResponse:
+        return await self.crud_sale.get_sale_target_detail(db,params)
+

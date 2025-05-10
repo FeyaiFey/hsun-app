@@ -85,3 +85,7 @@ class BurningProgram(BaseModel):
 class BurningProgramResponse(BaseModel):
     """烧录程序响应"""
     list: List[BurningProgram] = Field(..., description="烧录程序列表")
+
+class SaleUnitResponse(BaseModel):
+    label: str = Field(..., description="销售单位")
+    value: str = Field(..., description="销售单位值")

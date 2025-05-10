@@ -15,8 +15,7 @@ from app.schemas.stock import (StockQuery, Stock, WaferIdQtyDetailQuery, WaferId
 from app.schemas.report import GlobalReport,SopAnalyzeResponse,ChipInfoTraceQuery,ChipInfoTraceResponse
 from app.schemas.e10 import (FeatureGroupName, FeatureGroupNameQuery, ItemCode, ItemCodeQuery, ItemName, ItemNameQuery,
                              WarehouseName, WarehouseNameQuery, TestingProgram, TestingProgramQuery, BurningProgram, BurningProgramQuery,
-                             LotCode, LotCodeQuery
-                             )
+                             LotCode, LotCodeQuery, SaleUnitResponse)
 from app.crud.e10 import CRUDE10
 
 class E10Service:
@@ -532,6 +531,14 @@ class E10Service:
             logger.error(f"获取销售员名称失败: {str(e)}")
             raise CustomException("获取销售员名称失败")
     
+    async def get_sale_unit(self) -> List[SaleUnitResponse]:
+        """获取销售单位"""
+        try:
+            return self.crud_e10.get_sale_unit(self.db)
+        except Exception as e:
+            logger.error(f"获取销售单位失败: {str(e)}")
+            raise CustomException("获取销售单位失败")
+    
     async def batch_submit_assy_orders(self,data:AssySubmitOrdersRequest,current_user:str) -> AssySubmitOrdersResponse:
         """批量提交封装单"""
         try:
@@ -600,5 +607,13 @@ class E10Service:
         except Exception as e:
             logger.error(f"提交封装需求单失败: {str(e)}")
             raise CustomException("提交封装需求单失败")
+    
+    async def export_chip_trace_by_params(self,params:ChipInfoTraceQuery) -> bytes:
+        """导出芯片追溯Excel"""
+        try:
+            return self.crud_e10.export_chip_trace(self.db,params)
+        except Exception as e:
+            logger.error(f"导出芯片追溯Excel失败: {str(e)}")
+            raise CustomException("导出芯片追溯Excel失败")
 
 e10_service = E10Service(None, None)  # 在应用启动时注入实际的 db 和 cache

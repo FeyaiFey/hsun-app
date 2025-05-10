@@ -35,7 +35,8 @@ from app.schemas.e10 import (FeatureGroupNameQuery,
                              WarehouseNameQuery,
                              TestingProgramQuery,
                              BurningProgramQuery,
-                             LotCodeQuery)
+                             LotCodeQuery,
+                             SaleUnitResponse)
 from app.schemas.report import GlobalReport,SopAnalyzeResponse,ChipInfoTraceQuery,ChipInfoTraceResponse,ChipInfoTrace
 from app.core.exceptions import CustomException
 from app.core.logger import logger
@@ -499,11 +500,7 @@ class CRUDE10:
                     CASE 
                         WHEN forecastDate IS NULL THEN 0
                         ELSE DATEDIFF(DAY, modified_at, GETDATE())
-                    END AS stranded,
-                    CASE 
-                        WHEN NOT finished_at IS NULL THEN DATEDIFF(DAY, create_at, GETDATE())
-                        ELSE NULL
-                    END AS leadTime
+                    END AS stranded
                 FROM huaxinAdmin_wip_fab
                 WHERE 1=1
             """
@@ -585,8 +582,7 @@ class CRUDE10:
                     forecastDate=row.forecastDate,
                     supplier=row.supplier,
                     finished_at=row.finished_at,
-                    stranded=row.stranded,
-                    leadTime=row.leadTime
+                    stranded=row.stranded
                 ) for row in result
             ]
 
@@ -1994,7 +1990,8 @@ class CRUDE10:
                     ISNULL(SD2.TESTED_WAFER, 0) AS TESTED_WAFER,
                     BL.DEPUTY_CHIP,
                     ISNULL(WIP2.PURCHASE_WIP_QTY, 0) AS OUTSOURCING_WIP_QTY,
-                    ISNULL(SD3.TOTAL_RAW_MATERIALS, 0) AS TOTAL_B_RAW_MATERIALS
+                    ISNULL(SD3.TOTAL_RAW_MATERIALS, 0) AS TOTAL_B_RAW_MATERIALS,
+                    CASE WHEN (BL.MAIN_CHIP LIKE 'HS%') THEN 0 ELSE 1 END AS FIRST_ORDER
                     FROM BL
                     LEFT JOIN SD SD1 ON SD1.ITEM_NAME = BL.CHIP_NAME
                     LEFT JOIN SD SD2 ON SD2.ITEM_NAME = BL.MAIN_CHIP
@@ -2009,7 +2006,7 @@ class CRUDE10:
                         WHERE ITEM_CODE LIKE N'%WG' OR ITEM_CODE LIKE N'%WF'
                     )NNT 
                     ON NNT.ITEM_NAME = BL.MAIN_CHIP
-                    ORDER BY BL.ROW
+                    ORDER BY FIRST_ORDER ,BL.ROW
             """)
             result = db.execute(base_query).all()
             
@@ -2839,17 +2836,37 @@ class CRUDE10:
     def get_sales(self,db:Session)->List[SalesResponse]:
         """获取销售员名称"""
         SALES_QUERY = text("""
-            SELECT USER_NAME
-            FROM [USER]
-            WHERE REMARK = '销售' OR REMARK = '销售部长' OR REMARK = '销售组长' OR REMARK = '销售助理' 
+            SELECT EMPLOYEE.EMPLOYEE_ID,EMPLOYEE.EMPLOYEE_NAME
+            FROM EMPLOYEE
+            INNER JOIN EMPLOYEE_D
+            ON EMPLOYEE.EMPLOYEE_ID = EMPLOYEE_D.EMPLOYEE_ID
+            INNER JOIN ADMIN_UNIT
+            ON EMPLOYEE_D.ADMIN_UNIT_ID = ADMIN_UNIT.ADMIN_UNIT_ID
+            WHERE ADMIN_UNIT.ADMIN_UNIT_NAME LIKE '%销售%'
+            ORDER BY ADMIN_UNIT_NAME DESC, EMPLOYEE_NAME
         """)
         try:
             result = db.execute(SALES_QUERY).fetchall()
-            return [SalesResponse(label=row.USER_NAME, value=row.USER_NAME) for row in result]
+            return [SalesResponse(label=row.EMPLOYEE_NAME, value=row.EMPLOYEE_NAME) for row in result]
         except Exception as e:
             logger.error(f"获取销售员名称失败: {str(e)}")
             raise CustomException("获取销售员名称失败")
     
+    def get_sale_unit(self,db:Session)->List[SaleUnitResponse]:
+        """获取销售单位"""
+        try:
+            sale_unit_query = text("""
+                SELECT ADMIN_UNIT_NAME
+                FROM ADMIN_UNIT
+                WHERE ADMIN_UNIT_NAME LIKE '%销售%'
+                ORDER BY ADMIN_UNIT_NAME DESC
+            """)
+            result = db.execute(sale_unit_query).fetchall()
+            return [SaleUnitResponse(label=row.ADMIN_UNIT_NAME, value=row.ADMIN_UNIT_NAME) for row in result]
+        except Exception as e:
+            logger.error(f"获取销售行政单位失败: {str(e)}")
+            raise CustomException("获取销售行政单位失败")
+
     def get_assy_require_orders(self, db: Session, params: AssyRequireOrdersQuery) -> Dict[str, Any]:
         try:
             # 基础查询
@@ -3921,7 +3938,7 @@ class CRUDE10:
                 query_params["chip_name"] = f"%{self._clean_input(params.CHIP_NAME)}%"
             
             if params.WAFER_NAME and isinstance(params.WAFER_NAME, str):
-                conditions.append("AND UPPER(CL.CHIP_CODE) LIKE UPPER(:wafer_name)")
+                conditions.append("AND UPPER(CL.ITEM_NAME) LIKE UPPER(:wafer_name)")
                 query_params["wafer_name"] = f"%{self._clean_input(params.WAFER_NAME)}%"
             
             if params.TESTING_PROGRAM_NAME and isinstance(params.TESTING_PROGRAM_NAME, str):
@@ -4226,3 +4243,142 @@ class CRUDE10:
         except Exception as e:
             logger.error(f"获取芯片信息追溯失败: {str(e)}")
             raise CustomException(f"获取芯片信息追溯失败: {str(e)}")
+        
+    def export_chip_trace(self,db: Session, params: ChipInfoTraceQuery):
+        try:
+            # 获取数据
+            params.pageIndex = 1
+            params.pageSize = 10000000
+            chip_trace_list = self.get_chipInfo_trace_by_params(db, params)
+
+            # 创建Excel文件
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "芯片追溯"
+            
+            # 设置表头
+            headers = [
+                "ID",
+                "单据号",
+                "芯片编码",
+                "封装形式",
+                "打印批号",
+                "业务数量",
+                "收货数量",
+                "在制数量",
+                "加工方式",
+                "成测程序",
+                "打线图号",
+                "打线材料",
+                "封装备注",
+                "封装日期",
+                "首次到货",
+                "封装供应商",
+                "U0/U1/U2",
+                "晶圆编码",
+                "晶圆批号",
+                "晶圆数量",
+                "第二数量",
+                "刻号",
+                "测试流程",
+                "测试程序",
+                "CP供应商"
+            ]
+
+            # 设置列宽
+            column_widths = {
+                "A":20,
+                "B":30,
+                "C":50,
+                "D":30,
+                "E":20,
+                "F":20,
+                "G":20,
+                "H":20,
+                "I":20,
+                "J":20,
+                "K":20,
+                "L":20,
+                "M":20,
+                "N":20,
+                "O":20,
+                "P":20,
+                "Q":20,
+                "R":20,
+                "S":20,
+                "T":20,
+                "U":20,
+                "V":20,
+                "W":20,
+                "X":20,
+                "Y":20
+            }
+
+            # 设置样式
+            header_font = Font(name='微软雅黑', size=11, bold=True, color='FFFFFF')
+            header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+            header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            cell_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+            
+            # 写入表头
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col, value=header)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = header_alignment
+                cell.border = border
+                ws.column_dimensions[get_column_letter(col)].width = column_widths[get_column_letter(col)]
+            
+            # 写入数据
+            for row, result in enumerate(chip_trace_list['list'], 2):
+                data = [
+                    result.ID,
+                    result.DOC_NO,
+                    result.ITEM_CODE,
+                    result.Z_PACKAGE_TYPE_NAME,
+                    result.LOT_CODE,
+                    result.BUSINESS_QTY,
+                    result.RECEIPTED_PRICE_QTY,
+                    result.WIP_QTY,
+                    result.Z_PROCESSING_PURPOSE_NAME,
+                    result.Z_TESTING_PROGRAM_NAME,
+                    result.Z_ASSEMBLY_CODE,
+                    result.Z_WIRE_NAME,
+                    result.REMARK,
+                    result.PURCHASE_DATE,
+                    result.FIRST_ARRIVAL_DATE,
+                    result.SUPPLIER_FULL_NAME,
+                    result.MAIN_CHIP,
+                    result.CHIP_CODE,
+                    result.LOT_CODE_NAME,
+                    result.WAFER_QTY,
+                    result.S_QTY,
+                    result.WAFER_ID,
+                    result.PROGRESS_NAME,
+                    result.TESTING_PROGRAM_NAME,
+                    result.SUPPLIER
+                ]
+
+                for col, value in enumerate(data, 1):
+                    cell = ws.cell(row=row, column=col, value=value)
+                    cell.alignment = cell_alignment
+                    cell.border = border
+
+            # 冻结首行
+            ws.freeze_panes = 'A2'
+            
+            # 保存到内存
+            excel_file = io.BytesIO()
+            wb.save(excel_file)
+            excel_file.seek(0)
+            
+            return excel_file.getvalue()
+        except Exception as e:
+            logger.error(f"导出芯片追溯Excel失败: {str(e)}")
+            raise CustomException(f"导出芯片追溯Excel失败: {str(e)}")

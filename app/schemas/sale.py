@@ -32,19 +32,58 @@ class SaleTableResponse(BaseModel):
 
 class SaleTargetCreate(BaseModel):
     """销售目标创建"""
-    year: Optional[int] = Field(..., description="年份")
-    month: Optional[int] = Field(..., description="月份")
-    yearmonth: Optional[str] = Field(..., description="年月")
-    monthly_target: Optional[int] = Field(..., description="月度目标")
-    annual_target: Optional[int] = Field(..., description="年度目标")
+    year: Optional[int] = Field(default=None, description="年份")
+    month: Optional[int] = Field(default=None, description="月份")
+    yearmonth: Optional[str] = Field(default=None, description="年月")
+    monthly_target: Optional[int] = Field(default=None, description="月度目标")
+    annual_target: Optional[int] = Field(default=None, description="年度目标")
 
 class SaleTargetUpdate(BaseModel):
     """销售目标更新"""
     id: UUID = Field(..., description="销售目标ID")
-    year: Optional[int] = Field(..., description="年份")
-    month: Optional[int] = Field(..., description="月份")
-    yearmonth: Optional[str] = Field(..., description="年月")
-    monthly_target: Optional[int] = Field(..., description="月度目标")
-    annual_target: Optional[int] = Field(..., description="年度目标")
+    year: Optional[int] = Field(default=None, description="年份")
+    month: Optional[int] = Field(default=None, description="月份")
+    yearmonth: Optional[str] = Field(default=None, description="年月")
+    monthly_target: Optional[int] = Field(default=None, description="月度目标")
+    annual_target: Optional[int] = Field(default=None, description="年度目标")
 
+class SaleTargetSummaryQuery(BaseModel):
+    """销售目标汇总查询"""
+    year: Optional[int] = Field(default=None, description="年份")
+    month: Optional[int] = Field(default=None, description="月份")
 
+class SaleTargetSummary(BaseModel):
+    """销售目标汇总响应"""
+    YEAR: int = Field(..., description="年份")
+    MONTH: int = Field(..., description="月份")
+    ADMIN_UNIT_NAME: str = Field(..., description="行政单位")
+    EMPLOYEE_NAME: str = Field(..., description="业务员")
+    FORECAST_QTY: int = Field(..., description="预测销量")
+    PRICE_QTY: int = Field(..., description="实际销量")
+    PERCENTAGE: float = Field(..., description="完成率")
+
+class SaleTargetSummaryResponse(BaseModel):
+    """销售目标汇总响应"""
+    list: List[SaleTargetSummary] = Field(..., description="销售目标汇总列表")
+
+class SaleTargetDetailQuery(BaseModel):
+    """销售目标详情查询"""
+    year: Optional[int] = Field(default=None, description="年份")
+    month: Optional[int] = Field(default=None, description="月份")
+    employee_name: Optional[str] = Field(default=None, description="业务员")
+
+class SaleTargetDetail(BaseModel):
+    """销售目标详情响应"""
+    YEAR: Optional[int] = Field(default=None, description="年份")
+    MONTH: Optional[int] = Field(default=None, description="月份")
+    ADMIN_UNIT_NAME: Optional[str] = Field(default=None, description="行政单位")
+    EMPLOYEE_NAME: Optional[str] = Field(default=None, description="业务员")
+    SHORTCUT: Optional[str] = Field(default=None, description="类别")
+    ITEM_NAME: Optional[str] = Field(default=None, description="芯片名称")
+    FORECAST_QTY: Optional[int] = Field(default=None, description="预测销量")
+    PRICE_QTY: Optional[int] = Field(default=None, description="实际销量")
+    PERCENTAGE: Optional[float] = Field(default=None, description="完成率")
+
+class SaleTargetDetailResponse(BaseModel):
+    """销售目标详情响应"""
+    list: List[SaleTargetDetail] = Field(..., description="销售目标详情列表")
