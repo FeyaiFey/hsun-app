@@ -9,7 +9,9 @@ from app.core.error_codes import ErrorCode, get_error_message
 from app.schemas.sale import (
     SaleTableQuery, SaleTableResponse, SaleTargetCreate, SaleTargetUpdate,
     SaleTargetSummaryQuery, SaleTargetSummaryResponse,
-    SaleTargetDetailQuery, SaleTargetDetailResponse
+    SaleTargetDetailQuery, SaleTargetDetailResponse,
+    SaleAmountAnalyzeQuery, SaleAmountAnalyzeResponse,
+    SaleAnalysisPannelResponse
 )
 from app.crud.sale import CRUSale
 
@@ -37,3 +39,8 @@ class SaleService:
     async def get_sale_target_detail(self,db: Session,params: SaleTargetDetailQuery) -> SaleTargetDetailResponse:
         return await self.crud_sale.get_sale_target_detail(db,params)
 
+    async def get_sale_amount_analyze(self,db: Session,params: SaleAmountAnalyzeQuery) -> SaleAmountAnalyzeResponse:
+        return await self.crud_sale.get_sale_amount_analyze(db,params)
+
+    async def get_sale_analysis_pannel(self,db: Session) -> SaleAnalysisPannelResponse:
+        return await self.crud_sale.get_sale_analysis_pannel(db)

@@ -87,3 +87,59 @@ class SaleTargetDetail(BaseModel):
 class SaleTargetDetailResponse(BaseModel):
     """销售目标详情响应"""
     list: List[SaleTargetDetail] = Field(..., description="销售目标详情列表")
+
+class SaleAmountAnalyzeQuery(BaseModel):
+    """销售金额分析查询参数"""
+    year: Optional[str] = Field(None, description="年份")
+    month: Optional[str] = Field(None, description="月份")
+    shortcut: Optional[str] = Field(None, description="产品类型")
+    admin_unit_name: Optional[str] = Field(None, description="部门名称")
+    employee_name: Optional[str] = Field(None, description="销售员姓名")
+    item_name: Optional[str] = Field(None, description="产品名称")
+    
+    # 添加分组字段标志
+    group_by_year: bool = Field(True, description="是否按年份分组")
+    group_by_month: bool = Field(False, description="是否按月份分组")
+    group_by_shortcut: bool = Field(False, description="是否按产品类型分组")
+    group_by_admin_unit_name: bool = Field(False, description="是否按部门分组")
+    group_by_employee_name: bool = Field(False, description="是否按销售员分组")
+    group_by_item_name: bool = Field(False, description="是否按产品名称分组")
+
+class SaleAmountAnalyze(BaseModel):
+    """销售金额分析响应项"""
+    YEAR: Optional[int] = Field(None, description="年份")
+    MONTH: Optional[int] = Field(None, description="月份")
+    SHORTCUT: Optional[str] = Field(None, description="产品类型")
+    ADMIN_UNIT_NAME: Optional[str] = Field(None, description="部门名称")
+    EMPLOYEE_NAME: Optional[str] = Field(None, description="销售员姓名")
+    ITEM_NAME: Optional[str] = Field(None, description="产品名称")
+    PRICE_QTY: Optional[int] = Field(None, description="销量")
+    AMOUNT: Optional[float] = Field(None, description="销售金额")
+
+class SaleAmountAnalyzeResponse(BaseModel):
+    """销售金额分析响应"""
+    list: List[SaleAmountAnalyze] = Field([], description="销售金额分析列表")
+
+class SaleAnalysisPannel(BaseModel):
+    """销售分析面板"""
+    this_year_sale_qty: int = Field(..., description="本年销量")
+    this_year_sale_amount: float = Field(..., description="本年销售额")
+    this_month_sale_qty: int = Field(..., description="本月销量")
+    this_month_sale_amount: float = Field(..., description="本月销售额")
+    last_year_sale_qty: int = Field(..., description="去年销量")
+    last_year_sale_amount: float = Field(..., description="去年销售额")
+    last_month_sale_qty: int = Field(..., description="上月销量")
+    last_month_sale_amount: float = Field(..., description="上月销售额")
+    last_last_month_sale_qty: int = Field(..., description="上上月销量")
+    last_last_month_sale_amount: float = Field(..., description="上上月销售额")
+    month_on_month_qty: float = Field(..., description="环比销量")
+    month_on_month_amount: float = Field(..., description="环比金额")
+    year_on_year_qty: float = Field(..., description="同比销量")
+    year_on_year_amount: float = Field(..., description="同比金额")
+
+class SaleAnalysisPannelResponse(BaseModel):
+    """销售分析面板响应"""
+    list: List[SaleAnalysisPannel] = Field(..., description="销售分析面板列表")
+
+
+
