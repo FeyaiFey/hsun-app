@@ -519,8 +519,8 @@ class CRUSale:
                 where_clause_return += f" AND E.EMPLOYEE_NAME = '{employee_name}'"
             if params.item_name:
                 item_name = self._clean_input(params.item_name)
-                where_clause_delivery += f" AND ITEM.ITEM_NAME = '{item_name}'"
-                where_clause_return += f" AND ITEM.ITEM_NAME = '{item_name}'"
+                where_clause_delivery += f" AND dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB,+TR') = '{item_name}'"
+                where_clause_return += f" AND dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB,+TR') = '{item_name}'"
             
             # 构建GROUP BY子句
             group_by_parts = []

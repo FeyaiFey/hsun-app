@@ -191,7 +191,7 @@ async def get_sale_target_detail(
 async def get_sale_amount_analyze(
     params: SaleAmountAnalyzeQuery = Depends(),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    # current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         sale_service = SaleService(db)
@@ -216,7 +216,7 @@ async def get_sale_amount_analyze(
 @monitor_request
 async def get_sale_analysis_pannel(
     db: Session = Depends(get_db),
-    # current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         sale_service = SaleService(db)
