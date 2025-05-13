@@ -149,8 +149,8 @@ class SaleForecastResponse(BaseModel):
 
 class SaleAmountQuery(BaseModel):
     """销售金额查询"""
-    year: Optional[int] = Field(None, description="年份")
-    month: Optional[int] = Field(None, description="月份")
+    year: Optional[str] = Field(None, description="年份")
+    month: Optional[str] = Field(None, description="月份")
     admin_unit_name: Optional[str] = Field(None, description="部门名称")
     employee_name: Optional[str] = Field(None, description="销售员")
     group_by_year: bool = Field(True, description="是否按年份分组")
