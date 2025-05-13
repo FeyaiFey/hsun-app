@@ -20,7 +20,8 @@ from app.schemas.sale import (
     SaleTargetSummaryQuery, SaleTargetSummaryResponse,
     SaleTargetDetailQuery, SaleTargetDetailResponse,
     SaleAmountAnalyzeQuery, SaleAmountAnalyzeResponse,
-    SaleAnalysisPannelResponse
+    SaleAnalysisPannelResponse, SaleForecastResponse,
+    SaleAmountResponse, SaleAmountQuery
 )
 from app.services.sale_service import SaleService
 
@@ -58,13 +59,13 @@ async def get_sale_target_table(
 @router.post("/target/create", response_model=IResponse[SaleTableResponse])
 @monitor_request
 async def create_sale_target(
-    params: SaleTargetCreate = Depends(),
+    data: SaleTargetCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         sale_service = SaleService(db)
-        sale_target = await sale_service.create_sale_target(db,current_user.username,params)
+        sale_target = await sale_service.create_sale_target(db,current_user.username,data)
         return CustomResponse.success(data=sale_target,message="创建成功!")
     except CustomException as e:
         logger.error(f"创建销售目标失败: {str(e)}")
@@ -84,13 +85,14 @@ async def create_sale_target(
 @router.put("/target/update", response_model=IResponse[SaleTableResponse])
 @monitor_request
 async def update_sale_target(
-    params: SaleTargetUpdate = Depends(),
+    data: SaleTargetUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ) -> Any:
+    logger.info(f"更新销售目标: {data}")
     try:
         sale_service = SaleService(db)
-        sale_target = await sale_service.update_sale_target(db,params)
+        sale_target = await sale_service.update_sale_target(db,data)
         return CustomResponse.success(data=sale_target,message="更新成功!")
     except CustomException as e:
         logger.error(f"更新销售目标失败: {str(e)}")
@@ -110,7 +112,7 @@ async def update_sale_target(
 @router.delete("/target/delete", response_model=IResponse[SaleTableResponse])
 @monitor_request
 async def delete_sale_target(
-    id: UUID = Depends(),
+    id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ) -> Any:
@@ -191,7 +193,7 @@ async def get_sale_target_detail(
 async def get_sale_amount_analyze(
     params: SaleAmountAnalyzeQuery = Depends(),
     db: Session = Depends(get_db),
-    # current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         sale_service = SaleService(db)
@@ -231,6 +233,56 @@ async def get_sale_analysis_pannel(
         )
     except Exception as e:
         logger.error(f"获取销售分析面板失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.DB_ERROR),
+            name="SaleError"
+        )
+@router.get("/analyze/forecast",response_model=IResponse[SaleForecastResponse])
+@monitor_request
+async def get_sale_forecast(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    try:
+        sale_service = SaleService(db)
+        sale_forecast = await sale_service.get_sale_forecast(db)
+        return CustomResponse.success(data=sale_forecast)
+    except CustomException as e:
+        logger.error(f"获取销售预测失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="SaleError"
+        )
+    except Exception as e:
+        logger.error(f"获取销售预测失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.DB_ERROR),
+            name="SaleError"
+        )
+
+@router.get("/analyze/amount",response_model=IResponse[SaleAmountResponse])
+@monitor_request
+async def get_sale_amount_detail(
+    params: SaleAmountQuery = Depends(),
+    db: Session = Depends(get_db),
+    # current_user: User = Depends(get_current_user)
+) -> Any:
+    try:
+        sale_service = SaleService(db)
+        sale_amount = await sale_service.get_sale_analyze_amount(db,params)
+        return CustomResponse.success(data=sale_amount)
+    except CustomException as e:
+        logger.error(f"获取销售金额详情失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="SaleError"
+        )
+    except Exception as e:
+        logger.error(f"获取销售金额详情失败: {str(e)}")
         return CustomResponse.error(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message=get_error_message(ErrorCode.DB_ERROR),

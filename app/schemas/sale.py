@@ -10,17 +10,18 @@ class SaleTableQuery(BaseModel):
     """销售表查询"""
     year: Optional[int] = Query(default=None, description="年份")
     month: Optional[int] = Query(default=None, description="月份")
-    yearmonth: Optional[str] = Query(default=None, description="年月")
+    admin_unit_name: Optional[str] = Query(default=None, description="行政部门")
+    employee_name: Optional[str] = Query(default=None, description="业务员")
     pageIndex: Optional[int] = Query(default=1, description="页码")
     pageSize: Optional[int] = Query(default=20, description="每页数量")
 
 class SaleTable(BaseModel):
-    Id: UUID = Field(..., description="销售目标ID")
+    Id: str = Field(..., description="销售目标ID")
     Year: int = Field(..., description="年份")
     Month: int = Field(..., description="月份")
-    YearMonth: str = Field(..., description="年月")
+    AdminUnitName: str = Field(..., description="行政部门")
+    EmployeeName: str = Field(..., description="业务员")
     MonthlyTarget: int = Field(..., description="月度目标")
-    AnnualTarget: int = Field(..., description="年度目标")
     CreatedBy: str = Field(..., description="创建人")
     CreatedAt: datetime = Field(..., description="创建时间")
     UpdatedAt: datetime = Field(..., description="更新时间")
@@ -32,20 +33,20 @@ class SaleTableResponse(BaseModel):
 
 class SaleTargetCreate(BaseModel):
     """销售目标创建"""
-    year: Optional[int] = Field(default=None, description="年份")
-    month: Optional[int] = Field(default=None, description="月份")
-    yearmonth: Optional[str] = Field(default=None, description="年月")
-    monthly_target: Optional[int] = Field(default=None, description="月度目标")
-    annual_target: Optional[int] = Field(default=None, description="年度目标")
+    year: int = Field(..., description="年份")
+    month: int = Field(..., description="月份")
+    admin_unit_name: str = Field(..., description="行政部门")
+    employee_name: str = Field(..., description="业务员")
+    monthly_target: int = Field(..., description="月度目标")
 
 class SaleTargetUpdate(BaseModel):
     """销售目标更新"""
-    id: UUID = Field(..., description="销售目标ID")
+    id: str = Field(..., description="销售目标ID")
     year: Optional[int] = Field(default=None, description="年份")
     month: Optional[int] = Field(default=None, description="月份")
-    yearmonth: Optional[str] = Field(default=None, description="年月")
+    admin_unit_name: Optional[str] = Field(default=None, description="行政部门")
+    employee_name: Optional[str] = Field(default=None, description="业务员")
     monthly_target: Optional[int] = Field(default=None, description="月度目标")
-    annual_target: Optional[int] = Field(default=None, description="年度目标")
 
 class SaleTargetSummaryQuery(BaseModel):
     """销售目标汇总查询"""
@@ -141,5 +142,33 @@ class SaleAnalysisPannelResponse(BaseModel):
     """销售分析面板响应"""
     list: List[SaleAnalysisPannel] = Field(..., description="销售分析面板列表")
 
+class SaleForecastResponse(BaseModel):
+    """销售预测"""
+    YearForecast: int = Field(..., description="年份")
+    MonthForecast: int = Field(..., description="月份")
 
+class SaleAmountQuery(BaseModel):
+    """销售金额查询"""
+    year: Optional[int] = Field(None, description="年份")
+    month: Optional[int] = Field(None, description="月份")
+    admin_unit_name: Optional[str] = Field(None, description="部门名称")
+    employee_name: Optional[str] = Field(None, description="销售员")
+    group_by_year: bool = Field(True, description="是否按年份分组")
+    group_by_month: bool = Field(False, description="是否按月份分组")
+    group_by_admin_unit_name: bool = Field(False, description="是否按部门分组")
+    group_by_employee_name: bool = Field(False, description="是否按销售员分组")
+
+class SaleAmount(BaseModel):
+    """销售金额详情"""
+    YEAR: Optional[int] = Field(None, description="年份")
+    MONTH: Optional[int] = Field(None, description="月份")
+    ADMIN_UNIT_NAME: Optional[str] = Field(None, description="部门名称")
+    EMPLOYEE_NAME: Optional[str] = Field(None, description="销售员")
+    FORECAST_AMOUNT: Optional[float] = Field(None, description="预测金额")
+    PRICE_AMOUNT: Optional[float] = Field(None, description="实际金额")
+    PERCENTAGE: Optional[float] = Field(None, description="完成率")
+
+class SaleAmountResponse(BaseModel):
+    """销售金额详情响应"""
+    list: List[SaleAmount] = Field([], description="销售金额详情列表")
 

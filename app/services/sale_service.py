@@ -1,6 +1,5 @@
 from typing import Dict, Any, Optional, List
 from sqlmodel import Session
-from uuid import UUID
 
 
 from app.core.logger import logger
@@ -11,7 +10,8 @@ from app.schemas.sale import (
     SaleTargetSummaryQuery, SaleTargetSummaryResponse,
     SaleTargetDetailQuery, SaleTargetDetailResponse,
     SaleAmountAnalyzeQuery, SaleAmountAnalyzeResponse,
-    SaleAnalysisPannelResponse
+    SaleAnalysisPannelResponse, SaleForecastResponse,
+    SaleAmountQuery, SaleAmountResponse
 )
 from app.crud.sale import CRUSale
 
@@ -30,7 +30,7 @@ class SaleService:
     async def update_sale_target(self,db: Session,params: SaleTargetUpdate) -> SaleTableResponse:
         return await self.crud_sale.update_sale_target(db,params)
     
-    async def delete_sale_target(self,db: Session,id: UUID) -> SaleTableResponse:
+    async def delete_sale_target(self,db: Session,id: str) -> SaleTableResponse:
         return await self.crud_sale.delete_sale_target(db,id)
 
     async def get_sale_target_summary(self,db: Session,params: SaleTargetSummaryQuery) -> SaleTargetSummaryResponse:
@@ -44,3 +44,9 @@ class SaleService:
 
     async def get_sale_analysis_pannel(self,db: Session) -> SaleAnalysisPannelResponse:
         return await self.crud_sale.get_sale_analysis_pannel(db)
+
+    async def get_sale_forecast(self,db: Session) -> SaleForecastResponse:
+        return await self.crud_sale.get_sale_forecast(db)
+
+    async def get_sale_analyze_amount(self,db: Session,params: SaleAmountQuery) -> SaleAmountResponse:
+        return await self.crud_sale.get_sale_analyze_amount(db,params)

@@ -9,13 +9,13 @@ from app.schemas.purchase import (PurchaseOrder, PurchaseOrderQuery, PurchaseWip
 from app.schemas.assy import (AssyOrder, AssyOrderQuery, AssyWip, AssyWipQuery, AssyOrderItemsQuery, AssyOrderItems,
                              AssyOrderPackageTypeQuery, AssyOrderPackageType, AssyOrderSupplierQuery, AssyOrderSupplier,
                              AssyBomQuery, AssyBom, AssyAnalyzeTotalResponse, AssyAnalyzeLoadingResponse, AssyYearTrendResponse,
-                             AssySupplyAnalyzeResponse, ItemWaferInfoResponse, SalesResponse, AssySubmitOrdersRequest, AssySubmitOrdersResponse,
+                             AssySupplyAnalyzeResponse, ItemWaferInfoResponse, AssySubmitOrdersRequest, AssySubmitOrdersResponse,
                              CpTestOrdersQuery, CpTestOrdersResponse, AssyRequireOrdersQuery, AssyRequireOrdersCancel)
 from app.schemas.stock import (StockQuery, Stock, WaferIdQtyDetailQuery, WaferIdQtyDetail, StockSummaryQuery, StockSummary)
 from app.schemas.report import GlobalReport,SopAnalyzeResponse,ChipInfoTraceQuery,ChipInfoTraceResponse
 from app.schemas.e10 import (FeatureGroupName, FeatureGroupNameQuery, ItemCode, ItemCodeQuery, ItemName, ItemNameQuery,
                              WarehouseName, WarehouseNameQuery, TestingProgram, TestingProgramQuery, BurningProgram, BurningProgramQuery,
-                             LotCode, LotCodeQuery, SaleUnitResponse)
+                             LotCode, LotCodeQuery, SaleUnitResponse, SalesResponse, SaleUnit, Sales)
 from app.crud.e10 import CRUDE10
 
 class E10Service:
@@ -523,18 +523,22 @@ class E10Service:
             logger.error(f"获取晶圆信息失败: {str(e)}")
             raise CustomException("获取晶圆信息失败")
     
-    async def get_sales(self) -> List[SalesResponse]:
+    async def get_sales(self,admin_unit_name:str) -> Dict[str,Any]:
         """获取销售员名称"""
         try:
-            return self.crud_e10.get_sales(self.db)
+            db_result = self.crud_e10.get_sales(self.db,admin_unit_name)
+            sales = [Sales(**item) for item in db_result["list"]]
+            return {"list": sales}
         except Exception as e:
             logger.error(f"获取销售员名称失败: {str(e)}")
             raise CustomException("获取销售员名称失败")
     
-    async def get_sale_unit(self) -> List[SaleUnitResponse]:
+    async def get_sale_unit(self) -> Dict[str,Any]:
         """获取销售单位"""
         try:
-            return self.crud_e10.get_sale_unit(self.db)
+            db_result = self.crud_e10.get_sale_unit(self.db)
+            sale_unit = [SaleUnit(**item) for item in db_result["list"]]
+            return {"list": sale_unit}
         except Exception as e:
             logger.error(f"获取销售单位失败: {str(e)}")
             raise CustomException("获取销售单位失败")

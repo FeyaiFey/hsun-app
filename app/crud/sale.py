@@ -16,7 +16,8 @@ from app.schemas.sale import (
     SaleTargetSummaryQuery, SaleTargetSummary, SaleTargetSummaryResponse,
     SaleTargetDetailQuery, SaleTargetDetail, SaleTargetDetailResponse,
     SaleAmountAnalyzeQuery, SaleAmountAnalyze, SaleAmountAnalyzeResponse,
-    SaleAnalysisPannel, SaleAnalysisPannelResponse
+    SaleAnalysisPannel, SaleAnalysisPannelResponse, SaleForecastResponse,
+    SaleTable,SaleAmount,SaleAmountResponse,SaleAmountQuery
 )
 
 class CRUSale:
@@ -40,13 +41,14 @@ class CRUSale:
             cleaned = cleaned.replace(char, '')
         return cleaned
     
-    async def get_sale_table(self, db: Session, params: SaleTableQuery) -> List[SaleTableResponse]:
+    async def get_sale_table(self, db: Session, params: SaleTableQuery) -> SaleTableResponse:
         """获取销售目标列表"""
         try:
             # 清理输入参数
             year = self._clean_input(params.year)
             month = self._clean_input(params.month)
-            yearmonth = self._clean_input(params.yearmonth)
+            admin_unit_name = self._clean_input(params.admin_unit_name)
+            employee_name = self._clean_input(params.employee_name)
 
             # 构建查询条件
             query = select(Sale).order_by(Sale.CreatedAt.desc())
@@ -54,8 +56,10 @@ class CRUSale:
                 query = query.where(Sale.Year == year)
             if month:
                 query = query.where(Sale.Month == month)
-            if yearmonth:
-                query = query.where(Sale.YearMonth == yearmonth)
+            if admin_unit_name:
+                query = query.where(Sale.AdminUnitName == admin_unit_name)
+            if employee_name:
+                query = query.where(Sale.EmployeeName == employee_name)
             
             # 获取总记录数
             total_query = select(text("COUNT(*)")).select_from(query.subquery())
@@ -67,8 +71,23 @@ class CRUSale:
             # 执行查询
             sale_targets = db.exec(query).all()
             
+            # 将查询结果转换为 SaleTable 对象列表
+            sale_table_list = []
+            for target in sale_targets:
+                sale_table_list.append(SaleTable(
+                    Id=str(target.Id),
+                    Year=target.Year,
+                    Month=target.Month,
+                    AdminUnitName=target.AdminUnitName,
+                    EmployeeName=target.EmployeeName,
+                    MonthlyTarget=target.MonthlyTarget,
+                    CreatedBy=target.CreatedBy,
+                    CreatedAt=target.CreatedAt,
+                    UpdatedAt=target.UpdatedAt
+                ))
+            
             return SaleTableResponse(
-                list=sale_targets,
+                list=sale_table_list,
                 total=total
             )
         except Exception as e:
@@ -81,48 +100,26 @@ class CRUSale:
             # 清理输入参数
             year = self._clean_input(params.year)
             month = self._clean_input(params.month)
-            yearmonth = self._clean_input(params.yearmonth)
+            admin_unit_name = self._clean_input(params.admin_unit_name)
             monthly_target = self._clean_input(params.monthly_target)
-            annual_target = self._clean_input(params.annual_target)
+            employee_name = self._clean_input(params.employee_name)
 
             # 检查数据是否已经存在
             if year:
-                query = select(Sale).where(Sale.Year == year)
+                query = select(Sale).where(Sale.Year == year, Sale.Month == None, Sale.EmployeeName == employee_name, Sale.AdminUnitName == admin_unit_name)
                 sale_target = db.exec(query).all()
                 if sale_target:
-                    raise CustomException(f"{year}年的销售目标已存在")
-            
-            if month and yearmonth:
-                query = select(Sale).where(Sale.Month == month, Sale.YearMonth == yearmonth)
-                sale_target = db.exec(query).all()
-                if sale_target:
-                    raise CustomException(f"{yearmonth}年{month}月的销售目标已存在")
+                    raise CustomException(f"{year}年{month}月{employee_name}的销售目标已存在")
             
             # 创建新的销售目标
-            if year:
+            if year and month:
                 new_target = Sale(
                     Id=uuid.uuid4(),
                     Year=year,
-                    Month=None,
-                    YearMonth=None,
-                    MonthlyTarget=None,
-                    AnnualTarget=annual_target,
-                    CreatedBy=user_name,
-                    CreatedAt=datetime.now(),
-                    UpdatedAt=datetime.now()
-                )
-                db.add(new_target)
-                db.commit()
-                db.refresh(new_target)
-                return new_target
-            elif month and yearmonth:
-                new_target = Sale(
-                    Id=uuid.uuid4(),
-                    Year=None,
                     Month=month,
-                    YearMonth=yearmonth,
+                    AdminUnitName=admin_unit_name,
+                    EmployeeName=employee_name,
                     MonthlyTarget=monthly_target,
-                    AnnualTarget=None,
                     CreatedBy=user_name,
                     CreatedAt=datetime.now(),
                     UpdatedAt=datetime.now()
@@ -144,9 +141,10 @@ class CRUSale:
             id = self._clean_input(params.id)
             year = self._clean_input(params.year)
             month = self._clean_input(params.month)
-            yearmonth = self._clean_input(params.yearmonth)
+            admin_unit_name = self._clean_input(params.admin_unit_name)
+            employee_name = self._clean_input(params.employee_name)
             monthly_target = self._clean_input(params.monthly_target)
-            annual_target = self._clean_input(params.annual_target)
+
 
             # 检查数据是否存在
             query = select(Sale).where(Sale.Id == id)
@@ -155,15 +153,12 @@ class CRUSale:
                 raise CustomException("销售目标不存在")
             
             # 更新销售目标
-            if year:
+            if year and month and employee_name:
                 sale_target.Year = year
-                sale_target.MonthlyTarget = None
-                sale_target.AnnualTarget = annual_target
-            elif month and yearmonth:
                 sale_target.Month = month
-                sale_target.YearMonth = yearmonth
+                sale_target.AdminUnitName = admin_unit_name
+                sale_target.EmployeeName = employee_name
                 sale_target.MonthlyTarget = monthly_target
-                sale_target.AnnualTarget = None
             else:
                 raise CustomException("无效的输入参数")
             
@@ -175,7 +170,7 @@ class CRUSale:
             logger.error(f"更新销售目标失败: {str(e)}")
             raise CustomException(f"更新销售目标失败: {str(e)}")
 
-    async def delete_sale_target(self, db: Session, id: UUID) -> SaleTableResponse:
+    async def delete_sale_target(self, db: Session, id: str) -> SaleTableResponse:
         """删除销售目标"""
         try:
             # 检查数据是否存在
@@ -811,3 +806,171 @@ class CRUSale:
             logger.error(f"获取销售分析面板失败: {str(e)}")
             raise CustomException(f"获取销售分析面板失败: {str(e)}")
 
+    async def get_sale_forecast(self, db: Session) -> SaleForecastResponse:
+        try:
+            # 获取本年销售额
+            base_query = text(f"""
+                SELECT 
+                    SUM(CASE WHEN Year = YEAR(GETDATE()) THEN MonthlyTarget ELSE 0 END) AS YearlyTotal,
+                    SUM(CASE WHEN Year = YEAR(GETDATE()) AND Month = MONTH(GETDATE()) THEN MonthlyTarget ELSE 0 END) AS MonthlyTotal
+                FROM huaxinAdmin_SaleTarget;
+            """)
+
+            # 执行查询
+            result = db.exec(base_query).first()
+
+            return SaleForecastResponse(
+                YearForecast=int(result.YearlyTotal) if result.YearlyTotal else 0,
+                MonthForecast=int(result.MonthlyTotal) if result.MonthlyTotal else 0
+            )
+        except Exception as e:
+            logger.error(f"获取销售预测失败: {str(e)}")
+            raise CustomException(f"获取销售预测失败: {str(e)}")
+
+    async def get_sale_analyze_amount(self, db: Session, params: SaleAmountQuery) -> List[SaleAmountResponse]:
+        try:
+            # 初始化变量
+            where_clause_sale_actual = ''
+            where_clause_sale_return = ''
+            where_clause_sale_forecast = ''
+
+            # 清理输入参数并构建WHERE子句
+            if params.year:
+                year = self._clean_input(params.year)
+                where_clause_sale_actual += f"AND YEAR(SI.TRANSACTION_DATE) = {params.year}"
+                where_clause_sale_return += f"AND YEAR(SR.TRANSACTION_DATE) = {params.year}"
+                where_clause_sale_forecast += f"AND SF.[Year] = {params.year}"
+            if params.month:
+                month = self._clean_input(params.month)
+                where_clause_sale_actual += f"AND MONTH(SI.TRANSACTION_DATE) = {params.month}"
+                where_clause_sale_return += f"AND MONTH(SR.TRANSACTION_DATE) = {params.month}"
+                where_clause_sale_forecast += f"AND SF.[Month] = {params.month}"
+            if params.admin_unit_name:
+                admin_unit_name = self._clean_input(params.admin_unit_name)
+                where_clause_sale_actual += f"AND AU.ADMIN_UNIT_NAME = '{params.admin_unit_name}'"
+                where_clause_sale_return += f"AND AU.ADMIN_UNIT_NAME = '{params.admin_unit_name}'"
+                where_clause_sale_forecast += f"AND SF.[AdminUnitName] = '{params.admin_unit_name}'"
+            if params.employee_name:
+                employee_name = self._clean_input(params.employee_name)
+                where_clause_sale_actual += f"AND E.EMPLOYEE_NAME = '{params.employee_name}'"
+                where_clause_sale_return += f"AND E.EMPLOYEE_NAME = '{params.employee_name}'"
+                where_clause_sale_forecast += f"AND SF.[EmployeeName] = '{params.employee_name}'"
+                
+            # 构建GROUP BY子句
+            group_by = []
+
+            # 根据参数添加分组字段
+            if params.group_by_year:
+                group_by.append("[YEAR]")
+            if params.group_by_month:
+                group_by.append("[MONTH]")
+            if params.group_by_admin_unit_name:
+                group_by.append("[ADMIN_UNIT_NAME]")
+            if params.group_by_employee_name:
+                group_by.append("[EMPLOYEE_NAME]")
+            
+            if len(group_by) == 0:
+                group_by.append("[YEAR]")
+            
+            group_by_clause = ", ".join(group_by)
+
+            # 构建查询语句
+            base_query = text(f"""
+                WITH 
+                FSD AS (
+                    SELECT SF.[Year] AS [YEAR],SF.[Month] AS [MONTH],SF.AdminUnitName AS ADMIN_UNIT_NAME,SF.EmployeeName AS EMPLOYEE_NAME,SF.MonthlyTarget AS FORECAST_AMOUNT,
+                    CB.PRICE_AMOUNT
+                    FROM huaxinAdmin_SaleTarget SF
+                    LEFT JOIN (
+                    SELECT 
+                        [YEAR],
+                        [MONTH],
+                        ADMIN_UNIT_NAME,
+                        EMPLOYEE_NAME,
+                        SUM(NT.AMOUNT) AS PRICE_AMOUNT
+                    FROM
+                    (
+                    ( 
+                            SELECT 
+                            YEAR(SI.TRANSACTION_DATE) AS [YEAR],
+                            MONTH(SI.TRANSACTION_DATE) AS [MONTH],
+                            AU.ADMIN_UNIT_NAME,
+                            E.EMPLOYEE_NAME,
+                            SID.AMOUNT
+                            FROM SALES_DELIVERY SD
+                            LEFT JOIN SALES_DELIVERY_D SDD
+                            ON SD.SALES_DELIVERY_ID = SDD.SALES_DELIVERY_ID
+                            LEFT JOIN SALES_ISSUE_D SID
+                            ON SID.SOURCE_ID_ROid = SDD. SALES_DELIVERY_D_ID
+                            LEFT JOIN SALES_ISSUE SI
+                            ON SI.SALES_ISSUE_ID = SID.SALES_ISSUE_ID
+                            LEFT JOIN EMPLOYEE E
+                            ON SD.Owner_Emp = E.EMPLOYEE_ID
+                            LEFT JOIN EMPLOYEE_D ED
+                            ON ED.EMPLOYEE_ID = E.EMPLOYEE_ID
+                            LEFT JOIN ADMIN_UNIT AU
+                            ON AU.ADMIN_UNIT_ID = ED.ADMIN_UNIT_ID
+                            WHERE SID.PRICE_QTY > 0 AND SD.CATEGORY = '24' {where_clause_sale_actual}
+                    )
+                    UNION ALL
+                    (
+                            SELECT 
+                            YEAR(SR.TRANSACTION_DATE) AS [YEAR],
+                            MONTH(SR.TRANSACTION_DATE) AS [MONTH],
+                            AU.ADMIN_UNIT_NAME,
+                            E.EMPLOYEE_NAME,
+                            SRD.AMOUNT * -1 AS AMOUNT
+                            FROM SALES_RETURN SR
+                            LEFT JOIN SALES_RETURN_D SRD
+                            ON SR.SALES_RETURN_ID = SRD.SALES_RETURN_ID
+                            LEFT JOIN EMPLOYEE E
+                            ON SR.Owner_Emp = E.EMPLOYEE_ID
+                            LEFT JOIN EMPLOYEE_D ED
+                            ON ED.EMPLOYEE_ID = E.EMPLOYEE_ID
+                            LEFT JOIN ADMIN_UNIT AU
+                            ON AU.ADMIN_UNIT_ID = ED.ADMIN_UNIT_ID
+                            WHERE SR.CATEGORY = '26' {where_clause_sale_return}
+                    )
+                    ) AS NT
+                    GROUP BY [YEAR],[MONTH],EMPLOYEE_NAME,ADMIN_UNIT_NAME
+                    ) AS CB
+                    ON SF.[Year] = CB.[YEAR] AND SF.[Month] = CB.[MONTH] AND SF.AdminUnitName = CB.ADMIN_UNIT_NAME AND SF.EmployeeName = CB.EMPLOYEE_NAME
+                    WHERE 1 = 1 {where_clause_sale_forecast}
+                )
+                
+                SELECT
+                {group_by_clause},
+                SUM(FORECAST_AMOUNT/10000) AS FORECAST_AMOUNT,
+                SUM(PRICE_AMOUNT/10000) AS PRICE_AMOUNT,
+                SUM(PRICE_AMOUNT)/SUM(FORECAST_AMOUNT)*100 AS PERCENTAGE
+                FROM FSD
+                GROUP BY {group_by_clause}
+            """)
+
+            # 执行查询
+            result = db.exec(base_query).all()
+
+            # 将查询结果转换为响应格式
+            result_list = []
+            for amount in result:
+                analysis_amount = SaleAmount(
+                    FORECAST_AMOUNT=amount.FORECAST_AMOUNT,
+                    PRICE_AMOUNT=amount.PRICE_AMOUNT,
+                    PERCENTAGE=amount.PERCENTAGE
+                )
+                # 根据分组字段设置相应的字段值
+                if params.group_by_year and hasattr(amount, 'YEAR'):
+                    analysis_amount.YEAR = amount.YEAR
+                if params.group_by_month and hasattr(amount, 'MONTH'):
+                    analysis_amount.MONTH = amount.MONTH
+                if params.group_by_admin_unit_name and hasattr(amount, 'ADMIN_UNIT_NAME'):
+                    analysis_amount.ADMIN_UNIT_NAME = amount.ADMIN_UNIT_NAME
+                if params.group_by_employee_name and hasattr(amount, 'EMPLOYEE_NAME'):
+                    analysis_amount.EMPLOYEE_NAME = amount.EMPLOYEE_NAME
+                
+                result_list.append(analysis_amount)
+                
+            return SaleAmountResponse(list=result_list)
+        except Exception as e:
+            logger.error(f"获取销售金额详情失败: {str(e)}")
+            raise CustomException(f"获取销售金额详情失败: {str(e)}")

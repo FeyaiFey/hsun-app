@@ -13,7 +13,7 @@ from app.core.exceptions import CustomException
 from app.core.response import CustomResponse
 from app.core.error_codes import ErrorCode, get_error_message
 from app.models.user import User
-from app.schemas.assy import (ItemWaferInfoResponse, SalesResponse)
+from app.schemas.assy import ItemWaferInfoResponse
 from app.schemas.e10 import (FeatureGroupNameQuery, 
                              FeatureGroupNameResponse, 
                              ItemCodeQuery, 
@@ -28,7 +28,8 @@ from app.schemas.e10 import (FeatureGroupNameQuery,
                              BurningProgramResponse, 
                              LotCodeQuery, 
                              LotCodeResponse,
-                             SaleUnitResponse)
+                             SaleUnitResponse,
+                             SalesResponse)
 from app.services.e10_service import E10Service
 
 router = APIRouter()
@@ -275,12 +276,13 @@ async def get_item_wafer_info(
 @router.get("/requirement/sales", response_model=IResponse[SalesResponse])
 @monitor_request
 async def get_sales(
+    admin_unit_name: Optional[str] = Query(None, description="行政部门"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         e10_service = E10Service(db, cache)
-        result = await e10_service.get_sales()
+        result = await e10_service.get_sales(admin_unit_name)
         return CustomResponse.success(data=result)
     except CustomException as e:
         logger.error(f"获取销售员名称失败: {str(e)}")

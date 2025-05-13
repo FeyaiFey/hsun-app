@@ -15,7 +15,6 @@ from app.schemas.assy import (AssyOrder,
                               AssyYearTrendResponse,
                               AssySupplyAnalyzeResponse,
                               ItemWaferInfoResponse,
-                              SalesResponse,
                               AssySubmitOrdersRequest,
                               AssySubmitOrdersResponse,
                               CpTestOrdersQuery,
@@ -36,7 +35,8 @@ from app.schemas.e10 import (FeatureGroupNameQuery,
                              TestingProgramQuery,
                              BurningProgramQuery,
                              LotCodeQuery,
-                             SaleUnitResponse)
+                             SaleUnitResponse,
+                             SalesResponse)
 from app.schemas.report import GlobalReport,SopAnalyzeResponse,ChipInfoTraceQuery,ChipInfoTraceResponse,ChipInfoTrace
 from app.core.exceptions import CustomException
 from app.core.logger import logger
@@ -2833,26 +2833,47 @@ class CRUDE10:
             logger.error(f"获取晶圆信息失败: {str(e)}")
             raise CustomException("获取晶圆信息失败")
 
-    def get_sales(self,db:Session)->List[SalesResponse]:
+    def get_sales(self,db:Session,admin_unit_name:str)->Dict[str,Any]:
         """获取销售员名称"""
-        SALES_QUERY = text("""
-            SELECT EMPLOYEE.EMPLOYEE_ID,EMPLOYEE.EMPLOYEE_NAME
-            FROM EMPLOYEE
-            INNER JOIN EMPLOYEE_D
-            ON EMPLOYEE.EMPLOYEE_ID = EMPLOYEE_D.EMPLOYEE_ID
-            INNER JOIN ADMIN_UNIT
-            ON EMPLOYEE_D.ADMIN_UNIT_ID = ADMIN_UNIT.ADMIN_UNIT_ID
-            WHERE ADMIN_UNIT.ADMIN_UNIT_NAME LIKE '%销售%'
-            ORDER BY ADMIN_UNIT_NAME DESC, EMPLOYEE_NAME
-        """)
+        if admin_unit_name:
+            SALES_QUERY = text(f"""
+                SELECT EMPLOYEE.EMPLOYEE_ID,EMPLOYEE.EMPLOYEE_NAME
+                FROM EMPLOYEE
+                INNER JOIN EMPLOYEE_D
+                ON EMPLOYEE.EMPLOYEE_ID = EMPLOYEE_D.EMPLOYEE_ID
+                INNER JOIN ADMIN_UNIT
+                ON EMPLOYEE_D.ADMIN_UNIT_ID = ADMIN_UNIT.ADMIN_UNIT_ID
+                WHERE ADMIN_UNIT.ADMIN_UNIT_NAME LIKE '%{admin_unit_name}%'
+                ORDER BY ADMIN_UNIT_NAME DESC, EMPLOYEE_NAME
+            """)
+        else:
+            SALES_QUERY = text("""
+                SELECT EMPLOYEE.EMPLOYEE_ID,EMPLOYEE.EMPLOYEE_NAME
+                FROM EMPLOYEE
+                INNER JOIN EMPLOYEE_D
+                ON EMPLOYEE.EMPLOYEE_ID = EMPLOYEE_D.EMPLOYEE_ID
+                INNER JOIN ADMIN_UNIT
+                ON EMPLOYEE_D.ADMIN_UNIT_ID = ADMIN_UNIT.ADMIN_UNIT_ID
+                WHERE ADMIN_UNIT.ADMIN_UNIT_NAME LIKE '%销售%'
+                ORDER BY ADMIN_UNIT_NAME DESC, EMPLOYEE_NAME
+            """)
         try:
             result = db.execute(SALES_QUERY).fetchall()
-            return [SalesResponse(label=row.EMPLOYEE_NAME, value=row.EMPLOYEE_NAME) for row in result]
+            # 转换为模型实例
+            sales = [
+                {
+                    "label": row.EMPLOYEE_NAME,
+                    "value": row.EMPLOYEE_NAME
+                } for row in result
+            ]
+            return {
+                "list": sales
+            }
         except Exception as e:
             logger.error(f"获取销售员名称失败: {str(e)}")
             raise CustomException("获取销售员名称失败")
     
-    def get_sale_unit(self,db:Session)->List[SaleUnitResponse]:
+    def get_sale_unit(self,db:Session)->Dict[str,Any]:
         """获取销售单位"""
         try:
             sale_unit_query = text("""
@@ -2862,7 +2883,16 @@ class CRUDE10:
                 ORDER BY ADMIN_UNIT_NAME DESC
             """)
             result = db.execute(sale_unit_query).fetchall()
-            return [SaleUnitResponse(label=row.ADMIN_UNIT_NAME, value=row.ADMIN_UNIT_NAME) for row in result]
+            # 转换为模型实例
+            sale_units = [
+                {
+                    "label": row.ADMIN_UNIT_NAME,
+                    "value": row.ADMIN_UNIT_NAME
+                } for row in result
+            ]
+            return {
+                "list": sale_units
+            }
         except Exception as e:
             logger.error(f"获取销售行政单位失败: {str(e)}")
             raise CustomException("获取销售行政单位失败")
