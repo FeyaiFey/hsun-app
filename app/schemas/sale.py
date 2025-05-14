@@ -172,3 +172,23 @@ class SaleAmountResponse(BaseModel):
     """销售金额详情响应"""
     list: List[SaleAmount] = Field([], description="销售金额详情列表")
 
+class SaleAmountBarChartQuery(BaseModel):
+    """销售金额柱状图查询"""
+    year: Optional[str] = Field(None, description="年份")
+    month: Optional[str] = Field(None, description="月份")
+
+class SaleAmountBarChartEChartsDataItem(BaseModel):
+    """ECharts单个数据项"""
+    name: str          # 数据项名称（如部门、业务员等）
+    value: float       # 数据值（如金额）
+    group_id: str      # 所属组ID
+    child_group_id: Optional[str] = None  # 子组ID（可选，用于下钻）
+
+class SaleAmountBarChartEChartsLevelData(BaseModel):
+    """ECharts某一层级的数据"""
+    level_id: str           # 层级ID
+    items: List[SaleAmountBarChartEChartsDataItem]  # 该层级的所有数据项
+
+class SaleAmountBarChartEChartsResponse(BaseModel):
+    """ECharts数据的完整响应"""
+    list: List[SaleAmountBarChartEChartsLevelData] = Field(..., description="ECharts数据列表")

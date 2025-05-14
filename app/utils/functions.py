@@ -1,0 +1,136 @@
+from typing import List, Dict, Optional
+
+
+class Functions:
+    @staticmethod
+    def process_data_for_echarts(data: List) -> Dict:
+        # 第一层：按部门汇总
+        department_summary = {}
+        for item in data:
+            admin_unit_name = item.ADMIN_UNIT_NAME or ""
+            amount = item.AMOUNT or 0
+            if admin_unit_name not in department_summary:
+                department_summary[admin_unit_name] = {
+                    'name': admin_unit_name,
+                    'value': amount,
+                    'group_id': '销售团队',
+                    'child_group_id': f'销售团队 {admin_unit_name}'
+                }
+            else:
+                department_summary[admin_unit_name]['value'] += amount
+
+        # 第二层：按部门和业务员汇总
+        employee_summary = {}
+        employee_values = {}  # 用于汇总相同员工的销售额
+        
+        for item in data:
+            admin_unit_name = item.ADMIN_UNIT_NAME or ""
+            employee_name = item.EMPLOYEE_NAME or ""
+            amount = item.AMOUNT or 0
+            key = f'销售团队 {admin_unit_name}'
+            
+            # 创建唯一标识
+            emp_key = f"{key} {employee_name}"
+            
+            if key not in employee_summary:
+                employee_summary[key] = []
+                employee_values[key] = {}
+                
+            # 如果该员工已存在，则累加金额
+            if employee_name in employee_values[key]:
+                employee_values[key][employee_name] += amount
+            else:
+                employee_values[key][employee_name] = amount
+        
+        # 将汇总后的员工数据添加到结果中
+        for dept_key, emp_dict in employee_values.items():
+            for emp_name, emp_value in emp_dict.items():
+                employee_summary[dept_key].append({
+                    'name': emp_name,
+                    'value': emp_value,
+                    'group_id': dept_key,
+                    'child_group_id': f'{dept_key} {emp_name}'
+                })
+
+        # 第三层：按业务员和产品类别汇总
+        shortcut_summary = {}
+        shortcut_values = {}  # 用于汇总相同产品类别的销售额
+        
+        for item in data:
+            admin_unit_name = item.ADMIN_UNIT_NAME or ""
+            employee_name = item.EMPLOYEE_NAME or ""
+            shortcut = item.SHORTCUT or ""
+            amount = item.AMOUNT or 0
+            key = f'销售团队 {admin_unit_name} {employee_name}'
+            
+            # 创建唯一标识
+            shortcut_key = f"{key} {shortcut}"
+            
+            if key not in shortcut_summary:
+                shortcut_summary[key] = []
+                shortcut_values[key] = {}
+                
+            # 如果该产品类别已存在，则累加金额
+            if shortcut in shortcut_values[key]:
+                shortcut_values[key][shortcut] += amount
+            else:
+                shortcut_values[key][shortcut] = amount
+        
+        # 将汇总后的产品类别数据添加到结果中
+        for emp_key, shortcut_dict in shortcut_values.items():
+            for shortcut_name, shortcut_value in shortcut_dict.items():
+                shortcut_summary[emp_key].append({
+                    'name': shortcut_name,
+                    'value': shortcut_value,
+                    'group_id': emp_key,
+                    'child_group_id': f'{emp_key} {shortcut_name}'
+                })
+
+        # 第四层：按产品类别和产品编码汇总
+        item_code_summary = {}
+        item_code_values = {}  # 用于汇总相同产品编码的销售额
+        
+        for item in data:
+            admin_unit_name = item.ADMIN_UNIT_NAME or ""
+            employee_name = item.EMPLOYEE_NAME or ""
+            shortcut = item.SHORTCUT or ""
+            item_code = item.ITEM_CODE or ""
+            amount = item.AMOUNT or 0
+            key = f'销售团队 {admin_unit_name} {employee_name} {shortcut}'
+            
+            if key not in item_code_summary:
+                item_code_summary[key] = []
+                item_code_values[key] = {}
+                
+            # 如果该产品编码已存在，则累加金额
+            if item_code in item_code_values[key]:
+                item_code_values[key][item_code] += amount
+            else:
+                item_code_values[key][item_code] = amount
+        
+        # 将汇总后的产品编码数据添加到结果中
+        for shortcut_key, item_dict in item_code_values.items():
+            for item_name, item_value in item_dict.items():
+                item_code_summary[shortcut_key].append({
+                    'name': item_name,
+                    'value': item_value,
+                    'group_id': shortcut_key
+                })
+
+        # 构建完整的ECharts数据结构
+        all_level_data = {
+            '销售团队': list(department_summary.values())
+        }
+        all_level_data.update(employee_summary)
+        all_level_data.update(shortcut_summary)
+        all_level_data.update(item_code_summary)
+
+        return all_level_data
+
+
+
+
+
+
+
+

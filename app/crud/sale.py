@@ -17,8 +17,11 @@ from app.schemas.sale import (
     SaleTargetDetailQuery, SaleTargetDetail, SaleTargetDetailResponse,
     SaleAmountAnalyzeQuery, SaleAmountAnalyze, SaleAmountAnalyzeResponse,
     SaleAnalysisPannel, SaleAnalysisPannelResponse, SaleForecastResponse,
-    SaleTable,SaleAmount,SaleAmountResponse,SaleAmountQuery
-)
+    SaleTable,SaleAmount,SaleAmountResponse,SaleAmountQuery,
+    SaleAmountBarChartQuery, SaleAmountBarChartEChartsResponse,
+    SaleAmountBarChartEChartsLevelData, SaleAmountBarChartEChartsDataItem
+)       
+from app.utils.functions import Functions
 
 class CRUSale:
     """销售CRUD操作类"""
@@ -974,3 +977,107 @@ class CRUSale:
         except Exception as e:
             logger.error(f"获取销售金额详情失败: {str(e)}")
             raise CustomException(f"获取销售金额详情失败: {str(e)}")
+
+    async def get_sale_amount_bar_chart(self,db: Session,params: SaleAmountBarChartQuery) -> SaleAmountBarChartEChartsResponse:
+        try:
+            # 清理输入参数
+            year = self._clean_input(params.year)
+            month = self._clean_input(params.month)
+
+            # 构建查询条件
+            where_clause = ""
+            if year:
+                where_clause += f"AND YEAR(SI.TRANSACTION_DATE) = {year}"
+            if month:
+                where_clause += f"AND MONTH(SI.TRANSACTION_DATE) = {month}"
+            
+            # 构建查询语句
+            base_query = text(f"""
+                WITH SD AS (
+                SELECT 
+                    YEAR(SI.TRANSACTION_DATE) AS [YEAR],
+                    MONTH(SI.TRANSACTION_DATE) AS [MONTH],
+                    ISNULL(AU.ADMIN_UNIT_NAME, '') AS ADMIN_UNIT_NAME,
+                    ISNULL(E.EMPLOYEE_NAME, '') AS EMPLOYEE_NAME,
+                    ISNULL(ITEM.ITEM_CODE, '') AS ITEM_CODE,
+                    ISNULL(dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB,+TR'), '') AS ITEM_NAME,
+                    ISNULL(ITEM.SHORTCUT, '') AS SHORTCUT,
+                    ISNULL(SDD.PRICE, 0) AS PRICE,
+                    ISNULL(SID.PRICE_QTY, 0) AS PRICE_QTY,
+                    ISNULL(SID.AMOUNT, 0) AS AMOUNT
+                FROM SALES_DELIVERY SD
+                LEFT JOIN SALES_DELIVERY_D SDD ON SD.SALES_DELIVERY_ID = SDD.SALES_DELIVERY_ID
+                LEFT JOIN SALES_ISSUE_D SID ON SID.SOURCE_ID_ROid = SDD.SALES_DELIVERY_D_ID
+                LEFT JOIN SALES_ISSUE SI ON SI.SALES_ISSUE_ID = SID.SALES_ISSUE_ID
+                LEFT JOIN EMPLOYEE E ON SD.Owner_Emp = E.EMPLOYEE_ID
+                LEFT JOIN EMPLOYEE_D ED ON ED.EMPLOYEE_ID = E.EMPLOYEE_ID
+                LEFT JOIN ADMIN_UNIT AU ON AU.ADMIN_UNIT_ID = ED.ADMIN_UNIT_ID
+                LEFT JOIN ITEM ON SDD.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                WHERE SD.CATEGORY = '24' { where_clause }
+                )
+
+                SELECT 
+                    ADMIN_UNIT_NAME,
+                    EMPLOYEE_NAME,
+                    SHORTCUT,
+                    ITEM_CODE,
+                    SUM(AMOUNT) AS AMOUNT
+                FROM SD
+                GROUP BY 
+                    ADMIN_UNIT_NAME,
+                    EMPLOYEE_NAME,
+                    SHORTCUT,
+                    ITEM_CODE
+            """)
+
+            # 执行查询
+            result = db.exec(base_query).all()
+
+            # 确保结果中没有 None 值
+            for row in result:
+                if row.ADMIN_UNIT_NAME is None:
+                    row.ADMIN_UNIT_NAME = ""
+                if row.EMPLOYEE_NAME is None:
+                    row.EMPLOYEE_NAME = ""
+                if row.SHORTCUT is None:
+                    row.SHORTCUT = ""
+                if row.ITEM_CODE is None:
+                    row.ITEM_CODE = ""
+                if row.AMOUNT is None:
+                    row.AMOUNT = 0
+
+            functions = Functions()
+            response_dict = functions.process_data_for_echarts(result)
+            
+            # 将字典中的项转换为 SaleAmountBarChartEChartsDataItem 对象
+            processed_dict = {}
+            for level_id, items in response_dict.items():
+                data_items = []
+                for item in items:
+                    data_items.append(SaleAmountBarChartEChartsDataItem(
+                        name=item['name'],
+                        value=float(item['value']),
+                        group_id=item['group_id'],
+                        child_group_id=item.get('child_group_id')
+                    ))
+                
+                processed_dict[level_id] = data_items
+            
+            # 将字典转换为列表
+            response_list = [
+                SaleAmountBarChartEChartsLevelData(
+                    level_id=level_id,
+                    items=data_items
+                )
+                for level_id, data_items in processed_dict.items()
+            ]
+            
+
+            return SaleAmountBarChartEChartsResponse(list=response_list)
+            
+            
+            
+        except Exception as e:
+            logger.error(f"获取销售金额柱状图失败: {str(e)}")
+            raise CustomException(f"获取销售金额柱状图失败: {str(e)}")
+            

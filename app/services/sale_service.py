@@ -11,7 +11,8 @@ from app.schemas.sale import (
     SaleTargetDetailQuery, SaleTargetDetailResponse,
     SaleAmountAnalyzeQuery, SaleAmountAnalyzeResponse,
     SaleAnalysisPannelResponse, SaleForecastResponse,
-    SaleAmountQuery, SaleAmountResponse
+    SaleAmountQuery, SaleAmountResponse,
+    SaleAmountBarChartQuery, SaleAmountBarChartEChartsResponse
 )
 from app.crud.sale import CRUSale
 
@@ -50,3 +51,6 @@ class SaleService:
 
     async def get_sale_analyze_amount(self,db: Session,params: SaleAmountQuery) -> SaleAmountResponse:
         return await self.crud_sale.get_sale_analyze_amount(db,params)
+
+    async def get_sale_amount_bar_chart(self,db: Session,params: SaleAmountBarChartQuery) -> SaleAmountBarChartEChartsResponse:
+        return await self.crud_sale.get_sale_amount_bar_chart(db,params)
