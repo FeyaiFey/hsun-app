@@ -3707,6 +3707,17 @@ class CRUDE10:
     def get_chipInfo_trace_by_params(self,db:Session,params:ChipInfoTraceQuery)->Dict[str,Any]:
         """获取芯片信息追溯"""
         try:
+            # 确认至少有一个参数：
+            if not any([
+                params.CHIP_LOT_CODE,
+                params.CHIP_NAME,
+                params.WAFER_NAME,
+                params.WAFER_LOT_CODE,
+                params.TESTING_PROGRAM_NAME,
+                params.SUPPLIER
+            ]):
+                return {"list": [], "total": 0}
+            
             base_query = """
             WITH
             CL AS (
@@ -4255,12 +4266,12 @@ class CRUDE10:
                     MAIN_CHIP=row.MAIN_CHIP,
                     CHIP_CODE=row.CHIP_CODE,
                     LOT_CODE_NAME=row.LOT_CODE_NAME,
-                    WAFER_QTY=row.BUSINESS_QTY,
-                    S_QTY=row.RECEIPT_QTY,
+                    WAFER_QTY=row.WAFER_QTY,
+                    S_QTY=row.S_QTY,
                     WAFER_ID=row.WAFER_ID,
                     PROGRESS_NAME=row.PROGRESS_NAME,
                     TESTING_PROGRAM_NAME=row.TESTING_PROGRAM_NAME,
-                    SUPPLIER=row.SUPPLIER
+                    SUPPLIER=row.SUPPLIER if str(row.CHIP_CODE).endswith('CP') else ""
                 )
                 for row in result
             ]

@@ -837,24 +837,24 @@ class CRUSale:
             # 清理输入参数并构建WHERE子句
             if params.year:
                 year = self._clean_input(params.year)
-                where_clause_sale_actual += f"AND YEAR(SI.TRANSACTION_DATE) = {params.year}"
-                where_clause_sale_return += f"AND YEAR(SR.TRANSACTION_DATE) = {params.year}"
-                where_clause_sale_forecast += f"AND SF.[Year] = {params.year}"
+                where_clause_sale_actual += f"AND YEAR(SI.TRANSACTION_DATE) = {year}"
+                where_clause_sale_return += f"AND YEAR(SR.TRANSACTION_DATE) = {year}"
+                where_clause_sale_forecast += f"AND SF.[Year] = {year}"
             if params.month:
                 month = self._clean_input(params.month)
-                where_clause_sale_actual += f"AND MONTH(SI.TRANSACTION_DATE) = {params.month}"
-                where_clause_sale_return += f"AND MONTH(SR.TRANSACTION_DATE) = {params.month}"
-                where_clause_sale_forecast += f"AND SF.[Month] = {params.month}"
+                where_clause_sale_actual += f"AND MONTH(SI.TRANSACTION_DATE) = {month}"
+                where_clause_sale_return += f"AND MONTH(SR.TRANSACTION_DATE) = {month}"
+                where_clause_sale_forecast += f"AND SF.[Month] = {month}"
             if params.admin_unit_name:
                 admin_unit_name = self._clean_input(params.admin_unit_name)
-                where_clause_sale_actual += f"AND AU.ADMIN_UNIT_NAME = '{params.admin_unit_name}'"
-                where_clause_sale_return += f"AND AU.ADMIN_UNIT_NAME = '{params.admin_unit_name}'"
-                where_clause_sale_forecast += f"AND SF.[AdminUnitName] = '{params.admin_unit_name}'"
+                where_clause_sale_actual += f"AND AU.ADMIN_UNIT_NAME = '{admin_unit_name}'"
+                where_clause_sale_return += f"AND AU.ADMIN_UNIT_NAME = '{admin_unit_name}'"
+                where_clause_sale_forecast += f"AND SF.[AdminUnitName] = '{admin_unit_name}'"
             if params.employee_name:
                 employee_name = self._clean_input(params.employee_name)
-                where_clause_sale_actual += f"AND E.EMPLOYEE_NAME = '{params.employee_name}'"
-                where_clause_sale_return += f"AND E.EMPLOYEE_NAME = '{params.employee_name}'"
-                where_clause_sale_forecast += f"AND SF.[EmployeeName] = '{params.employee_name}'"
+                where_clause_sale_actual += f"AND E.EMPLOYEE_NAME = '{employee_name}'"
+                where_clause_sale_return += f"AND E.EMPLOYEE_NAME = '{employee_name}'"
+                where_clause_sale_forecast += f"AND SF.[EmployeeName] = '{employee_name}'"
                 
             # 构建GROUP BY子句
             group_by = []
