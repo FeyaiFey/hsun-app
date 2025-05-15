@@ -882,7 +882,8 @@ class CRUSale:
                 WITH 
                 FSD AS (
                     SELECT SF.[Year] AS [YEAR],SF.[Month] AS [MONTH],SF.AdminUnitName AS ADMIN_UNIT_NAME,SF.EmployeeName AS EMPLOYEE_NAME,SF.MonthlyTarget AS FORECAST_AMOUNT,
-                    CB.PRICE_AMOUNT
+                    CB.PRICE_AMOUNT,
+                    CB.PRICE_QTY
                     FROM huaxinAdmin_SaleTarget SF
                     LEFT JOIN (
                     SELECT 
@@ -890,7 +891,8 @@ class CRUSale:
                         [MONTH],
                         ADMIN_UNIT_NAME,
                         EMPLOYEE_NAME,
-                        SUM(NT.AMOUNT) AS PRICE_AMOUNT
+                        SUM(NT.AMOUNT) AS PRICE_AMOUNT,
+                        SUM(NT.PRICE_QTY) AS PRICE_QTY
                     FROM
                     (
                     ( 
@@ -899,6 +901,7 @@ class CRUSale:
                             MONTH(SI.TRANSACTION_DATE) AS [MONTH],
                             AU.ADMIN_UNIT_NAME,
                             E.EMPLOYEE_NAME,
+                            SID.PRICE_QTY,
                             SID.AMOUNT
                             FROM SALES_DELIVERY SD
                             LEFT JOIN SALES_DELIVERY_D SDD
@@ -922,6 +925,7 @@ class CRUSale:
                             MONTH(SR.TRANSACTION_DATE) AS [MONTH],
                             AU.ADMIN_UNIT_NAME,
                             E.EMPLOYEE_NAME,
+                            SRD.PRICE_QTY * -1 AS PRICE_QTY,
                             SRD.AMOUNT * -1 AS AMOUNT
                             FROM SALES_RETURN SR
                             LEFT JOIN SALES_RETURN_D SRD
@@ -943,6 +947,7 @@ class CRUSale:
                 
                 SELECT
                 {group_by_clause},
+                SUM(PRICE_QTY/10000) AS PRICE_QTY,
                 SUM(FORECAST_AMOUNT/10000) AS FORECAST_AMOUNT,
                 SUM(PRICE_AMOUNT/10000) AS PRICE_AMOUNT,
                 SUM(PRICE_AMOUNT)/SUM(FORECAST_AMOUNT)*100 AS PERCENTAGE
@@ -957,9 +962,10 @@ class CRUSale:
             result_list = []
             for amount in result:
                 analysis_amount = SaleAmount(
-                    FORECAST_AMOUNT=amount.FORECAST_AMOUNT,
-                    PRICE_AMOUNT=amount.PRICE_AMOUNT,
-                    PERCENTAGE=amount.PERCENTAGE
+                    FORECAST_AMOUNT=round(amount.FORECAST_AMOUNT, 2) if amount.FORECAST_AMOUNT else 0,
+                    PRICE_AMOUNT=round(amount.PRICE_AMOUNT, 2) if amount.PRICE_AMOUNT else 0,
+                    PERCENTAGE=round(amount.PERCENTAGE, 2) if amount.PERCENTAGE else 0,
+                    PRICE_QTY=round(amount.PRICE_QTY, 2) if amount.PRICE_QTY else 0
                 )
                 # 根据分组字段设置相应的字段值
                 if params.group_by_year and hasattr(amount, 'YEAR'):
@@ -1047,7 +1053,7 @@ class CRUSale:
                     row.AMOUNT = 0
 
             functions = Functions()
-            response_dict = functions.process_data_for_echarts(result)
+            response_dict = functions.process_amount_data_for_echarts(result)
             
             # 将字典中的项转换为 SaleAmountBarChartEChartsDataItem 对象
             processed_dict = {}
@@ -1080,4 +1086,141 @@ class CRUSale:
         except Exception as e:
             logger.error(f"获取销售金额柱状图失败: {str(e)}")
             raise CustomException(f"获取销售金额柱状图失败: {str(e)}")
+
+    async def get_sale_percentage_bar_chart(self,db: Session,params: SaleAmountBarChartQuery) -> SaleAmountBarChartEChartsResponse:
+        try:
+            # 清理输入参数
+            year = self._clean_input(params.year)
+            month = self._clean_input(params.month)
+
+            # 构建查询条件
+            where_clause = ""
+            if year:
+                where_clause += f"AND SF.[Year] = {year} "
+            if month:
+                where_clause += f"AND SF.[Month] = {month} "
             
+            # 构建查询语句
+            base_query = text(f"""
+                WITH P AS (
+                    SELECT 
+                        SF.[Year] AS [YEAR],
+                        SF.[Month] AS [MONTH],
+                        SF.AdminUnitName AS ADMIN_UNIT_NAME,
+                        SF.EmployeeName AS EMPLOYEE_NAME,
+                        SF.MonthlyTarget AS FORECAST_AMOUNT,
+                        ISNULL(CB.PRICE_AMOUNT,0) AS PRICE_AMOUNT,
+                        ISNULL(CB.PRICE_QTY,0) AS PRICE_QTY
+                    FROM huaxinAdmin_SaleTarget SF
+                    LEFT JOIN (
+                        SELECT 
+                            [YEAR],
+                            [MONTH],
+                            ADMIN_UNIT_NAME,
+                            EMPLOYEE_NAME,
+                            SUM(NT.AMOUNT) AS PRICE_AMOUNT,
+                            SUM(NT.PRICE_QTY) AS PRICE_QTY
+                        FROM (
+                            SELECT 
+                                YEAR(SI.TRANSACTION_DATE) AS [YEAR],
+                                MONTH(SI.TRANSACTION_DATE) AS [MONTH],
+                                AU.ADMIN_UNIT_NAME,
+                                E.EMPLOYEE_NAME,
+                                SID.PRICE_QTY,
+                                SID.AMOUNT
+                            FROM SALES_DELIVERY SD
+                            LEFT JOIN SALES_DELIVERY_D SDD 
+                                ON SD.SALES_DELIVERY_ID = SDD.SALES_DELIVERY_ID
+                            LEFT JOIN SALES_ISSUE_D SID 
+                                ON SID.SOURCE_ID_ROid = SDD.SALES_DELIVERY_D_ID -- 修正了表别名间距
+                            LEFT JOIN SALES_ISSUE SI 
+                                ON SI.SALES_ISSUE_ID = SID.SALES_ISSUE_ID
+                            LEFT JOIN EMPLOYEE E 
+                                ON SD.Owner_Emp = E.EMPLOYEE_ID
+                            LEFT JOIN EMPLOYEE_D ED 
+                                ON ED.EMPLOYEE_ID = E.EMPLOYEE_ID
+                            LEFT JOIN ADMIN_UNIT AU 
+                                ON AU.ADMIN_UNIT_ID = ED.ADMIN_UNIT_ID
+                            WHERE SID.PRICE_QTY > 0 AND SD.CATEGORY = '24'
+                            
+                            UNION ALL
+                            
+                            SELECT 
+                                YEAR(SR.TRANSACTION_DATE) AS [YEAR],
+                                MONTH(SR.TRANSACTION_DATE) AS [MONTH],
+                                AU.ADMIN_UNIT_NAME,
+                                E.EMPLOYEE_NAME,
+                                SRD.PRICE_QTY * -1 AS PRICE_QTY,
+                                SRD.AMOUNT * -1 AS AMOUNT
+                            FROM SALES_RETURN SR
+                            LEFT JOIN SALES_RETURN_D SRD 
+                                ON SR.SALES_RETURN_ID = SRD.SALES_RETURN_ID
+                            LEFT JOIN EMPLOYEE E 
+                                ON SR.Owner_Emp = E.EMPLOYEE_ID
+                            LEFT JOIN EMPLOYEE_D ED 
+                                ON ED.EMPLOYEE_ID = E.EMPLOYEE_ID
+                            LEFT JOIN ADMIN_UNIT AU 
+                                ON AU.ADMIN_UNIT_ID = ED.ADMIN_UNIT_ID
+                            WHERE SR.CATEGORY = '26'
+                        ) AS NT
+                        GROUP BY [YEAR], [MONTH], EMPLOYEE_NAME, ADMIN_UNIT_NAME
+                    ) AS CB
+                        ON SF.[Year] = CB.[YEAR] 
+                        AND SF.[Month] = CB.[MONTH] 
+                        AND SF.AdminUnitName = CB.ADMIN_UNIT_NAME 
+                        AND SF.EmployeeName = CB.EMPLOYEE_NAME
+                    WHERE ((SF.[Year] < YEAR(GETDATE())) OR (SF.[Year] = YEAR(GETDATE()) AND SF.[Month] <= MONTH(GETDATE()))) { where_clause } )
+
+                    SELECT
+                    ADMIN_UNIT_NAME,
+                    EMPLOYEE_NAME,
+                    PRICE_AMOUNT,
+                    FORECAST_AMOUNT
+                    FROM P
+            """)
+
+            # 执行查询
+            result = db.exec(base_query).all()
+
+            # 确保结果中没有 None 值
+            for row in result:
+                if row.ADMIN_UNIT_NAME is None:
+                    row.ADMIN_UNIT_NAME = ""
+                if row.EMPLOYEE_NAME is None:
+                    row.EMPLOYEE_NAME = ""
+                if row.FORECAST_AMOUNT is None:
+                    row.FORECAST_AMOUNT = 0
+                if row.PRICE_AMOUNT is None:
+                    row.PRICE_AMOUNT = 0
+
+            functions = Functions()
+            response_dict = functions.process_percentage_data_for_echarts(result)
+            
+            # 将字典中的项转换为 SaleAmountBarChartEChartsDataItem 对象
+            processed_dict = {}
+            for level_id, items in response_dict.items():
+                data_items = []
+                for item in items:
+                    data_items.append(SaleAmountBarChartEChartsDataItem(
+                        name=item['name'],
+                        value=float(item['value']),
+                        group_id=item['group_id'],
+                        child_group_id=item.get('child_group_id')
+                    ))
+                
+                processed_dict[level_id] = data_items
+            
+            # 将字典转换为列表
+            response_list = [
+                SaleAmountBarChartEChartsLevelData(
+                    level_id=level_id,
+                    items=data_items
+                )
+                for level_id, data_items in processed_dict.items()
+            ]
+            
+
+            return SaleAmountBarChartEChartsResponse(list=response_list)
+        except Exception as e:
+            logger.error(f"获取销售金额完成率柱状图失败: {str(e)}")
+            raise CustomException(f"获取销售金额完成率柱状图失败: {str(e)}")

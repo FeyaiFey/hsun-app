@@ -296,7 +296,7 @@ async def get_sale_amount_detail(
 async def get_sale_amount_bar_chart(
     params: SaleAmountBarChartQuery = Depends(),
     db: Session = Depends(get_db),
-    # current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     try:
         sale_service = SaleService(db)
@@ -317,3 +317,28 @@ async def get_sale_amount_bar_chart(
             name="SaleError"
         )
 
+@router.get("/analyze/percentage",response_model=IResponse[SaleAmountBarChartEChartsResponse])
+@monitor_request
+async def get_sale_percentage_bar_chart(
+    params: SaleAmountBarChartQuery = Depends(),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    try:
+        sale_service = SaleService(db)
+        sale_percentage = await sale_service.get_sale_percentage_bar_chart(db,params)
+        return CustomResponse.success(data=sale_percentage)
+    except CustomException as e:
+        logger.error(f"获取销售金额完成率柱状图失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="SaleError"
+        )
+    except Exception as e:
+        logger.error(f"获取销售金额完成率柱状图失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=get_error_message(ErrorCode.DB_ERROR),
+            name="SaleError"
+        )

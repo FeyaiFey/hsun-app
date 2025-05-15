@@ -3,7 +3,7 @@ from typing import List, Dict, Optional
 
 class Functions:
     @staticmethod
-    def process_data_for_echarts(data: List) -> Dict:
+    def process_amount_data_for_echarts(data: List) -> Dict:
         # 第一层：按部门汇总
         department_summary = {}
         for item in data:
@@ -125,6 +125,77 @@ class Functions:
         all_level_data.update(shortcut_summary)
         all_level_data.update(item_code_summary)
 
+        return all_level_data
+    
+    @staticmethod
+    def process_percentage_data_for_echarts(data: List) -> Dict:
+        """
+        处理销售完成率数据，生成适用于ECharts的数据结构
+        第一层展现销售团队的完成率，第二层展现团队下业务员的完成率
+        
+        参数:
+        - data: 包含ADMIN_UNIT_NAME, EMPLOYEE_NAME, PRICE_AMOUNT, FORECAST_AMOUNT的对象列表
+        
+        返回:
+        - 适用于ECharts的数据结构
+        """
+        # 第一层：按销售团队汇总完成率
+        team_summary = {}
+        team_amounts = {}
+        for item in data:
+            admin_unit_name = getattr(item, 'ADMIN_UNIT_NAME', None) or getattr(item, 'admin_unit_name', '') or ''
+            price_amount = getattr(item, 'PRICE_AMOUNT', None) or getattr(item, 'price_amount', 0) or 0
+            forecast_amount = getattr(item, 'FORECAST_AMOUNT', None) or getattr(item, 'forecast_amount', 0) or 0
+            if admin_unit_name not in team_amounts:
+                team_amounts[admin_unit_name] = {'price_sum': 0, 'forecast_sum': 0}
+            team_amounts[admin_unit_name]['price_sum'] += price_amount
+            team_amounts[admin_unit_name]['forecast_sum'] += forecast_amount
+        for team, sums in team_amounts.items():
+            price_sum = sums['price_sum']
+            forecast_sum = sums['forecast_sum']
+            completion_rate = round((price_sum / forecast_sum) * 100, 2) if forecast_sum > 0 else 0
+            team_summary[team] = {
+                'name': team,
+                'value': completion_rate,
+                'actual': price_sum,
+                'target': forecast_sum,
+                'group_id': '销售团队',
+                'child_group_id': f'销售团队 {team}'
+            }
+        # 第二层：按业务员汇总完成率
+        employee_summary = {}
+        employee_amounts = {}
+        for item in data:
+            admin_unit_name = getattr(item, 'ADMIN_UNIT_NAME', None) or getattr(item, 'admin_unit_name', '') or ''
+            employee_name = getattr(item, 'EMPLOYEE_NAME', None) or getattr(item, 'employee_name', '') or ''
+            price_amount = getattr(item, 'PRICE_AMOUNT', None) or getattr(item, 'price_amount', 0) or 0
+            forecast_amount = getattr(item, 'FORECAST_AMOUNT', None) or getattr(item, 'forecast_amount', 0) or 0
+            key = f'销售团队 {admin_unit_name}'
+            if key not in employee_summary:
+                employee_summary[key] = []
+                employee_amounts[key] = {}
+            if employee_name not in employee_amounts[key]:
+                employee_amounts[key][employee_name] = {'price_sum': 0, 'forecast_sum': 0}
+            employee_amounts[key][employee_name]['price_sum'] += price_amount
+            employee_amounts[key][employee_name]['forecast_sum'] += forecast_amount
+        for team_key, emp_dict in employee_amounts.items():
+            for emp_name, sums in emp_dict.items():
+                price_sum = sums['price_sum']
+                forecast_sum = sums['forecast_sum']
+                completion_rate = round((price_sum / forecast_sum) * 100, 2) if forecast_sum > 0 else 0
+                employee_summary[team_key].append({
+                    'name': emp_name,
+                    'value': completion_rate,
+                    'actual': price_sum,
+                    'target': forecast_sum,
+                    'group_id': team_key,
+                    'child_group_id': f'{team_key} {emp_name}'
+                })
+        # 构建完整的ECharts数据结构
+        all_level_data = {
+            '销售团队': list(team_summary.values())
+        }
+        all_level_data.update(employee_summary)
         return all_level_data
 
 

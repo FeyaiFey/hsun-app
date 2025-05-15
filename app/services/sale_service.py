@@ -54,3 +54,6 @@ class SaleService:
 
     async def get_sale_amount_bar_chart(self,db: Session,params: SaleAmountBarChartQuery) -> SaleAmountBarChartEChartsResponse:
         return await self.crud_sale.get_sale_amount_bar_chart(db,params)
+
+    async def get_sale_percentage_bar_chart(self,db: Session,params: SaleAmountBarChartQuery) -> SaleAmountBarChartEChartsResponse:
+        return await self.crud_sale.get_sale_percentage_bar_chart(db,params)

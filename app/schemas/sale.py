@@ -164,6 +164,7 @@ class SaleAmount(BaseModel):
     MONTH: Optional[int] = Field(None, description="月份")
     ADMIN_UNIT_NAME: Optional[str] = Field(None, description="部门名称")
     EMPLOYEE_NAME: Optional[str] = Field(None, description="销售员")
+    PRICE_QTY: Optional[float] = Field(None, description="销量")
     FORECAST_AMOUNT: Optional[float] = Field(None, description="预测金额")
     PRICE_AMOUNT: Optional[float] = Field(None, description="实际金额")
     PERCENTAGE: Optional[float] = Field(None, description="完成率")
