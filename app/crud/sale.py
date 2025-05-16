@@ -962,9 +962,9 @@ class CRUSale:
                 
                 SELECT
                 {group_by_clause},
-                SUM(PRICE_QTY/10000) AS PRICE_QTY,
-                SUM(FORECAST_AMOUNT/10000) AS FORECAST_AMOUNT,
-                SUM(PRICE_AMOUNT/10000) AS PRICE_AMOUNT,
+                SUM(PRICE_QTY) AS PRICE_QTY,
+                SUM(FORECAST_AMOUNT) AS FORECAST_AMOUNT,
+                SUM(PRICE_AMOUNT) AS PRICE_AMOUNT,
                 SUM(PRICE_AMOUNT)/SUM(FORECAST_AMOUNT)*100 AS PERCENTAGE
                 FROM FSD
                 GROUP BY {group_by_clause}
@@ -977,10 +977,10 @@ class CRUSale:
             result_list = []
             for amount in result:
                 analysis_amount = SaleAmount(
-                    FORECAST_AMOUNT=round(amount.FORECAST_AMOUNT, 2) if amount.FORECAST_AMOUNT else 0,
-                    PRICE_AMOUNT=round(amount.PRICE_AMOUNT, 2) if amount.PRICE_AMOUNT else 0,
-                    PERCENTAGE=round(amount.PERCENTAGE, 2) if amount.PERCENTAGE else 0,
-                    PRICE_QTY=round(amount.PRICE_QTY, 2) if amount.PRICE_QTY else 0
+                    FORECAST_AMOUNT=amount.FORECAST_AMOUNT if amount.FORECAST_AMOUNT else 0,
+                    PRICE_AMOUNT=amount.PRICE_AMOUNT if amount.PRICE_AMOUNT else 0,
+                    PERCENTAGE=amount.PERCENTAGE if amount.PERCENTAGE else 0,
+                    PRICE_QTY=amount.PRICE_QTY if amount.PRICE_QTY else 0
                 )
                 # 根据分组字段设置相应的字段值
                 if params.group_by_year and hasattr(amount, 'YEAR'):
@@ -1041,14 +1041,15 @@ class CRUSale:
                     ADMIN_UNIT_NAME,
                     EMPLOYEE_NAME,
                     SHORTCUT,
-                    ITEM_CODE,
+                    ITEM_NAME,
+                    SUM(PRICE_QTY) AS PRICE_QTY,
                     SUM(AMOUNT) AS AMOUNT
                 FROM SD
                 GROUP BY 
                     ADMIN_UNIT_NAME,
                     EMPLOYEE_NAME,
                     SHORTCUT,
-                    ITEM_CODE
+                    ITEM_NAME
             """)
 
             # 执行查询
@@ -1062,8 +1063,10 @@ class CRUSale:
                     row.EMPLOYEE_NAME = ""
                 if row.SHORTCUT is None:
                     row.SHORTCUT = ""
-                if row.ITEM_CODE is None:
-                    row.ITEM_CODE = ""
+                if row.ITEM_NAME is None:
+                    row.ITEM_NAME = ""
+                if row.PRICE_QTY is None:
+                    row.PRICE_QTY = 0
                 if row.AMOUNT is None:
                     row.AMOUNT = 0
 
@@ -1078,6 +1081,7 @@ class CRUSale:
                     data_items.append(SaleAmountBarChartEChartsDataItem(
                         name=item['name'],
                         value=float(item['value']),
+                        quantity=item.get('quantity'),
                         group_id=item['group_id'],
                         child_group_id=item.get('child_group_id')
                     ))

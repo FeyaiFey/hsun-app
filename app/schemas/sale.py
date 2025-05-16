@@ -186,6 +186,7 @@ class SaleAmountBarChartEChartsDataItem(BaseModel):
     """ECharts单个数据项"""
     name: str          # 数据项名称（如部门、业务员等）
     value: float       # 数据值（如金额）
+    quantity: Optional[int] = None    # 数据值（如数量）
     group_id: str      # 所属组ID
     child_group_id: Optional[str] = None  # 子组ID（可选，用于下钻）
 
