@@ -646,20 +646,18 @@ class CRUSale:
         try:
             # 获取本年销售额
             base_query = text(f"""
-                WITH
+                                WITH
                 SS AS
                     (
                         SELECT 
-                            NT.[YEAR],
-                            NT.[MONTH],
+                            CAST(NT.[DATE] AS DATE) AS [DATE],
                             SUM(NT.PRICE_QTY) AS PRICE_QTY,
                             SUM(NT.AMOUNT) AS AMOUNT
                             FROM
                                 (
                                     (
                                         SELECT 
-                                            YEAR(SI.TRANSACTION_DATE) AS [YEAR],
-                                            MONTH(SI.TRANSACTION_DATE) AS [MONTH],
+                                            SI.TRANSACTION_DATE AS [DATE],
                                             SID.PRICE_QTY,
                                             SID.AMOUNT
                                         FROM SALES_DELIVERY SD
@@ -674,8 +672,7 @@ class CRUSale:
                                     UNION ALL
                                     (
                                         SELECT 
-                                        YEAR(SR.TRANSACTION_DATE) AS [YEAR],
-                                        MONTH(SR.TRANSACTION_DATE) AS [MONTH],
+                                        SR.TRANSACTION_DATE AS [DATE],
                                         SRD.PRICE_QTY * -1 AS PRICE_QTY,
                                         SRD.AMOUNT * -1 AS AMOUNT
                                         FROM SALES_RETURN SR
@@ -684,97 +681,111 @@ class CRUSale:
                                         WHERE SR.CATEGORY = '26'
                                     ) 
                                 )AS NT
-                            GROUP BY NT.[YEAR],NT.[MONTH]
+                            GROUP BY NT.[DATE]
                         )
+        
+                
                         
                 SELECT
+                    -- 今日数据
+                    SUM(CASE WHEN [DATE] = CAST(GETDATE() AS DATE) THEN PRICE_QTY ELSE 0 END) AS today_sale_qty,
+                    SUM(CASE WHEN [DATE] = CAST(GETDATE() AS DATE) THEN AMOUNT ELSE 0 END) AS today_sale_amount,
+                    
+                    -- 昨日数据
+                    SUM(CASE WHEN [DATE] = CAST(DATEADD(DAY,-1,GETDATE()) AS DATE) THEN PRICE_QTY ELSE 0 END) AS yesterday_sale_qty,
+                    SUM(CASE WHEN [DATE] = CAST(DATEADD(DAY,-1,GETDATE()) AS DATE) THEN AMOUNT ELSE 0 END) AS yesterday_sale_amount,
+                    
                     -- 本年数据
-                    SUM(CASE WHEN [YEAR] = YEAR(GETDATE()) THEN PRICE_QTY ELSE 0 END) AS this_year_sale_qty,
-                    SUM(CASE WHEN [YEAR] = YEAR(GETDATE()) THEN AMOUNT ELSE 0 END) AS this_year_sale_amount,
+                    SUM(CASE WHEN YEAR([DATE]) = YEAR(GETDATE()) THEN PRICE_QTY ELSE 0 END) AS this_year_sale_qty,
+                    SUM(CASE WHEN YEAR([DATE]) = YEAR(GETDATE()) THEN AMOUNT ELSE 0 END) AS this_year_sale_amount,
                     
                     -- 本月数据
-                    SUM(CASE WHEN [YEAR] = YEAR(GETDATE()) AND [MONTH] = MONTH(GETDATE()) THEN PRICE_QTY ELSE 0 END) AS this_month_sale_qty,
-                    SUM(CASE WHEN [YEAR] = YEAR(GETDATE()) AND [MONTH] = MONTH(GETDATE()) THEN AMOUNT ELSE 0 END) AS this_month_sale_amount,
+                    SUM(CASE WHEN YEAR([DATE]) = YEAR(GETDATE()) AND MONTH([DATE]) = MONTH(GETDATE()) THEN PRICE_QTY ELSE 0 END) AS this_month_sale_qty,
+                    SUM(CASE WHEN YEAR([DATE]) = YEAR(GETDATE()) AND MONTH([DATE]) = MONTH(GETDATE()) THEN AMOUNT ELSE 0 END) AS this_month_sale_amount,
                     
                     -- 去年数据
-                    SUM(CASE WHEN [YEAR] = YEAR(GETDATE()) - 1 THEN PRICE_QTY ELSE 0 END) AS last_year_sale_qty,
-                    SUM(CASE WHEN [YEAR] = YEAR(GETDATE()) - 1 THEN AMOUNT ELSE 0 END) AS last_year_sale_amount,
+                    SUM(CASE WHEN YEAR([DATE]) = YEAR(GETDATE()) - 1 THEN PRICE_QTY ELSE 0 END) AS last_year_sale_qty,
+                    SUM(CASE WHEN YEAR([DATE]) = YEAR(GETDATE()) - 1 THEN AMOUNT ELSE 0 END) AS last_year_sale_amount,
                     
                     -- 上月数据
                     SUM(CASE WHEN 
-                        ([YEAR] = YEAR(GETDATE()) AND [MONTH] = MONTH(GETDATE()) - 1) 
-                        OR ([YEAR] = YEAR(GETDATE()) - 1 AND [MONTH] = 12 AND MONTH(GETDATE()) = 1) 
+                        [DATE] BETWEEN 
+                          DATEFROMPARTS(YEAR(DATEADD(MONTH, -1, GETDATE())),MONTH(DATEADD(MONTH, -1, GETDATE())),1)
+                        AND
+                          EOMONTH(DATEADD(MONTH, -1, GETDATE()))
                     THEN PRICE_QTY ELSE 0 END) AS last_month_sale_qty,
                         
                     SUM(CASE WHEN 
-                        ([YEAR] = YEAR(GETDATE()) AND [MONTH] = MONTH(GETDATE()) - 1) 
-                        OR ([YEAR] = YEAR(GETDATE()) - 1 AND [MONTH] = 12 AND MONTH(GETDATE()) = 1) 
+                        [DATE] BETWEEN 
+                          DATEFROMPARTS(YEAR(DATEADD(MONTH, -1, GETDATE())),MONTH(DATEADD(MONTH, -1, GETDATE())),1)
+                        AND
+                          EOMONTH(DATEADD(MONTH, -1, GETDATE()))
                     THEN AMOUNT ELSE 0 END) AS last_month_sale_amount,
                         
                         -- 上上月数据
                     SUM(CASE WHEN 
-                        ([YEAR] = YEAR(DATEADD(MONTH, -2, GETDATE())) AND [MONTH] = MONTH(DATEADD(MONTH, -2, GETDATE())))
+                        (YEAR([DATE]) = YEAR(DATEADD(MONTH, -2, GETDATE())) AND MONTH([DATE]) = MONTH(DATEADD(MONTH, -2, GETDATE())))
                     THEN PRICE_QTY ELSE 0 END) AS last_last_month_sale_qty,
                         
                         SUM(CASE WHEN 
-                        ([YEAR] = YEAR(DATEADD(MONTH, -2, GETDATE())) AND [MONTH] = MONTH(DATEADD(MONTH, -2, GETDATE())))
+                        (YEAR([DATE]) = YEAR(DATEADD(MONTH, -2, GETDATE())) AND MONTH([DATE]) = MONTH(DATEADD(MONTH, -2, GETDATE())))
                     THEN AMOUNT ELSE 0 END) AS last_last_month_sale_amount,
                     
                     -- 环比计算 (上月 vs 上上月)
                     ROUND(
                         (SUM(CASE WHEN 
-                            ([YEAR] = YEAR(GETDATE()) AND [MONTH] = MONTH(GETDATE()) - 1) 
-                            OR ([YEAR] = YEAR(GETDATE()) - 1 AND [MONTH] = 12 AND MONTH(GETDATE()) = 1) 
+                            (YEAR([DATE]) = YEAR(GETDATE()) AND MONTH([DATE]) = MONTH(GETDATE()) - 1) 
+                            OR (YEAR([DATE]) = YEAR(GETDATE()) - 1 AND MONTH([DATE]) = 12 AND MONTH(GETDATE()) = 1) 
                         THEN PRICE_QTY ELSE 0 END) 
                         - SUM(CASE WHEN 
-                            ([YEAR] = YEAR(DATEADD(MONTH, -2, GETDATE())) AND [MONTH] = MONTH(DATEADD(MONTH, -2, GETDATE())))
+                            (YEAR([DATE]) = YEAR(DATEADD(MONTH, -2, GETDATE())) AND MONTH([DATE]) = MONTH(DATEADD(MONTH, -2, GETDATE())))
                         THEN PRICE_QTY ELSE 0 END)) 
                         / NULLIF(SUM(CASE WHEN 
-                            ([YEAR] = YEAR(DATEADD(MONTH, -2, GETDATE())) AND [MONTH] = MONTH(DATEADD(MONTH, -2, GETDATE())))
+                            (YEAR([DATE]) = YEAR(DATEADD(MONTH, -2, GETDATE())) AND MONTH([DATE]) = MONTH(DATEADD(MONTH, -2, GETDATE())))
                         THEN PRICE_QTY ELSE 0 END), 0) * 100, 2
                     ) AS month_on_month_qty,
                     
                     ROUND(
                         (SUM(CASE WHEN 
-                            ([YEAR] = YEAR(GETDATE()) AND [MONTH] = MONTH(GETDATE()) - 1) 
-                            OR ([YEAR] = YEAR(GETDATE()) - 1 AND [MONTH] = 12 AND MONTH(GETDATE()) = 1) 
+                            (YEAR([DATE]) = YEAR(GETDATE()) AND MONTH([DATE]) = MONTH(GETDATE()) - 1) 
+                            OR (YEAR([DATE]) = YEAR(GETDATE()) - 1 AND MONTH([DATE]) = 12 AND MONTH(GETDATE()) = 1) 
                         THEN AMOUNT ELSE 0 END) 
                         - SUM(CASE WHEN 
-                            ([YEAR] = YEAR(DATEADD(MONTH, -2, GETDATE())) AND [MONTH] = MONTH(DATEADD(MONTH, -2, GETDATE())))
+                            (YEAR([DATE]) = YEAR(DATEADD(MONTH, -2, GETDATE())) AND MONTH([DATE]) = MONTH(DATEADD(MONTH, -2, GETDATE())))
                         THEN AMOUNT ELSE 0 END)) 
                         / NULLIF(SUM(CASE WHEN 
-                            ([YEAR] = YEAR(DATEADD(MONTH, -2, GETDATE())) AND [MONTH] = MONTH(DATEADD(MONTH, -2, GETDATE())))
+                            (YEAR([DATE]) = YEAR(DATEADD(MONTH, -2, GETDATE())) AND MONTH([DATE]) = MONTH(DATEADD(MONTH, -2, GETDATE())))
                         THEN AMOUNT ELSE 0 END), 0) * 100, 2
                     ) AS month_on_month_amount,
                     
                     -- 同比计算 (上月 vs 去年同月)
                     ROUND(
                         (SUM(CASE WHEN 
-                            ([YEAR] = YEAR(GETDATE()) AND [MONTH] = MONTH(GETDATE()) - 1) 
-                            OR ([YEAR] = YEAR(GETDATE()) - 1 AND [MONTH] = 12 AND MONTH(GETDATE()) = 1) 
+                            (YEAR([DATE]) = YEAR(GETDATE()) AND MONTH([DATE]) = MONTH(GETDATE()) - 1) 
+                            OR (YEAR([DATE]) = YEAR(GETDATE()) - 1 AND MONTH([DATE]) = 12 AND MONTH(GETDATE()) = 1) 
                         THEN PRICE_QTY ELSE 0 END) 
                         - SUM(CASE WHEN 
-                            ([YEAR] = YEAR(GETDATE()) - 1 AND [MONTH] = MONTH(GETDATE()) - 1) 
-                            OR ([YEAR] = YEAR(GETDATE()) - 2 AND [MONTH] = 12 AND MONTH(GETDATE()) = 1) 
+                            (YEAR([DATE]) = YEAR(GETDATE()) - 1 AND MONTH([DATE]) = MONTH(GETDATE()) - 1) 
+                            OR (YEAR([DATE]) = YEAR(GETDATE()) - 2 AND MONTH([DATE]) = 12 AND MONTH(GETDATE()) = 1) 
                         THEN PRICE_QTY ELSE 0 END)) 
                         / NULLIF(SUM(CASE WHEN 
-                            ([YEAR] = YEAR(GETDATE()) - 1 AND [MONTH] = MONTH(GETDATE()) - 1) 
-                            OR ([YEAR] = YEAR(GETDATE()) - 2 AND [MONTH] = 12 AND MONTH(GETDATE()) = 1) 
+                            (YEAR([DATE]) = YEAR(GETDATE()) - 1 AND MONTH([DATE]) = MONTH(GETDATE()) - 1) 
+                            OR (YEAR([DATE]) = YEAR(GETDATE()) - 2 AND MONTH([DATE]) = 12 AND MONTH(GETDATE()) = 1) 
                         THEN PRICE_QTY ELSE 0 END), 0) * 100, 2
                     ) AS year_on_year_qty,
                     
                     ROUND(
                         (SUM(CASE WHEN 
-                            ([YEAR] = YEAR(GETDATE()) AND [MONTH] = MONTH(GETDATE()) - 1) 
-                            OR ([YEAR] = YEAR(GETDATE()) - 1 AND [MONTH] = 12 AND MONTH(GETDATE()) = 1) 
+                            (YEAR([DATE]) = YEAR(GETDATE()) AND MONTH([DATE]) = MONTH(GETDATE()) - 1) 
+                            OR (YEAR([DATE]) = YEAR(GETDATE()) - 1 AND MONTH([DATE]) = 12 AND MONTH(GETDATE()) = 1) 
                         THEN AMOUNT ELSE 0 END) 
                         - SUM(CASE WHEN 
-                            ([YEAR] = YEAR(GETDATE()) - 1 AND [MONTH] = MONTH(GETDATE()) - 1) 
-                            OR ([YEAR] = YEAR(GETDATE()) - 2 AND [MONTH] = 12 AND MONTH(GETDATE()) = 1) 
+                            (YEAR([DATE]) = YEAR(GETDATE()) - 1 AND MONTH([DATE]) = MONTH(GETDATE()) - 1) 
+                            OR (YEAR([DATE]) = YEAR(GETDATE()) - 2 AND MONTH([DATE]) = 12 AND MONTH(GETDATE()) = 1) 
                         THEN AMOUNT ELSE 0 END)) 
                         / NULLIF(SUM(CASE WHEN 
-                            ([YEAR] = YEAR(GETDATE()) - 1 AND [MONTH] = MONTH(GETDATE()) - 1) 
-                            OR ([YEAR] = YEAR(GETDATE()) - 2 AND [MONTH] = 12 AND MONTH(GETDATE()) = 1) 
+                            (YEAR([DATE]) = YEAR(GETDATE()) - 1 AND MONTH([DATE]) = MONTH(GETDATE()) - 1) 
+                            OR (YEAR([DATE]) = YEAR(GETDATE()) - 2 AND MONTH([DATE]) = 12 AND MONTH(GETDATE()) = 1) 
                         THEN AMOUNT ELSE 0 END), 0) * 100, 2
                     ) AS year_on_year_amount
                 FROM SS;
@@ -786,6 +797,10 @@ class CRUSale:
             # 直接使用查询结果创建对象
             if result:
                 panel = SaleAnalysisPannel(
+                    today_sale_qty=int(result.today_sale_qty or 0),
+                    today_sale_amount=float(result.today_sale_amount or 0),
+                    yesterday_sale_qty=int(result.yesterday_sale_qty or 0),
+                    yesterday_sale_amount=float(result.yesterday_sale_amount or 0),
                     this_year_sale_qty=int(result.this_year_sale_qty or 0),
                     this_year_sale_amount=float(result.this_year_sale_amount or 0),
                     this_month_sale_qty=int(result.this_month_sale_qty or 0),

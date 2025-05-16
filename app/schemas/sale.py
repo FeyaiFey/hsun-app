@@ -123,6 +123,10 @@ class SaleAmountAnalyzeResponse(BaseModel):
 
 class SaleAnalysisPannel(BaseModel):
     """销售分析面板"""
+    today_sale_qty: int = Field(..., description="今日销量")
+    today_sale_amount: float = Field(..., description="今日销售额")
+    yesterday_sale_qty: int = Field(..., description="昨日销量")
+    yesterday_sale_amount: float = Field(..., description="昨日销售额")
     this_year_sale_qty: int = Field(..., description="本年销量")
     this_year_sale_amount: float = Field(..., description="本年销售额")
     this_month_sale_qty: int = Field(..., description="本月销量")
