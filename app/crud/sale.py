@@ -268,7 +268,7 @@ class CRUSale:
                                 ON AU.ADMIN_UNIT_ID = ED.ADMIN_UNIT_ID
                                 LEFT JOIN ITEM
                                 ON SRD.ITEM_ID = ITEM.ITEM_BUSINESS_ID
-                                WHERE SR.CATEGORY = '26' 
+                                WHERE SR.CATEGORY = '26' AND SR.RECEIPTED_STATUS = '3'
                             )
                             ) AS NT
                             WHERE NT.YEAR > 0 AND NT.[YEAR] = @yyyy AND NT.[MONTH] = @mm
@@ -407,7 +407,7 @@ class CRUSale:
                                 ON AU.ADMIN_UNIT_ID = ED.ADMIN_UNIT_ID
                                 LEFT JOIN ITEM
                                 ON SRD.ITEM_ID = ITEM.ITEM_BUSINESS_ID
-                                WHERE SR.CATEGORY = '26' AND YEAR(SR.TRANSACTION_DATE) = @YYYY AND MONTH(SR.TRANSACTION_DATE) = @MM AND E.EMPLOYEE_NAME = @EN
+                                WHERE SR.CATEGORY = '26' AND SR.RECEIPTED_STATUS = '3' AND YEAR(SR.TRANSACTION_DATE) = @YYYY AND MONTH(SR.TRANSACTION_DATE) = @MM AND E.EMPLOYEE_NAME = @EN
                             )
                             ) AS NT
                             WHERE NT.YEAR > 0
@@ -601,7 +601,7 @@ class CRUSale:
                         ON AU.ADMIN_UNIT_ID = ED.ADMIN_UNIT_ID
                         LEFT JOIN ITEM
                         ON SRD.ITEM_ID = ITEM.ITEM_BUSINESS_ID
-                        WHERE SR.CATEGORY = '26' {where_clause_return}
+                        WHERE SR.CATEGORY = '26' AND SR.RECEIPTED_STATUS = '3' {where_clause_return}
                 )
                 ) AS NT
                 GROUP BY {group_by}
@@ -678,7 +678,7 @@ class CRUSale:
                                         FROM SALES_RETURN SR
                                         LEFT JOIN SALES_RETURN_D SRD
                                         ON SR.SALES_RETURN_ID = SRD.SALES_RETURN_ID
-                                        WHERE SR.CATEGORY = '26'
+                                        WHERE SR.CATEGORY = '26' AND SR.RECEIPTED_STATUS = '3'
                                     ) 
                                 )AS NT
                             GROUP BY NT.[DATE]
@@ -951,7 +951,7 @@ class CRUSale:
                             ON ED.EMPLOYEE_ID = E.EMPLOYEE_ID
                             LEFT JOIN ADMIN_UNIT AU
                             ON AU.ADMIN_UNIT_ID = ED.ADMIN_UNIT_ID
-                            WHERE SR.CATEGORY = '26' {where_clause_sale_return}
+                            WHERE SR.CATEGORY = '26' AND SR.RECEIPTED_STATUS = '3' {where_clause_sale_return}
                     )
                     ) AS NT
                     GROUP BY [YEAR],[MONTH],EMPLOYEE_NAME,ADMIN_UNIT_NAME
@@ -1180,7 +1180,7 @@ class CRUSale:
                                 ON ED.EMPLOYEE_ID = E.EMPLOYEE_ID
                             LEFT JOIN ADMIN_UNIT AU 
                                 ON AU.ADMIN_UNIT_ID = ED.ADMIN_UNIT_ID
-                            WHERE SR.CATEGORY = '26'
+                            WHERE SR.CATEGORY = '26' AND SR.RECEIPTED_STATUS = '3'
                         ) AS NT
                         GROUP BY [YEAR], [MONTH], EMPLOYEE_NAME, ADMIN_UNIT_NAME
                     ) AS CB
