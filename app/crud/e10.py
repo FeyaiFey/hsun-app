@@ -2504,7 +2504,7 @@ class CRUDE10:
                     WHEN ITEM.ITEM_CODE LIKE '%TR' THEN '编带'
                     ELSE '管装'
                     END AS ABTR,
-                    dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB,+TR') AS ITEM_NAME,
+                    dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB,+TR,BC-') AS ITEM_NAME,
                     SID.PRICE_QTY
                 FROM SALES_ISSUE SI
                 LEFT JOIN SALES_ISSUE_D SID
@@ -2518,7 +2518,7 @@ class CRUDE10:
                     WHEN ITEM.ITEM_CODE LIKE '%TR' THEN '编带'
                     ELSE '管装'
                     END AS ABTR,
-                    dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB,+TR') AS ITEM_NAME,
+                    dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB,+TR,BC-') AS ITEM_NAME,
                     SRRD.PRICE_QTY*-1
                 FROM SALES_RETURN_RECEIPT SRR
                 LEFT JOIN SALES_RETURN_RECEIPT_D SRRD
@@ -2536,17 +2536,7 @@ class CRUDE10:
                 WHEN ITEM.ITEM_CODE LIKE '%TR' THEN '编带'
                 ELSE '管装'
                 END AS ABTR,
-                CASE
-                WHEN RIGHT(ITEM.ITEM_NAME,3) = '-BY' OR RIGHT(ITEM.ITEM_NAME,3) = '-ZY' THEN ITEM.ITEM_NAME
-                ELSE (
-                    CASE 
-                    WHEN ITEM.ITEM_NAME = 'HS6601MX-16H-SOP8-H' THEN 'HS6601MX-SOP8-H-BY'
-                    WHEN ITEM.ITEM_NAME = 'HS6601L-25 可重复触发 LDO:2.5V' THEN 'HS6601L-25-SOP8-A-ZY'
-                    WHEN ITEM.ITEM_CODE LIKE '%-ZY-%' THEN ITEM.ITEM_NAME + '-ZY'
-                    WHEN ITEM.ITEM_CODE LIKE '%-BY-%' THEN ITEM.ITEM_NAME + '-BY'
-                    END
-                )
-                END AS ITEM_NAME,
+                dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB,+TR,BC-') AS ITEM_NAME,
                 CAST(SUM(IW.SAFE_STOCK) AS INT) AS SAFE_STOCK
                 FROM ITEM_WAREHOUSE IW
                 LEFT JOIN ITEM ON IW.ITEM_ID = ITEM.ITEM_BUSINESS_ID
@@ -2556,17 +2546,7 @@ class CRUDE10:
                     WHEN ITEM.ITEM_CODE LIKE '%TR' THEN '编带'
                     ELSE '管装'
                 END,
-                CASE
-                    WHEN RIGHT(ITEM.ITEM_NAME,3) = '-BY' OR RIGHT(ITEM.ITEM_NAME,3) = '-ZY' THEN ITEM.ITEM_NAME
-                    ELSE (
-                    CASE 
-                        WHEN ITEM.ITEM_NAME = 'HS6601MX-16H-SOP8-H' THEN 'HS6601MX-SOP8-H-BY'
-                        WHEN ITEM.ITEM_NAME = 'HS6601L-25 可重复触发 LDO:2.5V' THEN 'HS6601L-25-SOP8-A-ZY'
-                        WHEN ITEM.ITEM_CODE LIKE '%-ZY-%' THEN ITEM.ITEM_NAME + '-ZY'
-                        WHEN ITEM.ITEM_CODE LIKE '%-BY-%' THEN ITEM.ITEM_NAME + '-BY'
-                    END
-                    )
-                END
+                dbo.RemoveSpecificStrings(ITEM.ITEM_CODE, 'CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB,+TR,BC-')
                 ),
                 STOCK AS 
                 (
@@ -2658,9 +2638,9 @@ class CRUDE10:
                     (ISNULL(S1.INVENTORY_QTY, 0) + ISNULL(S2.INVENTORY_QTY, 0) + ISNULL(WIP.WIP_QTY_WITHOUT_STOCK, 0) + ISNULL(WIP.ASSY_STOCK, 0) - SS.SAFE_STOCK * 1.5)
                 ) OVER (PARTITION BY SS.ITEM_NAME) AS INT)  AS INVENTORY_GAP_TOTAL
                 FROM SAFE_STOCK SS
-                LEFT JOIN SALES ON (REPLACE(SS.ITEM_NAME, '_', '-') = SALES.ITEM_NAME AND SS.ABTR = SALES.ABTR)
-                LEFT JOIN STOCK S1 ON (S1.ITEM_NAME = REPLACE(SS.ITEM_NAME, '_', '-') AND S1.ABTR = SS.ABTR AND S1.CPBC = '产成品')
-                LEFT JOIN STOCK S2 ON (S2.ITEM_NAME = REPLACE(SS.ITEM_NAME, '_', '-') AND S2.ABTR = SS.ABTR AND S2.CPBC = '半成品')
+                LEFT JOIN SALES ON SS.ITEM_NAME = SALES.ITEM_NAME AND SS.ABTR = SALES.ABTR
+                LEFT JOIN STOCK S1 ON (S1.ITEM_NAME = SS.ITEM_NAME) AND S1.ABTR = SS.ABTR AND S1.CPBC = '产成品'
+                LEFT JOIN STOCK S2 ON (S2.ITEM_NAME = SS.ITEM_NAME) AND S2.ABTR = SS.ABTR AND S2.CPBC = '半成品'
                 LEFT JOIN WIP ON (WIP.ITEM_NAME = SS.ITEM_NAME AND WIP.ABTR = SS.ABTR)
                 ORDER BY SS.ITEM_NAME,SS.ABTR 
         """)
@@ -2783,7 +2763,7 @@ class CRUDE10:
                 SELECT 
                 CASE
                     WHEN IT.ITEM_NAME='GC1808-TSSOP14-D-ZY' THEN 'GC1808D-TSSOP14-D-ZY'
-                    ELSE IT.ITEM_NAME
+                    ELSE dbo.RemoveSpecificStrings(IT.ITEM_CODE, 'CP-,DG-,-Blank+TR,- Blank+TR,-Blank+TS,-FT+TR,-PGM+TR,-WG+TR,-PGM+TS,-PGM,- PGM,-FT,-TR,+TS+TR,-Blank,-WG,-AB,+TR,BC-')
                 END AS CHIP_NAME,
                 ROW_NUMBER() OVER(PARTITION BY IT.ITEM_CODE ORDER BY BD.Z_MAIN_CHIP) AS RowNum,ITEM.ITEM_NAME AS WAFER_NAME
                 FROM BOM_PRODUCT BP

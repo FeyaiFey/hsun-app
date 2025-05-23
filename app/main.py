@@ -10,7 +10,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from app.core.config import settings
 
-from app.api.v1.endpoints import auth, department, purchase, user, role, assy, params, stock, report, email, sale
+from app.api.v1.endpoints import auth, department, purchase, user, role, assy, params, stock, report, email, sale, file
 from app.core.monitor import MetricsManager
 from app.core.logger import logger
 from app.core.exceptions import CustomException
@@ -26,6 +26,11 @@ from app.core.exception_handlers import (
 async def lifespan(app: FastAPI):
     # 启动事件
     try:
+        # 初始化目录结构
+        from app.core.setup import setup_directories
+        setup_directories()
+        
+        # 启动监控
         metrics = MetricsManager()
         metrics.start_metrics_server()
         logger.info("应用启动成功")
@@ -78,6 +83,7 @@ app.include_router(stock.router, prefix="/api/v1/stock", tags=["Stock"])
 app.include_router(report.router, prefix="/api/v1/report", tags=["Report"])
 app.include_router(email.router, prefix="/api/v1/email", tags=["Email"])
 app.include_router(sale.router, prefix="/api/v1/sale", tags=["Sale"])
+app.include_router(file.router, prefix="/api/v1/file", tags=["File"])
 # 注册异常处理器
 app.add_exception_handler(CustomException, custom_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)

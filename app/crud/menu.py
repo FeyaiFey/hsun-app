@@ -88,7 +88,7 @@ class CRUDMenu:
 
     def get_all_menus(self, db: Session) -> List[Menu]:
         """获取所有菜单"""
-        return db.exec(select(Menu).order_by(Menu.id)).all()
+        return db.exec(select(Menu).order_by(Menu.menu_order)).all()
 
     
 
