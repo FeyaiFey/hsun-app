@@ -44,6 +44,8 @@ async def get_assy_order_by_params(
     is_closed: Optional[int] = Query(None, description="是否关闭"),
     order_date_start: Optional[str] = Query(None, description="工单日期开始"),
     order_date_end: Optional[str] = Query(None, description="工单日期结束"),
+    wafer_code:Optional[str] = Query(None, description="晶圆名称"),
+    wafer_lot_code:Optional[str] = Query(None, description="晶圆批号"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ) -> Any:
@@ -59,7 +61,9 @@ async def get_assy_order_by_params(
             package_type=package_type,
             supplier=supplier,
             assembly_code=assembly_code,
-            is_closed=is_closed
+            is_closed=is_closed,
+            wafer_code=wafer_code,
+            wafer_lot_code=wafer_lot_code
         )
         
         # 处理日期参数

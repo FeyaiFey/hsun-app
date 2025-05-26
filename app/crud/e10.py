@@ -637,9 +637,59 @@ class CRUDE10:
     def get_assy_order_by_params(self,db:Session,params:AssyOrderQuery)->Dict[str,Any]:
         """获取封装订单列表"""
         try:
+            # 参数验证和清理
+            where_clause_1 = ""
+            where_clause_2 = ""
+            where_clause_3 = ""
+            where_clause_4 = ""
+            if params.doc_no:
+                where_clause_1 += f"AND UPPER(hpl.DOC_NO) LIKE UPPER('%{self._clean_input(params.doc_no)}%')"
+                where_clause_2 += f"AND UPPER(PO.DOC_NO) LIKE UPPER('%{self._clean_input(params.doc_no)}%')"
+            if params.item_code:
+                where_clause_1 += f"AND UPPER(hpl.ITEM_CODE) LIKE UPPER('%{self._clean_input(params.item_code)}%')"
+                where_clause_2 += f"AND UPPER(ITEM.ITEM_CODE) LIKE UPPER('%{self._clean_input(params.item_code)}%')"
+            if params.lot_code:
+                where_clause_1 += f"AND UPPER(hpl.LOT_CODE) LIKE UPPER('%{self._clean_input(params.lot_code)}%')"
+                where_clause_2 += f"AND UPPER(ITEM_LOT.LOT_CODE) LIKE UPPER('%{self._clean_input(params.lot_code)}%')"
+            if params.supplier:
+                where_clause_1 += f"AND UPPER(hpl.SUPPLIER_FULL_NAME) LIKE UPPER('%{self._clean_input(params.supplier)}%')"
+                where_clause_2 += f"AND UPPER(PO.SUPPLIER_FULL_NAME) LIKE UPPER('%{self._clean_input(params.supplier)}%')"
+            if params.package_type:
+                where_clause_1 += f"AND UPPER(hpl.Z_PACKAGE_TYPE_NAME) LIKE UPPER('%{self._clean_input(params.package_type)}%')"
+                where_clause_2 += f"AND UPPER(ITEM.UDF025) LIKE UPPER('%{self._clean_input(params.package_type)}%')"
+            if params.assembly_code:
+                where_clause_1 += f"AND UPPER(hpl.Z_ASSEMBLY_CODE) LIKE UPPER('%{self._clean_input(params.assembly_code)}%')"
+                where_clause_2 += f"AND UPPER(Z_ASSEMBLY_CODE.Z_ASSEMBLY_CODE) LIKE UPPER('%{self._clean_input(params.assembly_code)}%')"
+            if params.is_closed:
+                if params.is_closed == 0:
+                    where_clause_1 += f"AND hpl.RECEIPT_CLOSE = 0"
+                    where_clause_2 += f"AND PO.RECEIPT_CLOSE = 0"
+                else:
+                    where_clause_1 += f"AND hpl.RECEIPT_CLOSE != 0"
+                    where_clause_2 += f"AND PO.RECEIPT_CLOSE != 0"
+            if params.order_date_start:
+                where_clause_1 += f"AND hpl.PURCHASE_DATE >= '{params.order_date_start}'"
+                where_clause_2 += f"AND PO.PURCHASE_DATE >= '{params.order_date_start}'"
+            if params.order_date_end:
+                where_clause_1 += f"AND hpl.PURCHASE_DATE <= '{params.order_date_end}'"
+                where_clause_2 += f"AND PO.PURCHASE_DATE <= '{params.order_date_end}'"
+            if params.wafer_code:
+                where_clause_3 += f"AND UPPER(ITEM_CODE) LIKE UPPER('%{self._clean_input(params.wafer_code)}%')"
+                where_clause_4 += f"AND UPPER(ITEM.ITEM_CODE) LIKE UPPER('%{self._clean_input(params.wafer_code)}%')"
+            if params.wafer_lot_code:
+                where_clause_3 += f"AND UPPER(LOT_CODE_NAME) LIKE UPPER('%{self._clean_input(params.wafer_lot_code)}%')"
+                where_clause_4 += f"AND UPPER(IL.LOT_CODE) LIKE UPPER('%{self._clean_input(params.wafer_lot_code)}%')"
             # 构建基础查询
-            base_query = """
-                SELECT *
+            base_query = f"""
+                SELECT 
+                    CombinedResults.*,
+                    BM.MAIN_CHIP,
+                    BM.ITEM_CODE AS WAFER_CODE,
+                    BM.ITEM_NAME AS WAFER_NAME,
+                    BM.LOT_CODE_NAME,
+                    BM.BUSINESS_QTY AS WAFER_BUSINESS_QTY,
+                    BM.SECOND_QTY AS WAFER_SECOND_QTY,
+                    BM.WAFER_ID
                 FROM (
                     SELECT
                         hpl.ID,
@@ -660,6 +710,7 @@ class CRUDE10:
                         hpl.SUPPLIER_FULL_NAME,
                         hpl.RECEIPT_CLOSE
                     FROM HSUN_PACKAGE_LIST hpl
+                    WHERE 1=1 {where_clause_1}
                     UNION ALL
                     SELECT
                         ROW_NUMBER() OVER (ORDER BY PO.PURCHASE_DATE, PO.DOC_NO) + 115617 AS ID,
@@ -724,68 +775,55 @@ class CRUDE10:
                         AND PO.SUPPLIER_FULL_NAME <> N'温州镁芯微电子有限公司'  
                         AND PO.SUPPLIER_FULL_NAME <> N'苏州荐恒电子科技有限公司'  
                         AND PO.SUPPLIER_FULL_NAME <> N'深圳市华新源科技有限公司'
+                        {where_clause_2}
                 ) AS CombinedResults
-                WHERE 1=1
+                INNER JOIN (
+                    SELECT * FROM HSUN_BOM_LIST
+                    WHERE 1=1 {where_clause_3}
+                    UNION ALL
+                    SELECT 
+                    ROW_NUMBER() OVER (ORDER BY PO.PURCHASE_DATE,PO.DOC_NO) + 16820 AS ID,
+                    PO.DOC_NO,
+                    ZOMSD.Z_MAIN_CHIP,
+                    ITEM.ITEM_CODE,
+                    ITEM.ITEM_NAME,
+                    IL.LOT_CODE,
+                    CAST(ZOMSD.BUSINESS_QTY AS FLOAT) AS BUSINESS_QTY,
+                    CAST(ZOMSD.SECOND_QTY AS FLOAT) AS SECOND_QTY,
+                    ZOMSD.Z_WF_ID_STRING
+                    FROM PURCHASE_ORDER PO
+                    LEFT JOIN PURCHASE_ORDER_D PO_D
+                    ON PO.PURCHASE_ORDER_ID = PO_D.PURCHASE_ORDER_ID
+                    LEFT JOIN PURCHASE_ORDER_SD PO_SD
+                    ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                    LEFT JOIN PURCHASE_ORDER_SSD PO_SSD
+                    ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+                    LEFT JOIN Z_OUT_MO_D ZOMD
+                    ON ZOMD.Z_OUT_MO_D_ID = PO_SSD.REFERENCE_SOURCE_ID_ROid
+                    LEFT JOIN Z_OUT_MO_SD ZOMSD
+                    ON ZOMSD.Z_OUT_MO_D_ID = ZOMD.Z_OUT_MO_D_ID
+                    LEFT JOIN ITEM
+                    ON ZOMSD.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                    LEFT JOIN ITEM_LOT IL
+                    ON IL.ITEM_LOT_ID = ZOMSD.ITEM_LOT_ID
+                    WHERE PO_D.PURCHASE_TYPE=2 {where_clause_4}
+                  ) BM
+                    ON BM.DOC_NO = CombinedResults.DOC_NO
             """
-
-            # 构建查询条件
-            conditions = []
-            query_params = {}
             
-            # 参数验证和清理
-            if params.doc_no and isinstance(params.doc_no, str):
-                conditions.append("AND UPPER(DOC_NO) LIKE UPPER(:doc_no)")
-                query_params["doc_no"] = f"%{self._clean_input(params.doc_no)}%"
-                
-            if params.item_code and isinstance(params.item_code, str):
-                conditions.append("AND UPPER(ITEM_CODE) LIKE UPPER(:item_code)")
-                query_params["item_code"] = f"%{self._clean_input(params.item_code)}%"
-            
-            if params.lot_code and isinstance(params.lot_code, str):
-                conditions.append("AND UPPER(LOT_CODE) LIKE UPPER(:lot_code)")
-                query_params["lot_code"] = f"%{self._clean_input(params.lot_code)}%"
-            
-            if params.supplier and isinstance(params.supplier, str):
-                conditions.append("AND SUPPLIER_FULL_NAME LIKE :supplier")
-                query_params["supplier"] = f"%{self._clean_input(params.supplier)}%"
-                
-            if params.package_type and isinstance(params.package_type, str):
-                conditions.append("AND UPPER(Z_PACKAGE_TYPE_NAME) LIKE UPPER(:package_type)")
-                query_params["package_type"] = f"%{self._clean_input(params.package_type)}%"
-                
-            if params.assembly_code and isinstance(params.assembly_code, str):
-                conditions.append("AND UPPER(Z_ASSEMBLY_CODE) LIKE UPPER(:assembly_code)")
-                query_params["assembly_code"] = f"%{self._clean_input(params.assembly_code)}%"
-                
-            if params.is_closed is not None:
-                if params.is_closed == 0:
-                    conditions.append("AND RECEIPT_CLOSE = 0")
-                else:
-                    conditions.append("AND RECEIPT_CLOSE != 0")
-
-            if params.order_date_start:
-                conditions.append("AND PURCHASE_DATE >= :order_date_start")
-                query_params["order_date_start"] = params.order_date_start
-
-            if params.order_date_end:
-                conditions.append("AND PURCHASE_DATE <= :order_date_end")
-                query_params["order_date_end"] = params.order_date_end
-                
             # 拼接查询条件
-            query = base_query + " " + " ".join(conditions)
+            query = base_query
             
             # 添加排序
-            query += " ORDER BY PURCHASE_DATE, DOC_NO"
+            query += " ORDER BY CombinedResults.PURCHASE_DATE, CombinedResults.DOC_NO"
             
             # 添加分页
             if params.pageIndex and params.pageSize:
                 offset = (params.pageIndex - 1) * params.pageSize
-                query += " OFFSET :offset ROWS FETCH NEXT :pageSize ROWS ONLY"
-                query_params["offset"] = offset
-                query_params["pageSize"] = params.pageSize
+                query += f" OFFSET {offset} ROWS FETCH NEXT {params.pageSize} ROWS ONLY"
 
             # 执行查询
-            stmt = text(query).bindparams(**query_params)
+            stmt = text(query)
             result = db.execute(stmt).all()
             
             # 获取总记录数
@@ -811,12 +849,13 @@ class CRUDE10:
                         hpl.SUPPLIER_FULL_NAME,
                         hpl.RECEIPT_CLOSE
                     FROM HSUN_PACKAGE_LIST hpl
+                    WHERE 1=1 {where_clause_1}
                     UNION ALL
                     SELECT
                         ROW_NUMBER() OVER (ORDER BY PO.PURCHASE_DATE, PO.DOC_NO) + 115617 AS ID,
                         PO.DOC_NO,
                         ITEM.ITEM_CODE,
-                        Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_NAME,
+                        ITEM.UDF025 AS Z_PACKAGE_TYPE_NAME,
                         ITEM_LOT.LOT_CODE,
                         CAST(PO_D.BUSINESS_QTY AS INT) AS BUSINESS_QTY,
                         CAST(PO_D.RECEIPTED_PRICE_QTY AS INT) AS RECEIPTED_PRICE_QTY,
@@ -861,8 +900,6 @@ class CRUDE10:
                         ON Z_LOADING_METHOD.Z_LOADING_METHOD_ID = Z_PACKAGE.Z_LOADING_METHOD_ID
                     LEFT JOIN Z_WIRE 
                         ON Z_WIRE.Z_WIRE_ID = Z_PACKAGE.Z_WIRE_ID
-                    LEFT JOIN Z_PACKAGE_TYPE 
-                        ON Z_PACKAGE_TYPE.Z_PACKAGE_TYPE_ID = Z_PACKAGE.Z_PACKAGE_TYPE_ID
                     LEFT JOIN FEATURE_GROUP 
                         ON FEATURE_GROUP.FEATURE_GROUP_ID = ITEM.FEATURE_GROUP_ID
                     OUTER APPLY (
@@ -877,10 +914,42 @@ class CRUDE10:
                         AND PO.SUPPLIER_FULL_NAME <> N'温州镁芯微电子有限公司'  
                         AND PO.SUPPLIER_FULL_NAME <> N'苏州荐恒电子科技有限公司'  
                         AND PO.SUPPLIER_FULL_NAME <> N'深圳市华新源科技有限公司'
-                ) t
-                WHERE 1=1 {' '.join(conditions)}
+                        {where_clause_2}
+                ) AS CombinedResults
+                LEFT JOIN (
+                    SELECT * FROM HSUN_BOM_LIST
+                    WHERE 1=1 {where_clause_3}
+                    UNION ALL
+                    SELECT 
+                    ROW_NUMBER() OVER (ORDER BY PO.PURCHASE_DATE,PO.DOC_NO) + 16820 AS ID,
+                    PO.DOC_NO,
+                    ZOMSD.Z_MAIN_CHIP,
+                    ITEM.ITEM_CODE,
+                    ITEM.ITEM_NAME,
+                    IL.LOT_CODE,
+                    CAST(ZOMSD.BUSINESS_QTY AS FLOAT) AS BUSINESS_QTY,
+                    CAST(ZOMSD.SECOND_QTY AS FLOAT) AS SECOND_QTY,
+                    ZOMSD.Z_WF_ID_STRING
+                    FROM PURCHASE_ORDER PO
+                    LEFT JOIN PURCHASE_ORDER_D PO_D
+                    ON PO.PURCHASE_ORDER_ID = PO_D.PURCHASE_ORDER_ID
+                    LEFT JOIN PURCHASE_ORDER_SD PO_SD
+                    ON PO_SD.PURCHASE_ORDER_D_ID = PO_D.PURCHASE_ORDER_D_ID
+                    LEFT JOIN PURCHASE_ORDER_SSD PO_SSD
+                    ON PO_SSD.PURCHASE_ORDER_SD_ID = PO_SD.PURCHASE_ORDER_SD_ID
+                    LEFT JOIN Z_OUT_MO_D ZOMD
+                    ON ZOMD.Z_OUT_MO_D_ID = PO_SSD.REFERENCE_SOURCE_ID_ROid
+                    LEFT JOIN Z_OUT_MO_SD ZOMSD
+                    ON ZOMSD.Z_OUT_MO_D_ID = ZOMD.Z_OUT_MO_D_ID
+                    LEFT JOIN ITEM
+                    ON ZOMSD.ITEM_ID = ITEM.ITEM_BUSINESS_ID
+                    LEFT JOIN ITEM_LOT IL
+                    ON IL.ITEM_LOT_ID = ZOMSD.ITEM_LOT_ID
+                    WHERE PO_D.PURCHASE_TYPE=2 {where_clause_4}
+                  ) BM
+                    ON BM.DOC_NO = CombinedResults.DOC_NO
             """
-            total = db.execute(text(count_query).bindparams(**{k:v for k,v in query_params.items() if k not in ['offset', 'pageSize']})).scalar()
+            total = db.execute(text(count_query)).scalar()
             
             # 转换为响应对象
             assy_orders = [
@@ -901,7 +970,14 @@ class CRUDE10:
                     PURCHASE_DATE=row.PURCHASE_DATE,
                     FIRST_ARRIVAL_DATE=row.FIRST_ARRIVAL_DATE,
                     SUPPLIER_FULL_NAME=row.SUPPLIER_FULL_NAME,
-                    RECEIPT_CLOSE=row.RECEIPT_CLOSE
+                    RECEIPT_CLOSE=row.RECEIPT_CLOSE,
+                    MAIN_CHIP=row.MAIN_CHIP,
+                    WAFER_CODE=row.WAFER_CODE,
+                    WAFER_NAME=row.WAFER_NAME,
+                    LOT_CODE_NAME=row.LOT_CODE_NAME,
+                    WAFER_BUSINESS_QTY=row.WAFER_BUSINESS_QTY,
+                    WAFER_SECOND_QTY=row.WAFER_SECOND_QTY,
+                    WAFER_ID=row.WAFER_ID
                 ) for row in result
             ]
             return {
@@ -995,7 +1071,7 @@ class CRUDE10:
                 "订单编号", "芯片名称", "封装形式", "打印批号", "订单数量", 
                 "收货数量", "在制数量", "加工方式", "测试程序", 
                 "打线图号", "打线材料", "备注", "订单日期", "首到日期", 
-                "供应商", "状态"
+                "供应商", "状态", "AB芯片", "晶圆品号", "晶圆品名", "晶圆批号", "晶圆业务数量", "晶圆数量", "晶圆片号"
             ]
             
             # 设置列宽
@@ -1015,7 +1091,14 @@ class CRUDE10:
                 'M': 12,  # 订单日期
                 'N': 12,  # 首到日期
                 'O': 25,  # 供应商
-                'P': 10   # 状态
+                'P': 10,   # 状态
+                'Q': 15,  # AB芯片
+                'R': 15,  # 晶圆品号
+                'S': 15,  # 晶圆品名
+                'T': 15,  # 晶圆批号
+                'U': 15,  # 晶圆业务数量
+                'V': 15,  # 晶圆数量
+                'W': 15   # 晶圆片号
             }
             
             # 设置样式
@@ -1057,7 +1140,14 @@ class CRUDE10:
                     order.PURCHASE_DATE.strftime('%Y-%m-%d') if order.PURCHASE_DATE else '',
                     order.FIRST_ARRIVAL_DATE.strftime('%Y-%m-%d') if order.FIRST_ARRIVAL_DATE else '',
                     order.SUPPLIER_FULL_NAME,
-                    '已关闭' if order.RECEIPT_CLOSE else '未关闭'
+                    '已关闭' if order.RECEIPT_CLOSE else '未关闭',
+                    order.MAIN_CHIP,
+                    order.WAFER_CODE,
+                    order.WAFER_NAME,
+                    order.LOT_CODE_NAME,
+                    order.WAFER_BUSINESS_QTY,
+                    order.WAFER_SECOND_QTY,
+                    order.WAFER_ID
                 ]
                 
                 for col, value in enumerate(data, 1):
@@ -1157,11 +1247,11 @@ class CRUDE10:
             
             # 参数验证和清理
             if params.doc_no and isinstance(params.doc_no, str):
-                conditions.append("AND PO.DOC_NO LIKE :doc_no")
+                conditions.append("AND UPPER(PO.DOC_NO) LIKE UPPER(:doc_no)")
                 query_params["doc_no"] = f"%{self._clean_input(params.doc_no)}%"
             
             if params.item_code and isinstance(params.item_code, str):
-                conditions.append("AND ITEM.ITEM_CODE LIKE :item_code")
+                conditions.append("AND UPPER(ITEM.ITEM_CODE) LIKE UPPER(:item_code)")
                 query_params["item_code"] = f"%{self._clean_input(params.item_code)}%"
                 
             if params.supplier and isinstance(params.supplier, str):

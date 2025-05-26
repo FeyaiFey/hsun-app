@@ -12,6 +12,8 @@ class AssyOrderQuery(BaseModel):
     assembly_code: Optional[str] = Field(None, description="打线图号")
     order_date_start: Optional[date] = Field(None, description="工单日期开始")
     order_date_end: Optional[date] = Field(None, description="工单日期结束")
+    wafer_code: Optional[str] = Field(None, description="晶圆品号")
+    wafer_lot_code: Optional[str] = Field(None, description="晶圆批号")
     is_closed: Optional[int] = Field(None, description="是否关闭")
     pageIndex: Optional[int] = Field(default=1, ge=1, description="页码")
     pageSize: Optional[int] = Field(default=50, ge=1, le=100, description="每页数量")
@@ -35,6 +37,13 @@ class AssyOrder(BaseModel):
     FIRST_ARRIVAL_DATE: Optional[date] = Field(None, description="首次到料日期")
     SUPPLIER_FULL_NAME: Optional[str] = Field(None, description="供应商全称")
     RECEIPT_CLOSE: Optional[int] = Field(None, description="收货关闭") 
+    MAIN_CHIP: Optional[str] = Field(None, description="AB芯片")
+    WAFER_CODE: Optional[str] = Field(None, description="晶圆品号")
+    WAFER_NAME: Optional[str] = Field(None, description="晶圆品名")
+    LOT_CODE_NAME: Optional[str] = Field(None, description="晶圆批号")
+    WAFER_BUSINESS_QTY: Optional[int] = Field(None, description="晶圆业务数量")
+    WAFER_SECOND_QTY: Optional[float] = Field(None, description="晶圆数量")
+    WAFER_ID: Optional[str] = Field(None, description="晶圆片号")
     
 class AssyOrderResponse(BaseModel):
     """封装订单响应"""
