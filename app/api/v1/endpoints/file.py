@@ -6,6 +6,7 @@ from sqlmodel import Session
 import json
 import os
 from pathlib import Path as PathLib
+import urllib.parse
 
 from app.db.session import get_db
 from app.core.config import settings
@@ -28,7 +29,7 @@ from app.core.error_codes import ErrorCode, get_error_message
 router = APIRouter()
 
 # 文件存储根路径
-FILE_STORAGE_PATH = PathLib("static/files")
+FILE_STORAGE_PATH = PathLib("uploads")
 
 @router.post("/folders/", response_model=IResponse[FolderResponse])
 @monitor_request
@@ -485,15 +486,30 @@ async def preview_file(
         # 获取文件内容
         file_content, mime_type, content_size = await FileService.get_file_content(db, file_id, FILE_STORAGE_PATH)
         
-        # 设置响应头
+        # 安全处理文件名编码 - 避免中文字符导致的编码错误
+        safe_filename = urllib.parse.quote(file.original_name.encode('utf-8'))
+        
+        # 设置响应头 - 使用安全的文件名编码
         headers = {
-            "Content-Disposition": f"inline; filename*=UTF-8''{file.original_name}",
+            "Content-Disposition": f"inline; filename*=UTF-8''{safe_filename}",
             "Content-Length": str(content_size)
         }
         
+        # 创建迭代器函数来安全地读取文件内容
+        def iter_file():
+            try:
+                CHUNK_SIZE = 1024 * 64  # 64KB chunks
+                while True:
+                    chunk = file_content.read(CHUNK_SIZE)
+                    if not chunk:
+                        break
+                    yield chunk
+            finally:
+                file_content.close()
+        
         # 创建流式响应
         return StreamingResponse(
-            file_content,
+            iter_file(),
             media_type=mime_type,
             headers=headers
         )

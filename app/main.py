@@ -26,10 +26,6 @@ from app.core.exception_handlers import (
 async def lifespan(app: FastAPI):
     # 启动事件
     try:
-        # 初始化目录结构
-        from app.core.setup import setup_directories
-        setup_directories()
-        
         # 启动监控
         metrics = MetricsManager()
         metrics.start_metrics_server()
