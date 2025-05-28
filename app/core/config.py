@@ -34,6 +34,13 @@ class Settings(BaseSettings):
     POOL_TIMEOUT: int = 30
     POOL_RECYCLE: int = 1800
     POOL_PRE_PING: bool = True
+    
+    # 数据库查询超时配置
+    DB_QUERY_TIMEOUT: int = 60  # 查询超时时间（秒）- 1分钟
+    DB_CONNECTION_TIMEOUT: int = 30  # 连接超时时间（秒）
+    DB_COMMAND_TIMEOUT: int = 60  # 命令执行超时时间（秒）
+    DB_AUTO_DISCONNECT: bool = True  # 是否启用自动断开超时连接
+    DB_MAX_EXECUTION_TIME: int = 60  # 最大执行时间（秒）
 
     # 跨域配置
     BACKEND_CORS_ORIGINS: List[str] = ["*"]
@@ -47,7 +54,13 @@ class Settings(BaseSettings):
 
     # 日志配置
     LOG_LEVEL: str = "INFO"
-    LOG_FILE: Path = Path("logs/app.log")
+    LOG_FORMAT: str = "[%(asctime)s] [%(levelname)s] - %(message)s"
+    LOG_DATE_FORMAT: str = "%Y-%m-%d %H:%M:%S"
+    LOG_DIR: str = "logs"
+    LOG_MAX_SIZE: int = 50 * 1024 * 1024  # 50MB
+    LOG_BACKUP_COUNT: int = 5
+    LOG_ENABLE_CONSOLE: bool = True
+    LOG_ENABLE_FILE: bool = True
 
     # 邮件配置
     IMAP_SERVER: str = "p220s.chinaemail.cn"
@@ -71,4 +84,4 @@ settings = Settings()
 settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # 确保日志目录存在
-settings.LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+Path(settings.LOG_DIR).mkdir(parents=True, exist_ok=True)

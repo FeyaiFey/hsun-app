@@ -1,3 +1,5 @@
+import traceback
+import sys
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -7,9 +9,12 @@ from jose import JWTError
 from app.core.exceptions import CustomException
 from app.core.response import CustomResponse
 from app.core.error_codes import ErrorCode, get_error_message
+from app.core.logger import log_error
 
 async def custom_exception_handler(request: Request, exc: CustomException) -> JSONResponse:
     """处理自定义异常"""
+    log_error(f"自定义异常: {exc.message}")
+    
     return CustomResponse.error(
         code=exc.code,
         message=exc.message,
@@ -20,6 +25,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     """处理请求参数验证异常"""
     errors = exc.errors()
     error_messages = []
+    
+    # 记录验证错误
+    log_error(f"参数验证失败: {str(exc)}")
     
     for error in errors:
         field = error.get("loc", [])[-1]  # 获取字段名
@@ -88,6 +96,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 async def database_exception_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
     """处理数据库异常"""
+    log_error(f"数据库异常: {str(exc)}")
+    
     return CustomResponse.error(
         code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         message=get_error_message(ErrorCode.DB_ERROR),
@@ -96,6 +106,8 @@ async def database_exception_handler(request: Request, exc: SQLAlchemyError) -> 
 
 async def jwt_exception_handler(request: Request, exc: JWTError) -> JSONResponse:
     """处理JWT相关异常"""
+    log_error(f"JWT异常: {str(exc)}")
+    
     return CustomResponse.error(
         code=status.HTTP_401_UNAUTHORIZED,
         message=get_error_message(ErrorCode.TOKEN_INVALID),
@@ -104,6 +116,8 @@ async def jwt_exception_handler(request: Request, exc: JWTError) -> JSONResponse
 
 async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """处理其他未捕获的异常"""
+    log_error(f"未捕获异常: {str(exc)}")
+    
     return CustomResponse.error(
         code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         message=get_error_message(ErrorCode.SYSTEM_ERROR),

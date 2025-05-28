@@ -14,6 +14,9 @@ from app.api.v1.endpoints import auth, department, purchase, user, role, assy, p
 from app.core.monitor import MetricsManager
 from app.core.logger import logger
 from app.core.exceptions import CustomException
+from app.core.db_timeout_middleware import DatabaseTimeoutMiddleware
+from app.core.request_logging_middleware import RequestLoggingMiddleware
+from app.core.db_cleanup_scheduler import start_cleanup_scheduler, stop_cleanup_scheduler
 from app.core.exception_handlers import (
     custom_exception_handler,
     validation_exception_handler,
@@ -29,12 +32,21 @@ async def lifespan(app: FastAPI):
         # 启动监控
         metrics = MetricsManager()
         metrics.start_metrics_server()
+        
+        # 启动数据库清理调度器
+        start_cleanup_scheduler()
+        
         logger.info("应用启动成功")
     except Exception as e:
         logger.error(f"应用启动失败: {str(e)}")
     yield
     # 关闭事件
-    logger.info("应用关闭")
+    try:
+        # 停止数据库清理调度器
+        stop_cleanup_scheduler()
+        logger.info("应用关闭")
+    except Exception as e:
+        logger.error(f"应用关闭时发生错误: {str(e)}")
 
 app = FastAPI(
     title="HSUN-BACKEND-API",
@@ -64,6 +76,12 @@ app.add_middleware(
     https_only=False
 )
 
+# 数据库超时中间件
+app.add_middleware(DatabaseTimeoutMiddleware)
+
+# 请求日志中间件
+app.add_middleware(RequestLoggingMiddleware)
+
 # 挂载静态文件路径
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -80,6 +98,7 @@ app.include_router(report.router, prefix="/api/v1/report", tags=["Report"])
 app.include_router(email.router, prefix="/api/v1/email", tags=["Email"])
 app.include_router(sale.router, prefix="/api/v1/sale", tags=["Sale"])
 app.include_router(file.router, prefix="/api/v1/file", tags=["File"])
+
 # 注册异常处理器
 app.add_exception_handler(CustomException, custom_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
