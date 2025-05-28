@@ -197,113 +197,87 @@ class CRUSale:
             year = self._clean_input(params.year)
             month = self._clean_input(params.month)
 
-            # 绑定参数
-            where_clause = ""
-            if year:
-                where_clause += f" AND STS.[YEAR] = {year}"
-            if month:
-                where_clause += f" AND STS.[MONTH] = {month}"
-
-            # 构建查询条件
+            # 构建查询语句 - 简化版本，避免使用临时表
             base_query = text(f"""
-                DECLARE @yyyy INT = {year};
-                DECLARE @mm INT = {month};
-
-                WITH
-                    SalesTotalSummary AS
-                        (
-                        SELECT NT.[YEAR],[MONTH],ADMIN_UNIT_NAME,EMPLOYEE_NAME,SUM(PRICE_QTY) AS PRICE_QTY,SUM(AMOUNT) AS AMOUNT
-                        FROM
-                            (
-                            ( 
-                                SELECT 
-                                YEAR(SI.TRANSACTION_DATE) AS [YEAR],
-                                MONTH(SI.TRANSACTION_DATE) AS [MONTH],
-                                CAST(((DATEDIFF(DAY, DATEFROMPARTS(YEAR(SI.TRANSACTION_DATE),MONTH(SI.TRANSACTION_DATE),1), SI.TRANSACTION_DATE) + 0.9 )/7 + 1) AS INT) AS WeekOfMonth,
-                                AU.ADMIN_UNIT_NAME,
-                                E.EMPLOYEE_NAME,
-                                ITEM.ITEM_CODE,
-                                ITEM.ITEM_NAME,
-                                ITEM.SHORTCUT,
-                                SID.PRICE_QTY,
-                                SID.AMOUNT
-                                FROM SALES_DELIVERY SD
-                                LEFT JOIN SALES_DELIVERY_D SDD
-                                ON SD.SALES_DELIVERY_ID = SDD.SALES_DELIVERY_ID
-                                LEFT JOIN SALES_ISSUE_D SID
-                                ON SID.SOURCE_ID_ROid = SDD. SALES_DELIVERY_D_ID
-                                LEFT JOIN SALES_ISSUE SI
-                                ON SI.SALES_ISSUE_ID = SID.SALES_ISSUE_ID
-                                LEFT JOIN EMPLOYEE E
-                                ON SD.Owner_Emp = E.EMPLOYEE_ID
-                                LEFT JOIN EMPLOYEE_D ED
-                                ON ED.EMPLOYEE_ID = E.EMPLOYEE_ID
-                                LEFT JOIN ADMIN_UNIT AU
-                                ON AU.ADMIN_UNIT_ID = ED.ADMIN_UNIT_ID
-                                LEFT JOIN ITEM
-                                ON SDD.ITEM_ID = ITEM.ITEM_BUSINESS_ID
-                                WHERE SD.CATEGORY = '24' AND YEAR(SI.TRANSACTION_DATE) = @yyyy AND MONTH(SI.TRANSACTION_DATE) = @mm
-                            )
-                            UNION ALL
-                            (
-                                SELECT 
-                                YEAR(SR.TRANSACTION_DATE) AS [YEAR],
-                                MONTH(SR.TRANSACTION_DATE) AS [MONTH],
-                                CAST(((DATEDIFF(DAY, DATEFROMPARTS(YEAR(SR.TRANSACTION_DATE),MONTH(SR.TRANSACTION_DATE),1), SR.TRANSACTION_DATE) + 0.9 )/7 + 1) AS INT) AS WeekOfMonth,
-                                AU.ADMIN_UNIT_NAME,
-                                E.EMPLOYEE_NAME,
-                                ITEM.ITEM_CODE,
-                                ITEM.ITEM_NAME,
-                                ITEM.SHORTCUT,
-                                SRD.PRICE_QTY * -1 AS PRICE_QTY,
-                                SRD.AMOUNT * -1 AS AMOUNT
-                                FROM SALES_RETURN SR
-                                LEFT JOIN SALES_RETURN_D SRD
-                                ON SR.SALES_RETURN_ID = SRD.SALES_RETURN_ID
-                                LEFT JOIN EMPLOYEE E
-                                ON SR.Owner_Emp = E.EMPLOYEE_ID
-                                LEFT JOIN EMPLOYEE_D ED
-                                ON ED.EMPLOYEE_ID = E.EMPLOYEE_ID
-                                LEFT JOIN ADMIN_UNIT AU
-                                ON AU.ADMIN_UNIT_ID = ED.ADMIN_UNIT_ID
-                                LEFT JOIN ITEM
-                                ON SRD.ITEM_ID = ITEM.ITEM_BUSINESS_ID
-                                WHERE SR.CATEGORY = '26' AND SR.RECEIPTED_STATUS = '3'
-                            )
-                            ) AS NT
-                            WHERE NT.YEAR > 0 AND NT.[YEAR] = @yyyy AND NT.[MONTH] = @mm
-                            GROUP BY NT.[YEAR],NT.[MONTH],NT.ADMIN_UNIT_NAME,NT.EMPLOYEE_NAME
-                        ),
-                    SalesForecastSummary AS 
-                        (
-                            SELECT 
-                            YEAR(SFDD.TIME_BUCKET_SECTION) AS [YEAR],
-                            MONTH(SFDD.TIME_BUCKET_SECTION) AS [MONTH],
-                            E.EMPLOYEE_NAME,
-                            SUM(SFDD.FORECAST_QTY) AS FORECAST_QTY
-                            FROM SALES_FORECAST_DOC SFD
-                            LEFT JOIN SALES_FORECAST_DOC_D SFDD
-                            ON SFDD.SALES_FORECAST_DOC_ID = SFD.SALES_FORECAST_DOC_ID
-                            LEFT JOIN EMPLOYEE E
-                            ON E.EMPLOYEE_ID = SFD.Owner_Emp
-                            LEFT JOIN ITEM 
-                            ON ITEM.ITEM_BUSINESS_ID = SFDD.ITEM_ID
-                            WHERE SFDD.COLUMN_NO = 'COLUMN001' AND YEAR(SFDD.TIME_BUCKET_SECTION) = @yyyy AND MONTH(SFDD.TIME_BUCKET_SECTION) = @mm
-                            GROUP BY YEAR(SFDD.TIME_BUCKET_SECTION),MONTH(SFDD.TIME_BUCKET_SECTION), E.EMPLOYEE_NAME
-                        )
-                    
+                WITH SalesTotalSummary AS (
                     SELECT 
+                        NT.[YEAR],
+                        NT.[MONTH],
+                        NT.ADMIN_UNIT_NAME,
+                        NT.EMPLOYEE_NAME,
+                        SUM(NT.PRICE_QTY) AS PRICE_QTY,
+                        SUM(NT.AMOUNT) AS AMOUNT
+                    FROM (
+                        SELECT 
+                            YEAR(SI.TRANSACTION_DATE) AS [YEAR],
+                            MONTH(SI.TRANSACTION_DATE) AS [MONTH],
+                            AU.ADMIN_UNIT_NAME,
+                            E.EMPLOYEE_NAME,
+                            SID.PRICE_QTY,
+                            SID.AMOUNT
+                        FROM SALES_DELIVERY SD
+                        JOIN EMPLOYEE E ON SD.Owner_Emp = E.EMPLOYEE_ID
+                        JOIN EMPLOYEE_D ED ON ED.EMPLOYEE_ID = E.EMPLOYEE_ID
+                        JOIN ADMIN_UNIT AU ON AU.ADMIN_UNIT_ID = ED.ADMIN_UNIT_ID
+                        LEFT JOIN SALES_DELIVERY_D SDD ON SD.SALES_DELIVERY_ID = SDD.SALES_DELIVERY_ID
+                        LEFT JOIN SALES_ISSUE_D SID ON SID.SOURCE_ID_ROid = SDD.SALES_DELIVERY_D_ID
+                        LEFT JOIN SALES_ISSUE SI ON SI.SALES_ISSUE_ID = SID.SALES_ISSUE_ID
+                        WHERE SD.CATEGORY = '24' 
+                            AND YEAR(SI.TRANSACTION_DATE) = {year}
+                            AND MONTH(SI.TRANSACTION_DATE) = {month}
+                        
+                        UNION ALL
+                        
+                        SELECT 
+                            YEAR(SR.TRANSACTION_DATE) AS [YEAR],
+                            MONTH(SR.TRANSACTION_DATE) AS [MONTH],
+                            AU.ADMIN_UNIT_NAME,
+                            E.EMPLOYEE_NAME,
+                            SRD.PRICE_QTY * -1 AS PRICE_QTY,
+                            SRD.AMOUNT * -1 AS AMOUNT
+                        FROM SALES_RETURN SR
+                        JOIN EMPLOYEE E ON SR.Owner_Emp = E.EMPLOYEE_ID
+                        JOIN EMPLOYEE_D ED ON ED.EMPLOYEE_ID = E.EMPLOYEE_ID
+                        JOIN ADMIN_UNIT AU ON AU.ADMIN_UNIT_ID = ED.ADMIN_UNIT_ID
+                        LEFT JOIN SALES_RETURN_D SRD ON SR.SALES_RETURN_ID = SRD.SALES_RETURN_ID
+                        WHERE SR.CATEGORY = '26' 
+                            AND SR.RECEIPTED_STATUS = '3'
+                            AND YEAR(SR.TRANSACTION_DATE) = {year}
+                            AND MONTH(SR.TRANSACTION_DATE) = {month}
+                    ) AS NT
+                    GROUP BY NT.[YEAR], NT.[MONTH], NT.ADMIN_UNIT_NAME, NT.EMPLOYEE_NAME
+                ),
+                SalesForecastSummary AS (
+                    SELECT 
+                        YEAR(SFDD.TIME_BUCKET_SECTION) AS [YEAR],
+                        MONTH(SFDD.TIME_BUCKET_SECTION) AS [MONTH],
+                        E.EMPLOYEE_NAME,
+                        SUM(SFDD.FORECAST_QTY) AS FORECAST_QTY
+                    FROM SALES_FORECAST_DOC SFD
+                    JOIN EMPLOYEE E ON E.EMPLOYEE_ID = SFD.Owner_Emp
+                    LEFT JOIN SALES_FORECAST_DOC_D SFDD ON SFDD.SALES_FORECAST_DOC_ID = SFD.SALES_FORECAST_DOC_ID
+                    WHERE SFDD.COLUMN_NO = 'COLUMN001' 
+                        AND YEAR(SFDD.TIME_BUCKET_SECTION) = {year}
+                        AND MONTH(SFDD.TIME_BUCKET_SECTION) = {month}
+                    GROUP BY YEAR(SFDD.TIME_BUCKET_SECTION), MONTH(SFDD.TIME_BUCKET_SECTION), E.EMPLOYEE_NAME
+                )
+                SELECT 
                     SFS.[YEAR],
                     SFS.[MONTH],
-                    STS.ADMIN_UNIT_NAME,
-                    STS.[EMPLOYEE_NAME],
+                    ISNULL(STS.ADMIN_UNIT_NAME, '') AS ADMIN_UNIT_NAME,
+                    SFS.[EMPLOYEE_NAME],
                     CAST(SFS.FORECAST_QTY AS INT) AS FORECAST_QTY,
-                    STS.PRICE_QTY,
-                    CAST(STS.PRICE_QTY/SFS.FORECAST_QTY*100 AS DECIMAL(10,2)) AS PERCENTAGE
-                    FROM SalesForecastSummary SFS
-                    LEFT JOIN SalesTotalSummary STS
-                    ON SFS.[YEAR]=STS.[YEAR] AND SFS.[MONTH]=STS.[MONTH] AND SFS.EMPLOYEE_NAME=STS.EMPLOYEE_NAME
-                    ORDER BY SFS.[YEAR],SFS.[MONTH],STS.ADMIN_UNIT_NAME DESC,STS.[EMPLOYEE_NAME];
+                    ISNULL(STS.PRICE_QTY, 0) AS PRICE_QTY,
+                    CASE 
+                        WHEN SFS.FORECAST_QTY > 0 THEN CAST(ISNULL(STS.PRICE_QTY, 0)/SFS.FORECAST_QTY*100 AS DECIMAL(10,2))
+                        ELSE 0 
+                    END AS PERCENTAGE
+                FROM SalesForecastSummary SFS
+                LEFT JOIN SalesTotalSummary STS 
+                    ON SFS.[YEAR] = STS.[YEAR] 
+                    AND SFS.[MONTH] = STS.[MONTH] 
+                    AND SFS.EMPLOYEE_NAME = STS.EMPLOYEE_NAME
+                ORDER BY SFS.[YEAR], SFS.[MONTH], STS.ADMIN_UNIT_NAME DESC, SFS.[EMPLOYEE_NAME]
                 """)
 
             # 执行查询
