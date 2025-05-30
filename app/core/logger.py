@@ -35,24 +35,24 @@ def setup_simple_logger():
     if settings.LOG_ENABLE_FILE:
         # 应用日志
         file_handler = RotatingFileHandler(
-            log_dir / "app.log",
+        log_dir / "app.log",
             maxBytes=settings.LOG_MAX_SIZE,
             backupCount=settings.LOG_BACKUP_COUNT,
-            encoding='utf-8'
-        )
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-        
+        encoding='utf-8'
+    )
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    
         # 错误日志
-        error_handler = RotatingFileHandler(
-            log_dir / "error.log",
+    error_handler = RotatingFileHandler(
+        log_dir / "error.log",
             maxBytes=settings.LOG_MAX_SIZE,
             backupCount=settings.LOG_BACKUP_COUNT,
-            encoding='utf-8'
-        )
-        error_handler.setLevel(logging.ERROR)
-        error_handler.setFormatter(formatter)
-        logger.addHandler(error_handler)
+        encoding='utf-8'
+    )
+    error_handler.setLevel(logging.ERROR)
+    error_handler.setFormatter(formatter)
+    logger.addHandler(error_handler)
     
     return logger
 

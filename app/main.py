@@ -10,7 +10,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from app.core.config import settings
 
-from app.api.v1.endpoints import auth, department, purchase, user, role, assy, params, stock, report, email, sale, file
+from app.api.v1.endpoints import auth, department, purchase, user, role, assy, params, stock, report, email, sale, file, invoice
 from app.core.monitor import MetricsManager
 from app.core.logger import logger
 from app.core.exceptions import CustomException
@@ -98,6 +98,7 @@ app.include_router(report.router, prefix="/api/v1/report", tags=["Report"])
 app.include_router(email.router, prefix="/api/v1/email", tags=["Email"])
 app.include_router(sale.router, prefix="/api/v1/sale", tags=["Sale"])
 app.include_router(file.router, prefix="/api/v1/file", tags=["File"])
+app.include_router(invoice.router, prefix="/api/v1/invoice", tags=["Invoice"])
 
 # 注册异常处理器
 app.add_exception_handler(CustomException, custom_exception_handler)

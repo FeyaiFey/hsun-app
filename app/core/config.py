@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     POOL_TIMEOUT: int = 30
     POOL_RECYCLE: int = 1800
     POOL_PRE_PING: bool = True
-    
+
     # 数据库查询超时配置
     DB_QUERY_TIMEOUT: int = 60  # 查询超时时间（秒）- 1分钟
     DB_CONNECTION_TIMEOUT: int = 30  # 连接超时时间（秒）
