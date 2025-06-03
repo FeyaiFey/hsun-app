@@ -142,8 +142,8 @@ async def confirm_and_save_invoices_with_files(
 async def get_invoices(
     skip: int = Query(0, ge=0, description="跳过记录数"),
     limit: int = Query(100, ge=1, le=1000, description="返回记录数"),
-    order_by: str = Query("created_at", description="排序字段"),
-    order_desc: bool = Query(True, description="是否降序"),
+    order_by: str = Query("invoice_id", description="排序字段"),
+    order_desc: bool = Query(False, description="是否降序"),
     status_filter: Optional[int] = Query(None, description="状态过滤：0-作废，1-正常", ge=0, le=1),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)

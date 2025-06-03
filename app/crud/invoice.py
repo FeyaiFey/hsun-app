@@ -64,8 +64,8 @@ class InvoiceCRUD:
         db: Session,
         skip: int = 0,
         limit: int = 100,
-        order_by: str = "created_at",
-        order_desc: bool = True,
+        order_by: str = "invoice_id",
+        order_desc: bool = False,
         status_filter: Optional[int] = None
     ) -> List[Invoice]:
         """获取发票列表"""
@@ -84,6 +84,8 @@ class InvoiceCRUD:
                     statement = statement.order_by(Invoice.issue_date.desc())
                 elif order_by == "total_amount":
                     statement = statement.order_by(Invoice.total_amount.desc())
+                elif order_by == "invoice_id":
+                    statement = statement.order_by(Invoice.invoice_id.desc())
                 else:
                     statement = statement.order_by(Invoice.created_at.desc())
             else:
@@ -93,6 +95,8 @@ class InvoiceCRUD:
                     statement = statement.order_by(Invoice.issue_date.asc())
                 elif order_by == "total_amount":
                     statement = statement.order_by(Invoice.total_amount.asc())
+                elif order_by == "invoice_id":
+                    statement = statement.order_by(Invoice.invoice_id.asc())
                 else:
                     statement = statement.order_by(Invoice.created_at.asc())
             
@@ -285,7 +289,7 @@ class InvoiceCRUD:
                 statement = statement.where(and_(*conditions))
 
             # 排序和分页
-            statement = statement.order_by(Invoice.created_at.desc()).offset(skip).limit(limit)
+            statement = statement.order_by(Invoice.invoice_id.asc()).offset(skip).limit(limit)
             
             result = db.exec(statement)
             return result.all()
