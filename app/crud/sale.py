@@ -301,6 +301,133 @@ class CRUSale:
             logger.error(f"获取销售目标汇总失败: {str(e)}")
             raise CustomException(f"获取销售目标汇总失败: {str(e)}")
 
+    async def export_sale_target_summary(self, db: Session, params: SaleTargetSummaryQuery) -> bytes:
+        """导出销售目标汇总"""
+        try:
+            # 清理输入参数
+            year = self._clean_input(params.year)
+            month = self._clean_input(params.month)
+
+            result = await self.get_sale_target_summary(db,params)
+            if not result:
+                raise CustomException("没有数据可导出")
+            
+            sale_target_summary = result.list
+
+            # 创建Excel文件
+            # 创建工作簿和工作表
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "封装订单"
+            
+            # 定义表头
+            headers = [
+                "年份", "月份", "销售团队", "业务员", "预测销量", "实际销量", "达成率"
+            ]
+
+            # 设置列宽
+            column_widths = {
+                'A': 15,  # 年份
+                'B': 15,  # 月份
+                'C': 20,  # 销售团队
+                'D': 15,  # 业务员
+                'E': 15,  # 预测销量
+                'F': 15,  # 实际销量
+                'G': 15,  # 达成率
+            }
+            
+            # 设置样式
+            header_font = Font(name='微软雅黑', size=11, bold=True, color='FFFFFF')
+            header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+            header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            cell_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+            
+            # 写入表头
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col, value=header)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = header_alignment
+                cell.border = border
+                ws.column_dimensions[get_column_letter(col)].width = column_widths[get_column_letter(col)]
+            
+            # 写入数据
+            total_forecast = 0
+            total_price = 0
+            
+            for row, order in enumerate(sale_target_summary, 2):
+                data = [
+                    order.YEAR,
+                    order.MONTH,
+                    order.ADMIN_UNIT_NAME,
+                    order.EMPLOYEE_NAME,
+                    order.FORECAST_QTY,
+                    order.PRICE_QTY,
+                    order.PERCENTAGE/100
+                ]
+                
+                # 累加合计数据
+                total_forecast += order.FORECAST_QTY
+                total_price += order.PRICE_QTY
+                
+                for col, value in enumerate(data, 1):
+                    cell = ws.cell(row=row, column=col, value=value)
+                    cell.alignment = cell_alignment
+                    cell.border = border
+
+                    # 设置数字列的格式
+                    if col in [5, 6]:  # 预测销量、实际销量
+                        cell.number_format = '#,##0'
+
+                    # 设置百分比列的格式
+                    if col == 7:  # 达成率
+                        cell.number_format = '0.00%'
+            
+            # 写入合计行
+            total_row = len(sale_target_summary) + 2
+            total_data = [
+                "合计",
+                "",
+                "",
+                "",
+                total_forecast,
+                total_price,
+                total_price/total_forecast if total_forecast > 0 else 0
+            ]
+            
+            # 设置合计行样式
+            total_font = Font(name='微软雅黑', size=11, bold=True)
+            
+            for col, value in enumerate(total_data, 1):
+                cell = ws.cell(row=total_row, column=col, value=value)
+                cell.alignment = cell_alignment
+                cell.border = border
+                cell.font = total_font
+                
+                if col in [5, 6]:  # 预测销量、实际销量合计
+                    cell.number_format = '#,##0'
+                if col == 7:  # 总达成率
+                    cell.number_format = '0.00%'
+            
+            # 冻结首行
+            ws.freeze_panes = 'A2'            
+            # 保存到内存
+            excel_file = io.BytesIO()
+            wb.save(excel_file)
+            excel_file.seek(0)
+
+            return excel_file.getvalue()
+        
+        except Exception as e:
+            logger.error(f"导出备货计划Excel失败: {str(e)}")
+            raise CustomException("导出备货计划Excel失败")
+        
     async def get_sale_target_detail(self, db: Session, params: SaleTargetDetailQuery) -> List[SaleTargetDetailResponse]:
         """获取销售目标详情"""
         try:
@@ -1217,3 +1344,4 @@ class CRUSale:
         except Exception as e:
             logger.error(f"获取销售金额完成率柱状图失败: {str(e)}")
             raise CustomException(f"获取销售金额完成率柱状图失败: {str(e)}")
+

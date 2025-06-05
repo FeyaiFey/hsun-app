@@ -4,6 +4,7 @@ from typing import Any, List, Optional
 from datetime import date, datetime
 from fastapi.responses import StreamingResponse
 from uuid import UUID
+import io
 
 from app.db.session import get_db
 from app.schemas.response import IResponse
@@ -162,6 +163,43 @@ async def get_sale_target_summary(
             name="SaleError"
         )
 
+@router.get("/target/summary/export")
+@monitor_request
+async def export_sale_target_summary(
+    params: SaleTargetSummaryQuery = Depends(),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    try:
+        sale_service = SaleService(db)
+        excel_data = await sale_service.export_sale_target_summary(db,params)
+
+        # 生成文件名
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"StockPreparationPlan_{current_time}.xlsx"
+
+        # 返回文件流
+        return StreamingResponse(
+            io.BytesIO(excel_data),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+    except CustomException as e:
+        logger.error(f"导出销售目标汇总失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=e.message,
+            name="SaleError"
+        )
+    except Exception as e:
+        logger.error(f"导出销售目标汇总失败: {str(e)}")
+        return CustomResponse.error(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="导出销售目标汇总失败",
+            name="SaleError"
+        )
 
 @router.get("/target/detail",response_model=IResponse[SaleTargetDetailResponse])
 @monitor_request

@@ -476,7 +476,7 @@ async def preview_file(
             )
         
         # 检查权限
-        if not file.is_public and file.user_id != current_user.id:
+        if not (current_user.department_id == 1 or current_user.department_id == 2):
             return CustomResponse.error(
                 code=status.HTTP_403_FORBIDDEN,
                 message="无权预览该文件",

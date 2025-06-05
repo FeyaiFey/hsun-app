@@ -37,62 +37,220 @@ class InvoiceService:
 
     @staticmethod
     async def extract_invoice_data_from_pdf(pdf_path: str) -> Dict[str, str]:
-        """从PDF文件提取发票数据"""
+        """从PDF文件提取发票数据 - 使用区域坐标方法"""
         InvoiceService.check_pdfplumber()
         
-        data = {}
+        # 初始化发票数据字典，保持与原有接口一致
+        data = {
+            '发票类型': '',
+            '发票号码': '',
+            '开票日期': '',
+            '购买方名称': '',
+            '销售方名称': '',
+            '购买方税号': '',
+            '销售方税号': '',
+            '合计金额': '',      # 对应原来的不含税金额
+            '合计税额': '',      # 对应原来的税额
+            '价税合计大写': '',  # 对应原来的大写金额
+            '价税合计小写': '',  # 对应原来的价税合计
+            '开票人': ''
+        }
         
         try:
             with pdfplumber.open(pdf_path) as pdf:
-                # 合并所有页面的文本
-                all_text = ''
-                for page_num, page in enumerate(pdf.pages, 1):
-                    page_text = page.extract_text()
-                    if page_text:
-                        all_text += f'\n--- 第{page_num}页 ---\n' + page_text + '\n'
-                
-                # 使用合并后的文本进行处理
-                text = all_text
+                # 使用最后一页，通常发票信息在最后一页
+                page = pdf.pages[-1]
+                page_width = page.width
+                page_height = page.height
 
-            logger.info(f"正在处理PDF文件: {pdf_path}, 总页数: {len(pdf.pages)}")
-            
-            # 基础信息提取
-            data['发票类型'] = InvoiceService._extract_field(text, r'(电子发票[（(][^)）]*[)）])')
-            data['发票号码'] = InvoiceService._extract_field(text, r'发票号码[:：]\s*(\d+)')
-            data['开票日期'] = InvoiceService._extract_field(text, r'开票日期[:：]\s*(\d{4}年\d{1,2}月\d{1,2}日)')
-            
-            # 购买方和销售方信息
-            buyer_seller_match = re.search(r'购\s+名称[:：]\s*([^销]+)\s+销\s+名称[:：]\s*([^\n]+)', text)
-            if buyer_seller_match:
-                data['购买方名称'] = buyer_seller_match.group(1).strip()
-                data['销售方名称'] = buyer_seller_match.group(2).strip()
-            else:
-                data['购买方名称'] = ''
-                data['销售方名称'] = ''
-            
-            # 税号提取
-            tax_codes = re.findall(r'统一社会信用代码/纳税人识别号[:：]\s*([A-Z0-9]+)', text)
-            if len(tax_codes) >= 2:
-                data['购买方税号'] = tax_codes[0]
-                data['销售方税号'] = tax_codes[1]
-            elif len(tax_codes) == 1:
-                data['购买方税号'] = tax_codes[0]
-                data['销售方税号'] = ''
-            else:
-                data['购买方税号'] = ''
-                data['销售方税号'] = ''
-            
-            # 金额信息
-            data['合计金额'] = InvoiceService._extract_field(text, r'合\s*计\s*¥([0-9.,]+)')
-            data['合计税额'] = InvoiceService._extract_field(text, r'合\s*计\s*¥[0-9.,]+\s*¥([0-9.,]+)')
-            data['价税合计大写'] = InvoiceService._extract_field(text, r'价税合计[（(]大写[)）]\s*([^（(]+)')
-            data['价税合计小写'] = InvoiceService._extract_field(text, r'[（(]小写[)）]\s*¥([0-9.,]+)')
-            
-            # 开票人
-            data['开票人'] = InvoiceService._extract_field(text, r'开票人[:：]\s*([^\s\n]+)')
-            
-            return data
-            
+                logger.info(f"正在处理PDF文件: {pdf_path}, 总页数: {len(pdf.pages)}")
+                logger.debug(f"页面尺寸: 宽={page_width}, 高={page_height}")
+
+                # 定义目标区域坐标
+                target_regions = {
+                    # 区域1: 顶部发票基本信息
+                    "发票基本信息": (
+                        152 * 2.83,           # 左边界
+                        10 * 2.83,            # 上边界
+                        210 * 2.83,           # 右边界
+                        25 * 2.83             # 下边界
+                    ),
+                    
+                    # 区域2: 购买方信息
+                    "购买方信息": (
+                        10 * 2.83,                 # 左边界
+                        30 * 2.83,                # 上边界
+                        104 * 2.83,                # 右边界
+                        50 * 2.83                  # 下边界
+                    ),
+
+                    # 区域3: 销售方信息
+                    "销售方信息": (
+                        112 * 2.83,                # 左边界
+                        30 * 2.83,                # 上边界
+                        205 * 2.83,                # 右边界
+                        50 * 2.83                  # 下边界
+                    ),
+                    
+                    # 区域4: 底部合计金额信息
+                    "金额信息": (
+                        125 * 2.83,                 # 左边界
+                        page_height - 50 * 2.83,    # 上边界
+                        160 * 2.83,                 # 右边界
+                        page_height - 40 * 2.83     # 下边界
+                    ),
+
+                    # 区域5: 底部合计税额信息
+                    "税额信息": (
+                        180 * 2.83,                 # 左边界
+                        page_height - 50 * 2.83,    # 上边界
+                        page_width,                 # 右边界
+                        page_height - 40 * 2.83     # 下边界
+                    ),
+
+                    # 区域6: 价税合计大写
+                    "大写金额信息": (
+                        55 * 2.83,                 # 左边界
+                        page_height - 44 * 2.83,    # 上边界
+                        140 * 2.83,                 # 右边界
+                        page_height - 34 * 2.83     # 下边界
+                    ),
+
+                    # 区域7: 价税合计小写
+                    "小写金额信息": (
+                        145 * 2.83,                 # 左边界
+                        page_height - 44 * 2.83,    # 上边界
+                        200 * 2.83,                 # 右边界
+                        page_height - 34 * 2.83     # 下边界
+                    ),
+
+                    # 区域8: 开票人
+                    "开票人信息": (
+                        1 * 2.83,                   # 左边界
+                        page_height - 15 * 2.83,    # 上边界
+                        page_width,                 # 右边界
+                        page_height                 # 下边界
+                    )
+                }
+
+                # 提取发票类型（先尝试从全页面提取）
+                try:
+                    full_page_text = page.extract_text()
+                    if full_page_text:
+                        data['发票类型'] = InvoiceService._extract_invoice_type_from_text(full_page_text)
+                except Exception as e:
+                    logger.warning(f"提取发票类型失败: {e}")
+
+                # 提取各区域信息
+                for region_name, bbox in target_regions.items():
+                    logger.debug(f"处理区域: {region_name}")
+                    
+                    # 检查坐标是否在页面范围内
+                    if bbox[3] > page_height or bbox[2] > page_width:
+                        logger.warning(f"区域坐标超出页面范围，跳过区域: {region_name}")
+                        continue
+
+                    try:
+                        # 提取区域文本
+                        region_words = page.within_bbox(bbox).extract_words()
+                        text = ' '.join([w['text'] for w in region_words])
+                        
+                        if not text.strip():
+                            logger.debug(f"区域 {region_name} 没有找到文本")
+                            continue
+                        
+                        logger.debug(f"区域 {region_name} 提取的文本: {text}")
+                        
+                        # 根据区域类型提取相应信息
+                        if region_name == "发票基本信息":
+                            invoice_no = re.search(r'发票号码[：:]\s*(\d+)', text)
+                            invoice_date = re.search(r'开票日期[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)', text)
+                            if invoice_no:
+                                data['发票号码'] = invoice_no.group(1)
+                                logger.debug(f"发票号码: {invoice_no.group(1)}")
+                            if invoice_date:
+                                data['开票日期'] = invoice_date.group(1)
+                                logger.debug(f"开票日期: {invoice_date.group(1)}")
+                            
+                        elif region_name == "购买方信息":
+                            buyer_name = re.search(r'称[：:]\s*([^统一社会信用代码]+?)(?=\s*统一社会信用代码|$)', text)
+                            buyer_tax_no = re.search(r'统一社会信用代码[/]?纳税人识别号[：:]\s*([A-Z0-9]+)', text)
+                            if buyer_name:
+                                data['购买方名称'] = buyer_name.group(1).strip()
+                                logger.debug(f"购买方名称: {buyer_name.group(1).strip()}")
+                            if buyer_tax_no:
+                                data['购买方税号'] = buyer_tax_no.group(1)
+                                logger.debug(f"购买方税号: {buyer_tax_no.group(1)}")
+                            
+                        elif region_name == "销售方信息":
+                            seller_name = re.search(r'称[：:]\s*([^统一社会信用代码]+?)(?=\s*统一社会信用代码|$)', text)
+                            seller_tax_no = re.search(r'统一社会信用代码[/]?纳税人识别号[：:]\s*([A-Z0-9]+)', text)
+                            if seller_name:
+                                data['销售方名称'] = seller_name.group(1).strip()
+                                logger.debug(f"销售方名称: {seller_name.group(1).strip()}")
+                            if seller_tax_no:
+                                data['销售方税号'] = seller_tax_no.group(1)
+                                logger.debug(f"销售方税号: {seller_tax_no.group(1)}")
+                            
+                        elif region_name == "金额信息":
+                            amount = re.search(r'¥\s*(\d+(?:,\d{3})*(?:\.\d{2})?)', text)
+                            if amount:
+                                data['合计金额'] = amount.group(1).replace(',','')
+                                logger.debug(f"合计金额: {amount.group(1).replace(',','')}")
+                            
+                        elif region_name == "税额信息":
+                            tax = re.search(r'¥\s*(\d+(?:,\d{3})*(?:\.\d{2})?)', text)
+                            if tax:
+                                data['合计税额'] = tax.group(1).replace(',','')
+                                logger.debug(f"合计税额: {tax.group(1).replace(',','')}")
+                            
+                        elif region_name == "大写金额信息":
+                            # 多种大写金额匹配模式
+                            amount_cn_patterns = [
+                                r'([零壹贰叁肆伍陆柒捌玖拾佰仟万亿圆元角分整]+)',
+                                r'价税合计（大写）\s*([^（]+?)(?=\s*（|$)'
+                            ]
+                            for pattern in amount_cn_patterns:
+                                amount_cn = re.search(pattern, text)
+                                if amount_cn:
+                                    data['价税合计大写'] = amount_cn.group(1).strip()
+                                    logger.debug(f"价税合计大写: {amount_cn.group(1).strip()}")
+                                    break
+                            
+                        elif region_name == "小写金额信息":
+                            amount = re.search(r'¥\s*(\d+(?:,\d{3})*(?:\.\d{2})?)', text)
+                            if amount:
+                                data['价税合计小写'] = amount.group(1).replace(',','')
+                                logger.debug(f"价税合计小写: {amount.group(1).replace(',','')}")
+                            
+                        elif region_name == "开票人信息":
+                            issuer = re.search(r'开票人[：:]\s*([^\s]+)', text)
+                            if issuer:
+                                data['开票人'] = issuer.group(1)
+                                logger.debug(f"开票人: {issuer.group(1)}")
+                            
+                    except Exception as e:
+                        logger.error(f"提取区域 {region_name} 文本时出错: {e}")
+                        continue
+
+                # 如果使用区域方法没有提取到某些信息，回退到全文本提取
+                if not data['发票号码'] or not data['开票日期']:
+                    logger.info("部分信息提取失败，尝试全文本回退提取")
+                    fallback_data = InvoiceService._fallback_extraction(page.extract_text())
+                    for key, value in fallback_data.items():
+                        if not data.get(key) and value:
+                            data[key] = value
+
+                # 记录提取结果统计
+                extracted_fields = [k for k, v in data.items() if v]
+                total_fields = len(data)
+                success_rate = (len(extracted_fields) / total_fields) * 100
+                
+                logger.info(f"发票数据提取完成: 成功 {len(extracted_fields)}/{total_fields} 字段 ({success_rate:.1f}%)")
+                logger.debug(f"提取结果: {data}")
+                
+                return data
+                
         except Exception as e:
             logger.error(f"提取PDF发票数据失败: {str(e)}")
             raise CustomException(
@@ -101,8 +259,77 @@ class InvoiceService:
             )
 
     @staticmethod
+    def _extract_invoice_type_from_text(text: str) -> str:
+        """从全文本中提取发票类型"""
+        patterns = [
+            r'(电子发票[（(][^)）]*[)）])',
+            r'(增值税电子.*?发票)',
+            r'(增值税专用发票)',
+            r'(增值税普通发票)',
+            r'(电子发票)',
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                result = match.group(1).strip()
+                logger.debug(f"发票类型匹配成功: {result}")
+                return result
+        
+        logger.warning("未能提取到发票类型")
+        return ''
+
+    @staticmethod
+    def _fallback_extraction(text: str) -> Dict[str, str]:
+        """回退提取方法 - 当区域提取失败时使用"""
+        fallback_data = {}
+        
+        if not text:
+            return fallback_data
+        
+        # 发票号码回退提取
+        invoice_no_patterns = [
+            r'发票号码[：:]\s*(\d+)',
+            r'(\d{18,22})',  # 18-22位数字
+        ]
+        
+        for pattern in invoice_no_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            if matches:
+                for match in matches:
+                    if len(match) >= 18 and len(match) <= 22 and match.isdigit():
+                        fallback_data['发票号码'] = match
+                        break
+                if fallback_data.get('发票号码'):
+                    break
+        
+        # 开票日期回退提取
+        date_patterns = [
+            r'开票日期[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)',
+            r'(\d{4}年\d{1,2}月\d{1,2}日)',
+        ]
+        
+        for pattern in date_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                fallback_data['开票日期'] = match.group(1)
+                break
+        
+        # 税号回退提取
+        tax_codes = re.findall(r'([0-9A-Z]{15,18})', text)
+        valid_tax_codes = [code for code in tax_codes if len(code) in [15, 18]]
+        if len(valid_tax_codes) >= 2:
+            fallback_data['购买方税号'] = valid_tax_codes[0]
+            fallback_data['销售方税号'] = valid_tax_codes[1]
+        elif len(valid_tax_codes) == 1:
+            fallback_data['购买方税号'] = valid_tax_codes[0]
+        
+        logger.debug(f"回退提取结果: {fallback_data}")
+        return fallback_data
+
+    @staticmethod
     def _extract_field(text: str, pattern: str) -> str:
-        """提取单个字段"""
+        """提取单个字段（保留原有方法以防其他地方使用）"""
         try:
             match = re.search(pattern, text, re.MULTILINE | re.DOTALL)
             return match.group(1).strip() if match else ''
@@ -283,7 +510,7 @@ class InvoiceService:
                         # 准备文件上传数据
                         file_upload_data = FileUpload(
                             folder_id=request.folder_id,
-                            is_public=False,
+                            is_public=True,
                             tags="invoice"
                         )
                         

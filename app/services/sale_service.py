@@ -37,6 +37,9 @@ class SaleService:
     async def get_sale_target_summary(self,db: Session,params: SaleTargetSummaryQuery) -> SaleTargetSummaryResponse:
         return await self.crud_sale.get_sale_target_summary(db,params)
 
+    async def export_sale_target_summary(self,db: Session,params: SaleTargetSummaryQuery) -> bytes:
+        return await self.crud_sale.export_sale_target_summary(db,params)
+
     async def get_sale_target_detail(self,db: Session,params: SaleTargetDetailQuery) -> SaleTargetDetailResponse:
         return await self.crud_sale.get_sale_target_detail(db,params)
 
